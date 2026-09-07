@@ -1,0 +1,7 @@
+# Niemals Felddaten veroeffentlichen
+*.json
+!manifest.webmanifest
+Aufnahmen/
+Sicherung*
+*.csv
+*.xlsx
