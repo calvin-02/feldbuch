@@ -10,7 +10,7 @@
    alles neu geladen und der alte Speicher gelöscht.
    --------------------------------------------------------------------------- */
 
-const FASSUNG = "feldbuch-2.0.1";
+const FASSUNG = "feldbuch-2.0.2";
 const DATEIEN = [
   "./",
   "./index.html",
@@ -24,7 +24,13 @@ const DATEIEN = [
 self.addEventListener("install", ereignis => {
   ereignis.waitUntil(
     caches.open(FASSUNG)
-      .then(speicher => speicher.addAll(DATEIEN))
+      // WICHTIG: {cache:"reload"} erzwingt, dass jede Datei frisch vom Server geholt wird.
+      // Ohne diesen Zusatz bedient sich addAll aus dem gewoehnlichen Zwischenspeicher des
+      // Browsers -- und GitHub Pages laesst Dateien dort 10 Minuten liegen (max-age=600).
+      // Am 08.09.2026 genau so passiert: Der Speicher hiess bereits "feldbuch-2.0.1",
+      // enthielt aber die App-Fassung 2.0.0. Eine Korrektur haette das Geraet im Feld
+      // dann gar nicht erreicht.
+      .then(speicher => speicher.addAll(DATEIEN.map(pfad => new Request(pfad, {cache: "reload"}))))
       .then(() => self.skipWaiting())
   );
 });
