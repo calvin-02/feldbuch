@@ -1,0 +1,320 @@
+
+/* =====================================================================
+   Lichtmesspunkte
+   ===================================================================== */
+function punktListeAufbauen(){
+  const box = document.getElementById("punktListe");
+  if(!box) return;
+  box.innerHTML = "";
+  PUNKTE.forEach(p => {
+    const d = D.punkte[p.id] || {};
+    const fertig = punktFertig(p.id);
+    const hatWerte = d.isf !== "" && d.isf != null;
+    const k = document.createElement("div");
+    k.className = "karte" + (fertig ? " fertig" : "");
+    k.innerHTML =
+      '<div class="kopf"><span>'+p.name+'</span>'+
+      '<span class="zust">'+(hatWerte ? "Werte da" : fertig ? "Bild belegt" : "offen")+'</span></div>'+
+      (hatWerte
+        ? '<div class="werte">ISF '+d.isf+' · DSF '+d.dsf+' · TSF '+(d.tsf!==undefined?d.tsf:"–")+
+          (d.zeit ? ' · '+d.zeit : '')+(d.bild ? ' · Bild '+d.bild : '')+'</div>'
+        : (fertig
+            ? '<div class="werte">'+(d.zeit||"")+(d.bild?' · Bild '+d.bild:'')
+              +(d.winkel?' · '+d.winkel+'°':'')+(d.aufnehmer?' · '+d.aufnehmer:'')+'</div>'
+            : (p.info ? '<div class="werte">'+p.info+'</div>' : '')));
+    k.addEventListener("click", () => punktOeffnen(p.id));
+    box.appendChild(k);
+  });
+}
+
+function punktOeffnen(pid){
+  const p = PUNKTE.find(x => x.id === pid);
+  const d = D.punkte[pid] || {};
+  const box = document.getElementById("punktListe");
+  const optionen = (liste, gewaehlt) => liste.map(t =>
+    '<option'+((gewaehlt||"")===t?" selected":"")+'>'+t+'</option>').join("");
+  box.innerHTML =
+    '<button class="knopf zweit klein" onclick="punktListeAufbauen()">&larr; zurück zur Übersicht</button>'+
+    '<h3>'+p.name+'</h3>'+
+    (p.info ? '<div class="info" style="font-size:13px">'+p.info+'</div>' : '')+
+
+    '<div class="reihe">'+
+      '<div><label>Uhrzeit</label><input type="time" id="p_zeit" value="'+(d.zeit||"")+'"></div>'+
+      '<div><label>&nbsp;</label><button class="knopf zweit" style="margin:0" onclick="jetzt()">jetzt</button></div>'+
+      '<div><label>Aufstellhöhe (cm)</label><input type="number" id="p_hoehe" inputmode="numeric" value="'+(d.hoehe!==undefined&&d.hoehe!==""?d.hoehe:130)+'"></div>'+
+    '</div>'+
+
+    '<div class="reihe">'+
+      '<div><label>Bild-Nr. / Datei</label><input id="p_bild" value="'+(d.bild||"")+'" placeholder="Nummer am Gerät"></div>'+
+      '<div><label>Bildwinkel (°)</label><input type="number" id="p_winkel" inputmode="numeric" value="'+(d.winkel||"")+'" placeholder="60"></div>'+
+      '<div><label>Schwellenwert</label><input id="p_schwelle" value="'+(d.schwelle||"")+'" placeholder="1–7"></div>'+
+    '</div>'+
+    '<div class="info" style="font-size:13px">Der <b>Schwellenwert</b> wird erst bei der gemeinsamen '+
+      'Bildauswertung festgelegt — hier bleibt das Feld im Feld leer. Wichtig ist die <b>Bild-Nummer</b>: '+
+      'Sie ist die einzige Verbindung zwischen Datei und Punkt.</div>'+
+
+    '<div class="reihe">'+
+      '<div><label>ISF (%)</label><input type="number" id="p_isf" inputmode="numeric" value="'+(d.isf!==undefined?d.isf:"")+'"></div>'+
+      '<div><label>DSF (%)</label><input type="number" id="p_dsf" inputmode="numeric" value="'+(d.dsf!==undefined?d.dsf:"")+'"></div>'+
+      '<div><label>TSF (%)</label><input type="number" id="p_tsf" inputmode="numeric" value="'+(d.tsf!==undefined?d.tsf:"")+'"></div>'+
+    '</div>'+
+    '<div id="pPruefung"></div>'+
+
+    '<div class="reihe">'+
+      '<div><label>LAI</label><input type="number" step="0.01" id="p_lai" inputmode="decimal" value="'+(d.lai!==undefined?d.lai:"")+'"></div>'+
+      '<div><label>ELAD</label><input type="number" step="0.01" id="p_elad" inputmode="decimal" value="'+(d.elad!==undefined?d.elad:"")+'"></div>'+
+      '<div><label>Openness</label><input type="number" step="0.01" id="p_open" inputmode="decimal" value="'+(d.open!==undefined?d.open:"")+'"></div>'+
+    '</div>'+
+
+    '<label>Himmelszustand</label>'+
+    '<select id="p_himmel"><option value="">—</option>'+optionen(HIMMEL, d.himmel)+'</select>'+
+
+    '<label>Gemessen von</label>'+
+    '<input list="personenliste" id="p_aufnehmer" value="'+(d.aufnehmer||"")+'" placeholder="Name">'+
+
+    '<div class="haken"><input type="checkbox" id="p_nord"'+(d.nord?" checked":"")+'><label for="p_nord">nach Norden ausgerichtet</label></div>'+
+    '<div class="haken"><input type="checkbox" id="p_horiz"'+(d.horiz?" checked":"")+'><label for="p_horiz">horizontiert (Gerät meldet keine Übernneigung)</label></div>'+
+
+    '<label>Bemerkung</label><textarea id="p_bem">'+(d.bem||"")+'</textarea>'+
+
+    '<button class="knopf" onclick="punktSpeichern(\''+pid+'\')">Speichern und zurück</button>';
+
+  autoAus(box);
+  ["p_isf","p_dsf","p_tsf"].forEach(id =>
+    document.getElementById(id).addEventListener("input", pruefungZeigen));
+  pruefungZeigen();
+  window.scrollTo(0,0);
+}
+
+function jetzt(){
+  const n = new Date();
+  document.getElementById("p_zeit").value =
+    String(n.getHours()).padStart(2,"0")+":"+String(n.getMinutes()).padStart(2,"0");
+}
+
+/* ---------- Live-Plausibilität: p = (TSF−ISF)/(DSF−ISF) ---------- */
+function pBerechnen(isf, dsf, tsf){
+  if([isf,dsf,tsf].some(v => v === "" || v === null || isNaN(v))) return null;
+  const nenner = dsf - isf;
+  if(Math.abs(nenner) < 0.5) return null;
+  return (tsf - isf) / nenner;
+}
+
+function pBisher(ausser){
+  const werte = [];
+  Object.keys(D.punkte).forEach(k => {
+    if(k === ausser) return;
+    const d = D.punkte[k];
+    const p = pBerechnen(Number(d.isf), Number(d.dsf), Number(d.tsf));
+    if(p !== null && p > -0.5 && p < 1.5) werte.push(p);
+  });
+  if(!werte.length) return null;
+  werte.sort((a,b) => a-b);
+  return werte[Math.floor(werte.length/2)];
+}
+
+function pruefungZeigen(){
+  const isf = Number(document.getElementById("p_isf").value);
+  const dsf = Number(document.getElementById("p_dsf").value);
+  const tsf = Number(document.getElementById("p_tsf").value);
+  const box = document.getElementById("pPruefung");
+  const meldungen = [];
+
+  [["ISF",isf],["DSF",dsf],["TSF",tsf]].forEach(([n,v]) => {
+    const roh = document.getElementById("p_"+n.toLowerCase()).value;
+    if(roh !== "" && (v < 0 || v > 100)) meldungen.push(['fehler', n+" liegt außerhalb 0–100 %"]);
+  });
+
+  const alleDa = ["p_isf","p_dsf","p_tsf"].every(id => document.getElementById(id).value !== "");
+  if(alleDa){
+    const min = Math.min(isf,dsf), max = Math.max(isf,dsf);
+    if(tsf < min - 0.5 || tsf > max + 0.5)
+      meldungen.push(['fehler', "TSF ("+tsf+") liegt nicht zwischen ISF und DSF — bitte nachsehen"]);
+
+    const p = pBerechnen(isf,dsf,tsf);
+    if(p === null){
+      meldungen.push(['warn', "ISF und DSF liegen zu dicht beieinander — p ist hier nicht bestimmbar. Kein Fehler."]);
+    }else{
+      const ref = pBisher(null);
+      const geraet = zahl(D.kopf.f_p_geraet);
+      let txt = "Direktanteil p = " + p.toFixed(2);
+      if(p < -0.1 || p > 1.1){
+        meldungen.push(['fehler', txt + " — außerhalb des Möglichen. Zahlendreher?"]);
+      }else if(!isNaN(geraet) && Math.abs(p - geraet) > 0.15){
+        meldungen.push(['warn', txt + ", am Gerät eingestellt ist " + geraet.toFixed(2) + ". Werte gegenlesen."]);
+      }else if(ref !== null && Math.abs(p - ref) > 0.2){
+        meldungen.push(['warn', txt + ", die anderen Punkte liegen bei " + ref.toFixed(2) + ". Werte bitte am Gerät gegenlesen."]);
+      }else{
+        meldungen.push(['ok', txt + (!isNaN(geraet) ? " — passt zur Geräteeinstellung (" + geraet.toFixed(2) + ")"
+                                    : (ref !== null ? " — passt zu den übrigen Punkten (" + ref.toFixed(2) + ")" : ""))]);
+      }
+    }
+  }
+
+  box.innerHTML = meldungen.map(([art,txt]) =>
+    '<div class="p-anzeige p-'+(art==='ok'?'ok':art==='warn'?'warn':'fehler')+'">'+txt+'</div>').join("");
+}
+
+function punktSpeichern(pid){
+  const g = id => document.getElementById(id);
+  D.punkte[pid] = {
+    zeit:g("p_zeit").value, hoehe:g("p_hoehe").value,
+    bild:g("p_bild").value, winkel:g("p_winkel").value, schwelle:g("p_schwelle").value,
+    isf:g("p_isf").value, dsf:g("p_dsf").value, tsf:g("p_tsf").value,
+    lai:g("p_lai").value, elad:g("p_elad").value, open:g("p_open").value,
+    himmel:g("p_himmel").value, aufnehmer:g("p_aufnehmer").value,
+    nord:g("p_nord").checked, horiz:g("p_horiz").checked,
+    bem:g("p_bem").value
+  };
+  speichern(true);
+  punktListeAufbauen();
+  window.scrollTo(0,0);
+}
+
+/* =====================================================================
+   Vegetation — beide Verfahren nebeneinander
+   ===================================================================== */
+function radius(k){
+  const r = zahl((D.veg.radien||{})[k]);
+  if(!isNaN(r)) return r;
+  const s = SCHICHTEN.find(x => x.k === k);
+  return s ? s.radius : 1;
+}
+
+/* Wurde der Radius im Feld bestätigt oder ist es nur die Vorgabe? Der Unterschied
+   gehört in den Export — sonst behauptet das Protokoll etwas, das niemand gemessen hat. */
+function radiusGesetzt(k){ return !isNaN(zahl((D.veg.radien||{})[k])); }
+function radiusText(k){ return radius(k) + " m" + (radiusGesetzt(k) ? "" : " [Vorgabe, im Feld nicht bestätigt]"); }
+
+function radienFelderAufbauen(){
+  const box = document.getElementById("radienFelder");
+  if(!box) return;
+  box.innerHTML = '<div class="reihe">' + SCHICHTEN.map(s =>
+    '<div><label>'+s.k+' (m)</label><input type="number" step="0.5" inputmode="decimal" '
+    + 'value="'+radius(s.k)+'" onchange="radiusSetzen(\''+s.k+'\',this.value)"></div>').join("")
+    + '</div>';
+  autoAus(box);
+}
+function radiusSetzen(k, wert){
+  if(!D.veg.radien) D.veg.radien = {};
+  D.veg.radien[k] = wert;
+  speichern();
+}
+
+function vegEinfachFertig(pid){
+  const v = (D.veg.punkte||{})[pid];
+  return !!(v && SCHICHTEN.some(s => (v.einfach||{})[s.k+"_d"]));
+}
+function vegBBFertig(pid){
+  const v = (D.veg.punkte||{})[pid];
+  return !!(v && (v.arten||[]).length);
+}
+
+function vegListeAufbauen(){
+  const box = document.getElementById("vegListe");
+  if(!box) return;
+  box.innerHTML = "";
+  VEG_PUNKTE.forEach(p => {
+    const e = vegEinfachFertig(p.id), b = vegBBFertig(p.id);
+    const v = (D.veg.punkte||{})[p.id] || {};
+    const k = document.createElement("div");
+    k.className = "karte" + ((e && b) ? " fertig" : "");
+    k.innerHTML = '<div class="kopf"><span>'+p.name+'</span>'+
+      '<span class="zust">'+((e&&b) ? "beides" : (e||b) ? "halb" : "offen")+'</span></div>'+
+      '<div class="marken">'+
+        '<span class="marke '+(e?"an":"")+'">vereinfacht</span>'+
+        '<span class="marke '+(b?"an":"")+'">Braun-Blanquet'+(b?" · "+(v.arten||[]).length+" Arten":"")+'</span>'+
+        (v.aufnehmer ? '<span class="marke">'+v.aufnehmer+'</span>' : '')+
+      '</div>';
+    k.addEventListener("click", () => vegOeffnen(p.id));
+    box.appendChild(k);
+  });
+}
+
+function vegOeffnen(pid){
+  const p = VEG_PUNKTE.find(x => x.id === pid);
+  if(!D.veg.punkte) D.veg.punkte = {};
+  if(!D.veg.punkte[pid]) D.veg.punkte[pid] = {einfach:{}, arten:[], kronenschluss:"", bem:"", aufnehmer:""};
+  const v = D.veg.punkte[pid];
+  if(!v.einfach) v.einfach = {};
+  if(!v.arten) v.arten = [];
+  const box = document.getElementById("vegListe");
+  const opt = (liste, gewaehlt) => '<option value=""></option>' +
+    liste.map(t => '<option'+((gewaehlt||"")===t?" selected":"")+'>'+t+'</option>').join("");
+
+  let inhalt = '<button class="knopf zweit klein" onclick="vegListeAufbauen()">&larr; zurück zur Übersicht</button>'+
+    '<h3>Vegetation — '+p.name+'</h3>'+
+    '<label>Aufgenommen von</label>'+
+    '<input list="personenliste" value="'+(v.aufnehmer||"")+'" placeholder="Name" '+
+      'onchange="vegSetzen(\''+pid+'\',\'aufnehmer\',this.value)">';
+
+  /* --- Verfahren 1: vereinfacht --- */
+  inhalt += '<h4>Verfahren 1 — vereinfacht (Projektstandard 2021/22)</h4>'+
+    '<div class="info" style="font-size:13px">Je Schicht Deckungsgrad und mittlere Höhe. '+
+    'Leere Schichten überspringen. <b>Diese Aufnahme ist die Brücke zu den Altdaten.</b></div>';
+  SCHICHTEN.forEach(s => {
+    inhalt += '<div class="karte"><div class="kopf"><span>'+s.n+'</span>'+
+      '<span class="zust">r = '+radius(s.k)+' m</span></div>'+
+      '<div class="reihe">'+
+        '<div><label>Deckung</label><select onchange="vegEinfachSetzen(\''+pid+'\',\''+s.k+'_d\',this.value)">'+
+          opt(DECKUNG_EINFACH, v.einfach[s.k+"_d"])+'</select></div>'+
+        '<div><label>Höhe</label><select onchange="vegEinfachSetzen(\''+pid+'\',\''+s.k+'_h\',this.value)">'+
+          opt(HOEHE_EINFACH, v.einfach[s.k+"_h"])+'</select></div>'+
+      '</div>'+
+      '<label>eigene Angabe <span class="hint">falls keine Klasse passt</span></label>'+
+      '<input value="'+(v.einfach[s.k+"_frei"]||"")+'" placeholder="frei formulieren" '+
+        'onchange="vegEinfachSetzen(\''+pid+'\',\''+s.k+'_frei\',this.value)">'+
+      '</div>';
+  });
+
+  /* --- Verfahren 2: Braun-Blanquet --- */
+  inhalt += '<h4>Verfahren 2 — Braun-Blanquet</h4>'+
+    '<label>Kronenschlussgrad <span class="hint">(Baumschicht 1)</span></label>'+
+    '<select onchange="vegSetzen(\''+pid+'\',\'kronenschluss\',this.value)">'+
+      opt(KRONENSCHLUSS, v.kronenschluss)+'</select>';
+  SCHICHTEN.filter(s => s.k !== "Mo").forEach(s => {
+    const arten = (v.arten||[]).map((a,i) => [a,i]).filter(([a]) => a.schicht === s.k);
+    inhalt += '<div class="karte"><div class="kopf"><span>'+s.n+'</span>'+
+      '<button class="knopf zweit" style="width:auto;margin:0;padding:6px 12px;font-size:14px" '+
+      'onclick="artAnlegen(\''+pid+'\',\''+s.k+'\')">+ Art</button></div>';
+    if(!arten.length){ inhalt += '<div class="werte">keine Art erfasst</div>'; }
+    arten.forEach(([a,i]) => {
+      inhalt += '<div style="border-top:1px solid var(--rand); padding-top:8px; margin-top:8px">'+
+        '<label>Art</label>'+
+        '<input list="pflanzenliste" value="'+(a.art||"").replace(/"/g,"&quot;")+'" placeholder="deutscher Name" '+
+          'onchange="artSetzen(\''+pid+'\','+i+',\'art\',this.value)">'+
+        '<div class="reihe">'+
+          '<div><label>Artmächtigkeit</label><select onchange="artSetzen(\''+pid+'\','+i+',\'am\',this.value)">'+
+            ARTMAECHTIGKEIT.map(([w,t]) => '<option value="'+w+'"'+((a.am||"")===w?" selected":"")+'>'+(w?w+" — "+t:"—")+'</option>').join("")+
+          '</select></div>'+
+        '</div>'+
+        '<div class="reihe">'+
+          '<div><label>Soziabilität</label><select onchange="artSetzen(\''+pid+'\','+i+',\'soz\',this.value)">'+
+            SOZIABILITAET.map(([w,t]) => '<option value="'+w+'"'+((a.soz||"")===w?" selected":"")+'>'+(w?w+" — "+t:"—")+'</option>').join("")+
+          '</select></div>'+
+          '<div style="flex:0 0 92px"><label>&nbsp;</label>'+
+            '<button class="knopf zweit" style="margin:0" onclick="artLoeschen(\''+pid+'\','+i+')">löschen</button></div>'+
+        '</div></div>';
+    });
+    inhalt += '</div>';
+  });
+
+  inhalt += '<label>Bemerkung zum Punkt</label>'+
+    '<textarea onchange="vegSetzen(\''+pid+'\',\'bem\',this.value)">'+(v.bem||"")+'</textarea>'+
+    '<button class="knopf" onclick="vegListeAufbauen()">Fertig</button>';
+
+  box.innerHTML = inhalt;
+  autoAus(box);
+  window.scrollTo(0,0);
+}
+
+function vegEinfachSetzen(pid, feld, wert){ D.veg.punkte[pid].einfach[feld] = wert; speichern(); }
+function vegSetzen(pid, feld, wert){ D.veg.punkte[pid][feld] = wert; speichern(); }
+function artAnlegen(pid, schicht){
+  D.veg.punkte[pid].arten.push({schicht:schicht, art:"", am:"", soz:""});
+  speichern(true); vegOeffnen(pid);
+}
+function artSetzen(pid, i, feld, wert){ D.veg.punkte[pid].arten[i][feld] = wert; speichern(); }
+function artLoeschen(pid, i){
+  D.veg.punkte[pid].arten.splice(i,1); speichern(true); vegOeffnen(pid);
+}

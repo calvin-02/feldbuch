@@ -1,0 +1,207 @@
+<!-- ================= FLÄCHE ================= -->
+<section id="flaeche" class="aktiv">
+  <h2>Fläche und Gerät</h2>
+
+  <div class="info achtung">
+    <b>Vor der ersten Messung ausfüllen — und die Einstellungsbildschirme fotografieren.</b>
+    Die Geräteeinstellungen von 2021 sind verloren; das ist der Grund, warum der Vergleich mit
+    der Altmessung nur mit Vorbehalt geht. Dieser Fehler darf sich nicht wiederholen.
+  </div>
+
+  <div class="feld" data-auswahl="f_flaeche" data-ziel="kopf" data-liste="FLAECHEN"
+       data-label="Fläche" data-pflicht="1"></div>
+
+  <div class="reihe">
+    <div><label>Datum</label><input type="date" id="f_datum"></div>
+    <div><label>Ankunft</label><input type="time" id="f_ankunft"></div>
+  </div>
+  <div id="datumHinweis"></div>
+
+  <label>Aufnahmegruppe <span class="hint">— alle Namen, durch Komma getrennt</span></label>
+  <input id="f_team" placeholder="z. B. Calvin Schmidt, Moritz …, Martens">
+  <div class="info" style="font-size:13px">
+    Aus diesen Namen baut die App die Auswahl <b>„aufgenommen von"</b>, die es bei jedem Punkt
+    und in jedem Abschnitt gibt. Wer misst, gehört zur Messung — bei Braun-Blanquet und bei
+    Schätzungen ist das ein Teil des Ergebnisses.
+  </div>
+
+  <h3>Geräteeinstellungen</h3>
+  <div class="info gut" style="font-size:13px">
+    Alle Zeilen dieses Blocks stehen im Menü <i>Einstellungen</i> des Geräts.
+    <b>Bildschirm abfotografieren und hier abtippen</b> — beides, nicht nur eines.
+  </div>
+  <div class="reihe">
+    <div><label>Gerätemodell</label><input id="f_geraet" placeholder="z. B. Solariscope SOL 300B"></div>
+    <div><label>Serien-Nr.</label><input id="f_serie"></div>
+  </div>
+  <div class="reihe">
+    <div><label>Breite (°N)</label><input type="number" step="0.001" id="f_breite" inputmode="decimal"></div>
+    <div><label>Länge (°O)</label><input type="number" step="0.001" id="f_laenge" inputmode="decimal"></div>
+  </div>
+  <div class="reihe">
+    <div><label>Atmosph. Durchlässigkeit (%)</label><input type="number" id="f_atm" inputmode="numeric" placeholder="z. B. 60"></div>
+    <div><label>Anzahl Schwellwerte</label><input type="number" id="f_schwellen" inputmode="numeric" placeholder="z. B. 7"></div>
+  </div>
+  <div class="haken"><input type="checkbox" id="f_kosinus"><label for="f_kosinus">Kosinus-Gewichtung eingeschaltet</label></div>
+  <div class="reihe">
+    <div><label>DSF-Zeitspanne von</label><input id="f_periode_von" placeholder="z. B. 1.4."></div>
+    <div><label>bis</label><input id="f_periode_bis" placeholder="z. B. 30.9."></div>
+  </div>
+  <div class="reihe">
+    <div><label>TSF-Formel</label><input id="f_tsf_formel" placeholder="z. B. 60:40"></div>
+    <div><label>Direktanteil p</label><input id="f_p_geraet" placeholder="z. B. 0,60"></div>
+  </div>
+  <div id="pFormelHinweis"></div>
+  <div class="reihe">
+    <div><label>Bildwinkel Openness / GapF (°)</label><input type="number" step="1" id="f_bildwinkel" inputmode="numeric" placeholder="z. B. 60"></div>
+    <div><label>Max. Neigung Fernauslösung (°)</label><input type="number" step="0.1" id="f_max_neigung" inputmode="decimal" placeholder="z. B. 2,9"></div>
+  </div>
+  <div class="info warnung" style="font-size:13px">
+    <b>Zum Bildwinkel:</b> Die Menüzeile lautet „Bildwinkel für <i>Openness und Gap Fraction</i>".
+    Nach dieser Beschriftung wirkt die Einstellung <b>nicht</b> auf ISF, DSF und TSF — die sind
+    Integrale über den ganzen Himmel bzw. die ganze Sonnenbahn.
+    <b>Das ist eine Vermutung, keine Tatsache.</b> Sie ist geprüft, sobald an einem Punkt beide
+    Winkel beim selben Schwellenwert gemessen sind: Bleiben ISF/DSF/TSF gleich, stimmt sie.
+  </div>
+  <label>Himmelsmodell</label>
+  <input id="f_himmelsmodell" placeholder="SOC / gleichförmig / Menübezeichnung">
+  <label>Neigung der Bezugsfläche <span class="hint">— horizontal lassen</span></label>
+  <input id="f_neigung_bezug" value="horizontal">
+
+  <div class="haken"><input type="checkbox" id="f_fotos"><label for="f_fotos">Alle Einstellungsbildschirme fotografiert</label></div>
+  <div class="haken"><input type="checkbox" id="f_bilder"><label for="f_bilder">Gerät speichert Hemisphärenbilder</label></div>
+  <label>Export der Bilder — wie?</label>
+  <input id="f_bildexport" placeholder="SD-Karte / USB / App …">
+
+  <h3>Parzellen, Herkünfte und Maße</h3>
+  <div class="info gut">
+    <b>Festlegung dieser Arbeit:</b> <b>Parzelle A ist die südliche</b>, B die nördliche.
+    Der Buchstabe ist nur ein Etikett — maßgeblich sind <b>Lage</b> und <b>Herkunft</b>.
+    Solange beide erfasst sind, kostet ein späterer Tausch eine Minute.
+  </div>
+
+  <div class="karte">
+    <div class="kopf"><span>Parzelle A</span><span class="zust" id="zustA">Lage</span></div>
+    <div class="reihe">
+      <div><div class="feld" data-auswahl="pa_lage" data-ziel="parzA" data-liste="LAGEN" data-label="Lage im Gatter"></div></div>
+      <div><label>Registernummer</label><input id="pa_code" placeholder="z. B. 99999"></div>
+    </div>
+    <label>Herkunft <span class="hint">— wie auf dem Schild</span></label>
+    <input id="pa_herkunft" placeholder="z. B. Rumänische Herkunft">
+    <div class="reihe">
+      <div><label>Länge (m)</label><input type="number" step="0.1" id="pa_laenge" inputmode="decimal"></div>
+      <div><label>Breite außen (m)</label><input type="number" step="0.1" id="pa_breite_a" inputmode="decimal"></div>
+      <div><label>Breite innen (m)</label><input type="number" step="0.1" id="pa_breite_i" inputmode="decimal"></div>
+    </div>
+  </div>
+
+  <div class="karte">
+    <div class="kopf"><span>Parzelle B</span><span class="zust" id="zustB">Lage</span></div>
+    <div class="reihe">
+      <div><div class="feld" data-auswahl="pb_lage" data-ziel="parzB" data-liste="LAGEN" data-label="Lage im Gatter"></div></div>
+      <div><label>Registernummer</label><input id="pb_code" placeholder="z. B. 82710"></div>
+    </div>
+    <label>Herkunft <span class="hint">— wie auf dem Schild</span></label>
+    <input id="pb_herkunft" placeholder="z. B. Heimische Herkunft">
+    <div class="reihe">
+      <div><label>Länge (m)</label><input type="number" step="0.1" id="pb_laenge" inputmode="decimal"></div>
+      <div><label>Breite außen (m)</label><input type="number" step="0.1" id="pb_breite_a" inputmode="decimal"></div>
+      <div><label>Breite innen (m)</label><input type="number" step="0.1" id="pb_breite_i" inputmode="decimal"></div>
+    </div>
+  </div>
+
+  <div class="reihe">
+    <div><label>Trennstreifen (m)</label><input type="number" step="0.1" id="f_trenn" inputmode="decimal"></div>
+    <div><label>&nbsp;</label><button class="knopf zweit" style="margin:0" onclick="breitenSchaetzen()">Breite innen schätzen</button></div>
+  </div>
+  <div class="info" style="font-size:13px">
+    „Breite innen" ist die Breite an der Seite des Trennstreifens. Wurde sie nicht gemessen,
+    schätzt der Knopf sie unter der Annahme, dass die Breite <b>gleichmäßig</b> von B nach A
+    abnimmt. Die geschätzten Werte sind <b>keine Messung</b> und werden im Export so gekennzeichnet.
+  </div>
+  <div id="geometrieAnzeige"></div>
+
+  <div class="feld" data-auswahl="f_vermarkung" data-ziel="kopf" data-liste="VERMARKUNG"
+       data-label="Vermarkung der Punkte von 2021/22"></div>
+  <div class="reihe">
+    <div><label>Anzahl Marken</label><input type="number" id="f_marken_anzahl" inputmode="numeric"></div>
+    <div><label>Art der Marke</label><input id="f_marken_art" placeholder="Pflock, Stange, Farbe"></div>
+  </div>
+
+  <h3>Standpunkt (GPS)</h3>
+  <div class="info">Grob genügt: für die Kachelauswahl und als Startwert der Einpassung. Die Genauigkeit kommt aus den Bäumen.</div>
+
+  <label>Weg 1 — vom Gerät holen</label>
+  <button class="knopf zweit klein" style="margin-top:0" onclick="gpsHolen()">Position vom Handy holen</button>
+  <div id="gpsMeldung" class="hint" style="margin-top:7px"></div>
+
+  <label>Weg 2 — Koordinate einfügen oder abtippen
+    <span class="hint">aus einer Karten- oder GPS-App</span></label>
+  <div class="reihe">
+    <div style="flex:1"><input id="f_gps_einfuegen" placeholder="48.1769, 11.2554"></div>
+    <div style="flex:0 0 116px"><button class="knopf zweit" style="margin:0" onclick="koordUebernehmen()">übernehmen</button></div>
+  </div>
+  <div class="info" style="font-size:13px">
+    Erkannt werden Dezimalgrad (<i>48.1769, 11.2554</i> — auch mit Komma),
+    Grad und Minuten (<i>N 48° 10.61' E 11° 15.32'</i>), Grad-Minuten-Sekunden
+    und ein <b>UTM-32-Paar</b> (<i>667412 5337588</i>) — so, wie „Rechts- und Hochwert"
+    im Flächenbegleitbogen stehen. Vertauschte Reihenfolge wird erkannt und richtig gedreht.
+  </div>
+
+  <div class="reihe">
+    <div><label>Breite</label><input id="f_gps_lat" inputmode="decimal"></div>
+    <div><label>Länge</label><input id="f_gps_lon" inputmode="decimal"></div>
+    <div><label>± m</label><input id="f_gps_acc" inputmode="decimal"></div>
+  </div>
+  <div id="utmAnzeige" class="info gut" style="display:none; font-size:13px"></div>
+
+  <details class="klapp">
+    <summary>GPS ohne Netz — was wirklich hilft</summary>
+    <div class="klappinhalt">
+      <p><b>Das Satellitensignal braucht kein Mobilfunknetz.</b> Ohne Netz fehlt nur die Karte,
+      und das Handy kann die Bahndaten der Satelliten nicht mehr schnell nachladen — die erste
+      Position dauert dann unter dichtem Schirm gern <b>1–2 Minuten</b> statt Sekunden.</p>
+      <p><b>Was du dagegen tust:</b> eine Karten-App mit <b>heruntergeladener Offline-Karte</b>
+      (Organic Maps, OsmAnd) schon <b>am Waldrand öffnen</b> und laufen lassen. Bis du am
+      Mittelpunkt stehst, hat sie eine Position — die tippst du hier über Weg 2 ein.</p>
+      <p class="pruef"><b>Eine Koordinate je Fläche genügt.</b> Sie dient nur der Kachelauswahl.
+      Die Lage der Punkte kommt aus den Passpunktbäumen, nicht aus dem GPS.</p>
+    </div>
+  </details>
+
+  <h3>Bestandesbeschreibung</h3>
+  <div class="info" style="font-size:13px">
+    Gilt für die ganze Fläche, nicht je Punkt. Die Auswahllisten stammen aus der Projektdatei —
+    <b>jede lässt sich mit „eigene Angabe" überschreiben</b>, wenn nichts passt.
+  </div>
+
+  <div class="feld" data-auswahl="b_typ" data-ziel="bestand" data-liste="BESTANDESTYPEN"
+       data-label="Bestandestyp" data-hint="(Mischungsart)"></div>
+
+  <div class="reihe">
+    <div><div class="feld" data-auswahl="b_mischungsgrad" data-ziel="bestand" data-liste="MISCHUNGSGRAD" data-label="Mischungsgrad"></div></div>
+    <div><div class="feld" data-auswahl="b_mischungsform" data-ziel="bestand" data-liste="MISCHUNGSFORM" data-label="Mischungsform"></div></div>
+  </div>
+
+  <div class="reihe">
+    <div><div class="feld" data-auswahl="b_alter" data-ziel="bestand" data-liste="ALTER" data-label="Alter"></div></div>
+    <div><div class="feld" data-auswahl="b_verteilung" data-ziel="bestand" data-liste="VERTEILUNG" data-label="Verteilung der Schirmbäume"></div></div>
+  </div>
+
+  <div class="feld" data-auswahl="b_schlussgrad" data-ziel="bestand" data-liste="SCHLUSSGRAD"
+       data-label="Waldbaulicher Schlussgrad — überwiegend"></div>
+  <div class="feld" data-auswahl="b_schlussgrad2" data-ziel="bestand" data-liste="SCHLUSSGRAD"
+       data-label="… stellenweise auch" data-hint="(freilassen, wenn einheitlich)"></div>
+  <div id="schlussgradInfo" class="info" style="display:none; font-size:13px"></div>
+  <label>Schlussgrad in eigenen Worten <span class="hint">— was die Klassen nicht fassen</span></label>
+  <textarea id="b_schluss_text" placeholder="z. B. eher geschlossen mit einzelnen licht geschlossenen Stellen"></textarea>
+
+  <div class="feld" data-auswahl="b_aufnehmer" data-ziel="bestand" data-liste="PERSONEN"
+       data-label="Bestandesbeschreibung aufgenommen von"></div>
+
+  <label>Besonderheiten</label>
+  <textarea id="b_besonderheiten" placeholder="Auffälligkeiten im Bestand"></textarea>
+
+  <label>Bemerkungen zur Fläche</label>
+  <textarea id="f_bemerkung"></textarea>
+</section>

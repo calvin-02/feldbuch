@@ -1,0 +1,53 @@
+<!-- ================= SKIZZE ================= -->
+<section id="skizze">
+  <h2>Flächenskizze und Punktnummern</h2>
+
+  <div class="info">
+    <b>Wozu das gut ist.</b> Für das Modell zählt nicht die <i>Nummer</i> eines Punktes, sondern
+    seine <b>Lage</b>. Eine Nummer ohne Lage ist wertlos — eine Lage lässt sich jeder späteren
+    Nummerierung zuordnen. Deshalb wird hier festgehalten, <b>wo</b> die Punkte 1 bis 5 liegen.
+  </div>
+
+  <div class="feld" data-auswahl="s_form" data-ziel="schema" data-liste="FORMEN"
+       data-label="Grundform der Skizze"></div>
+
+  <div class="reihe">
+    <div><label>Azimut der Längsachse A → B (°)</label>
+      <input type="number" step="1" id="s_achse" inputmode="numeric" placeholder="0 = A im Süden"></div>
+    <div><label>&nbsp;</label>
+      <button class="knopf zweit" style="margin:0" onclick="achseAusLage()">aus der Lage</button></div>
+  </div>
+  <div class="info" style="font-size:13px">
+    Das ist die Richtung, in die du blickst, wenn du <b>vom Mittelpunkt A zum Mittelpunkt B</b>
+    schaust. Liegt A im Süden und B im Norden, sind das <b>0°</b>.
+    Aus dieser einen Zahl leitet die App alle Himmelsrichtungen und alle Soll-Azimute ab.
+  </div>
+
+  <div class="feld" data-auswahl="s_eingang" data-ziel="schema" data-liste="EINGANG"
+       data-label="Eingang / Tor liegt im"></div>
+
+  <div class="skizzeRahmen" id="skizzeRahmen"></div>
+
+  <div class="info gut" style="font-size:13px">
+    <b>Antippen zum Nummerieren.</b> Tipp einen Kreis an und wähle die Nummer 1 bis 5.
+    Der Kreis in der Mitte ist der Parzellenmittelpunkt (der markierte Pfosten) — er ist selbst
+    ein Messpunkt. Die Buchstaben A und B lassen sich ebenfalls antippen und tauschen.
+  </div>
+
+  <label>Wie die Punkte im Feld gezählt wurden</label>
+  <textarea id="s_regel" placeholder="z. B.: Richtung Norden der rechte Punkt ist 1, dann im Uhrzeigersinn 2, 3, 4; Mitte ist 5"></textarea>
+
+  <h3>Daraus berechnet — zum Nachmessen im Feld</h3>
+  <div class="info" style="font-size:13px">
+    Sollwerte aus Maßen und Achsrichtung, nach der Projektregel
+    <i>Satellit = ¼ der Strecke vom Eckpunkt zum Mittelpunkt</i>.
+    <b>Weichen deine gemessenen Werte deutlich ab, stimmt etwas nicht</b> — das ist der Sinn der Tabelle.
+  </div>
+  <div class="tabellenrahmen"><div id="sollTabelle"></div></div>
+
+  <label>Aufgenommen / abgesteckt von</label>
+  <div class="feld" data-auswahl="s_aufnehmer" data-ziel="schema" data-liste="PERSONEN" data-label=""></div>
+
+  <label>Bemerkung zur Skizze</label>
+  <textarea id="s_bem" placeholder="Abweichungen, Besonderheiten, Zaunverlauf …"></textarea>
+</section>

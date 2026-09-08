@@ -1,1 +1,3209 @@
-<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><title>Feldbuch Weißtanne</title></head><body><p>Aufbau läuft.</p></body></html>
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f4a34">
+<meta name="description" content="Feldaufnahme Weißtanne 2.0 — Lichtmessung, Vegetation, Ko-Registrierung. Funktioniert ohne Netz.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Feldbuch">
+<title>Feldbuch Weißtanne</title>
+<style>
+  /* Bewusst nur ein helles Thema: Die Seite wird bei Tageslicht im Bestand bedient,
+     ein dunkles Thema ist dort schlechter lesbar. Alle Farben sind deshalb explizit
+     gesetzt, damit die Seite unabhängig vom Gerätethema trägt. */
+  :root{
+    --gruen:#1f4a34; --gruen-hell:#2f6b4c; --gruen-blass:#eef4f0;
+    --rot:#8f2116; --rot-blass:#fdf2f0;
+    --ocker:#8a6516; --ocker-blass:#fdf8ec;
+    --blau:#1c4a6e; --blau-blass:#eef3f8;
+    --text:#141613; --text-zweit:#5c6058;
+    --rand:#c3c6be; --grund:#fbfaf7; --karte:#fff; --grau:#f1f1ec;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0;}
+  body{
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    font-size:17px; line-height:1.4; color:var(--text); background:var(--grund);
+    padding-bottom:80px;
+    font-variant-numeric:tabular-nums;
+  }
+  @media (prefers-reduced-motion:no-preference){
+    .karte,nav button,button.knopf{transition:background-color .12s ease, border-color .12s ease;}
+  }
+
+  header{
+    position:sticky; top:0; z-index:50; background:var(--gruen); color:#fff;
+    padding:10px 12px 10px 12px;
+    padding-top:calc(10px + env(safe-area-inset-top));
+  }
+  header .titel{font-size:15px; font-weight:700; display:flex; justify-content:space-between; align-items:center; gap:8px;}
+  header .status{font-size:12px; color:#cddbd3; margin-top:3px;}
+  header .status b{color:#ffd98a;}
+  /* Fortschritt: Zustand vor Detail — ein Strich je Punkt */
+  .fortschritt{display:flex; gap:3px; margin-top:7px;}
+  .fortschritt span{flex:1; height:5px; border-radius:2px; background:rgba(255,255,255,.25);}
+  .fortschritt span.voll{background:#a8d5bd;}
+  .fortschritt span.wdh{background:#ffd98a;}
+
+  nav{display:flex; background:var(--gruen-hell); position:sticky; top:0; z-index:49; overflow-x:auto;}
+  nav button{
+    flex:1 0 auto; min-width:74px; padding:12px 8px; border:0; background:transparent;
+    color:#dfe9e3; font-size:14px; font-weight:600; cursor:pointer; border-bottom:4px solid transparent;
+  }
+  nav button.aktiv{color:#fff; border-bottom-color:#ffe9a8; background:rgba(255,255,255,.1);}
+
+  main{padding:12px;}
+  section{display:none;}
+  section.aktiv{display:block;}
+
+  h2{font-size:19px; margin:4px 0 10px; padding-bottom:5px; border-bottom:2px solid var(--gruen);}
+  h3{font-size:16px; margin:18px 0 6px;}
+  h4{font-size:14px; margin:14px 0 4px; color:var(--text-zweit); text-transform:uppercase; letter-spacing:.5px;}
+
+  label{display:block; margin:11px 0 3px; font-size:13px; font-weight:700; color:var(--text-zweit); letter-spacing:.2px;}
+  .hint{font-weight:400; color:var(--text-zweit); font-size:13px;}
+  input,select,textarea{
+    width:100%; padding:12px 10px; font-size:17px; border:1.5px solid var(--rand);
+    border-radius:7px; background:#fff; color:var(--text); font-family:inherit;
+  }
+  input:focus,select:focus,textarea:focus{outline:3px solid #8fbfa5; outline-offset:1px; border-color:var(--gruen);}
+  button:focus-visible{outline:3px solid #8fbfa5; outline-offset:2px;}
+  input[type=number]{-moz-appearance:textfield;}
+  textarea{min-height:64px;}
+  /* Freitextfeld einer Auswahl: sichtbar als Fortsetzung derselben Eingabe */
+  .freitext{margin-top:6px; border-color:var(--gruen-hell); background:var(--gruen-blass);}
+
+  .reihe{display:flex; gap:8px;}
+  .reihe>div{flex:1; min-width:0;}
+
+  button.knopf{
+    width:100%; padding:14px; font-size:17px; font-weight:700; border:0; border-radius:8px;
+    background:var(--gruen); color:#fff; cursor:pointer; margin-top:12px;
+  }
+  button.knopf.zweit{background:var(--karte); color:var(--gruen); border:1.5px solid var(--gruen);}
+  button.knopf.warn{background:var(--rot);}
+  button.klein{padding:11px 10px; font-size:15px; margin-top:6px;}
+
+  .haken{display:flex; align-items:center; gap:10px; margin:12px 0; padding:11px;
+    border:1.5px solid var(--rand); border-radius:7px; background:var(--grau);}
+  .haken input{width:26px; height:26px; flex:0 0 26px;}
+  .haken label{margin:0; font-size:15px;}
+
+  .karte{border:1.5px solid var(--rand); border-radius:9px; padding:11px; margin-bottom:11px; background:#fff;}
+  .karte.fertig{border-color:var(--gruen); background:var(--gruen-blass);}
+  .karte .kopf{display:flex; justify-content:space-between; align-items:center; font-weight:700; font-size:16px; gap:8px;}
+  .karte .kopf .zust{font-size:12px; font-weight:700; padding:3px 9px; border-radius:3px; background:var(--grau); color:var(--text-zweit); letter-spacing:.4px; text-transform:uppercase; white-space:nowrap;}
+  .karte.fertig .kopf .zust{background:var(--gruen); color:#fff;}
+  .karte .werte{font-size:14px; color:#444; margin-top:5px;}
+  /* Zwei Zustände je Punkt (vereinfacht / Braun-Blanquet) nebeneinander */
+  .marken{display:flex; gap:5px; flex-wrap:wrap; margin-top:6px;}
+  .marke{font-size:11px; font-weight:700; padding:2px 7px; border-radius:3px; letter-spacing:.3px;
+         background:var(--grau); color:var(--text-zweit); text-transform:uppercase;}
+  .marke.an{background:var(--gruen); color:#fff;}
+  .marke.halb{background:var(--ocker); color:#fff;}
+
+  .info{border-left:4px solid var(--gruen); background:var(--grau); padding:9px 11px; margin:11px 0; font-size:14px;}
+  .achtung{border-left-color:var(--rot); background:var(--rot-blass);}
+  .achtung b{color:var(--rot);}
+  .gut{border-left-color:var(--gruen-hell); background:var(--gruen-blass);}
+  .warnung{border-left-color:var(--ocker); background:var(--ocker-blass);}
+  .warnung b{color:var(--ocker);}
+  .rechnung{border-left-color:var(--blau); background:var(--blau-blass); font-size:13px;}
+  .rechnung b{color:var(--blau);}
+
+  .p-anzeige{font-size:15px; padding:9px 11px; border-radius:7px; margin-top:10px; font-weight:600;}
+  .p-ok{background:var(--gruen-blass); color:var(--gruen);}
+  .p-warn{background:var(--ocker-blass); color:var(--ocker);}
+  .p-fehler{background:var(--rot-blass); color:var(--rot);}
+
+  table{width:100%; border-collapse:collapse; font-size:13px; margin-top:8px;}
+  th,td{border:1px solid var(--rand); padding:5px 6px; text-align:left;}
+  th{background:var(--grau); font-size:12px;}
+  .tabellenrahmen{overflow-x:auto;}
+
+  /* Eigener Bestätigungsdialog — die Systemabfrage confirm() wird in eingebetteten
+     Ansichten stillschweigend mit "false" beantwortet und ist deshalb unbrauchbar. */
+  .dialogGrund{
+    position:fixed; inset:0; z-index:100; background:rgba(20,22,19,.55);
+    display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .dialog{
+    background:var(--karte); border-radius:12px; padding:20px; max-width:420px; width:100%;
+    box-shadow:0 12px 40px rgba(0,0,0,.3); max-height:86vh; overflow-y:auto;
+  }
+  .dialog h3{margin:0 0 8px; font-size:18px;}
+  .dialog p{margin:0 0 16px; font-size:15px; color:var(--text);}
+  .dialog .knopfreihe{display:flex; gap:10px;}
+  .dialog .knopfreihe button{flex:1; margin:0;}
+  .wahlreihe{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;}
+  .wahlreihe button{
+    flex:1 0 60px; padding:14px 6px; font-size:18px; font-weight:700; border-radius:8px;
+    border:1.5px solid var(--gruen); background:#fff; color:var(--gruen); cursor:pointer;
+  }
+  .wahlreihe button.gewaehlt{background:var(--gruen); color:#fff;}
+
+  /* Aufklappbare Anleitung: im Feld zählt Kürze, deshalb standardmäßig zu —
+     aber greifbar, ohne im Papier zu blättern. */
+  details.klapp{border:1.5px solid var(--rand); border-radius:9px; background:#fff; margin:11px 0;}
+  details.klapp summary{
+    padding:12px 11px; font-weight:700; font-size:15px; color:var(--gruen); cursor:pointer;
+    list-style:none;
+  }
+  details.klapp summary::-webkit-details-marker{display:none;}
+  details.klapp summary::before{content:"\25B8 "; font-weight:400;}
+  details.klapp[open] summary::before{content:"\25BE ";}
+  details.klapp[open] summary{border-bottom:1px solid var(--rand);}
+  .klappinhalt{padding:4px 11px 11px;}
+  .klappinhalt p{margin:10px 0 0; font-size:14px; line-height:1.45;}
+  .klappinhalt table{margin:11px 0 2px;}
+  .klappinhalt td{font-size:13px;}
+  /* Prüfschritte abgesetzt: Sie sind das, was im Feld schiefgehen kann. */
+  .klappinhalt p.pruef{
+    background:var(--gruen-blass); border-left:4px solid var(--gruen-hell);
+    padding:8px 10px; border-radius:0 6px 6px 0;
+  }
+
+  /* Flächenskizze */
+  .skizzeRahmen{background:#fff; border:1.5px solid var(--rand); border-radius:9px; padding:8px; margin:11px 0;}
+  /* Das Gatter ist rund 90 x 32 m — eine massstabsgetreue Skizze wird dadurch sehr hoch.
+     Deshalb nicht auf die Breite zwingen, sondern auf die Bildschirmhoehe begrenzen. */
+  .skizzeRahmen svg{display:block; margin:0 auto; max-width:100%; max-height:60vh;
+                     width:auto; height:auto; touch-action:manipulation;}
+  .skizzeRahmen svg .punkt{cursor:pointer;}
+  .skizzeRahmen svg .punkt circle{fill:#fff; stroke:var(--gruen); stroke-width:2;}
+  .skizzeRahmen svg .punkt.belegt circle{fill:var(--gruen);}
+  .skizzeRahmen svg .punkt text{font-size:13px; font-weight:700; fill:var(--gruen); text-anchor:middle; dominant-baseline:central; pointer-events:none;}
+  .skizzeRahmen svg .punkt.belegt text{fill:#fff;}
+  .skizzeRahmen svg .parzflaeche{fill:var(--gruen-blass); stroke:var(--gruen); stroke-width:2;}
+  .skizzeRahmen svg .streifen{fill:#dbe6ef; stroke:#9fb4c6; stroke-width:1;}
+  .skizzeRahmen svg .beschriftung{font-size:13px; fill:var(--text-zweit); text-anchor:middle;}
+  .skizzeRahmen svg .parzname{font-size:17px; font-weight:700; fill:var(--gruen); text-anchor:middle; cursor:pointer;}
+  .skizzeRahmen svg .nordpfeil{stroke:var(--rot); stroke-width:2.5; fill:none;}
+  .skizzeRahmen svg .nordtext{font-size:14px; font-weight:700; fill:var(--rot); text-anchor:middle;}
+  .skizzeRahmen svg .eingang{stroke:var(--ocker); stroke-width:4; fill:none;}
+
+  .exportfeld{font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px; min-height:150px; white-space:pre;}
+  .fuss{margin-top:26px; padding-top:10px; border-top:1px solid var(--rand); font-size:12px; color:#777;}
+  .pflicht::after{content:" *"; color:var(--rot);}
+  .balken{position:sticky; bottom:0; z-index:48; background:var(--ocker); color:#fff;
+          padding:10px 12px; font-size:14px; font-weight:600; display:none;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="titel">
+    <span id="kopfFlaeche">Feldaufnahme — keine Fläche gewählt</span>
+    <span id="kopfPunkte" style="font-size:13px; white-space:nowrap;">0/12</span>
+  </div>
+  <div class="status" id="kopfStatus">Nicht gespeichert</div>
+  <div class="fortschritt" id="kopfFortschritt"></div>
+</header>
+
+<nav>
+  <button data-ziel="flaeche" class="aktiv">Fläche</button>
+  <button data-ziel="skizze">Skizze</button>
+  <button data-ziel="licht">Licht</button>
+  <button data-ziel="vegetation">Vegetation</button>
+  <button data-ziel="tannen">Tannen</button>
+  <button data-ziel="oberstand">Oberstand</button>
+  <button data-ziel="baeume">Passpunkte</button>
+  <button data-ziel="gelaende">Gelände</button>
+  <button data-ziel="daten">Daten</button>
+</nav>
+
+<main>
+<!-- ================= FLÄCHE ================= -->
+<section id="flaeche" class="aktiv">
+  <h2>Fläche und Gerät</h2>
+
+  <div class="info achtung">
+    <b>Vor der ersten Messung ausfüllen — und die Einstellungsbildschirme fotografieren.</b>
+    Die Geräteeinstellungen von 2021 sind verloren; das ist der Grund, warum der Vergleich mit
+    der Altmessung nur mit Vorbehalt geht. Dieser Fehler darf sich nicht wiederholen.
+  </div>
+
+  <div class="feld" data-auswahl="f_flaeche" data-ziel="kopf" data-liste="FLAECHEN"
+       data-label="Fläche" data-pflicht="1"></div>
+
+  <div class="reihe">
+    <div><label>Datum</label><input type="date" id="f_datum"></div>
+    <div><label>Ankunft</label><input type="time" id="f_ankunft"></div>
+  </div>
+  <div id="datumHinweis"></div>
+
+  <label>Aufnahmegruppe <span class="hint">— alle Namen, durch Komma getrennt</span></label>
+  <input id="f_team" placeholder="z. B. Calvin Schmidt, Moritz …, Martens">
+  <div class="info" style="font-size:13px">
+    Aus diesen Namen baut die App die Auswahl <b>„aufgenommen von"</b>, die es bei jedem Punkt
+    und in jedem Abschnitt gibt. Wer misst, gehört zur Messung — bei Braun-Blanquet und bei
+    Schätzungen ist das ein Teil des Ergebnisses.
+  </div>
+
+  <h3>Geräteeinstellungen</h3>
+  <div class="info gut" style="font-size:13px">
+    Alle Zeilen dieses Blocks stehen im Menü <i>Einstellungen</i> des Geräts.
+    <b>Bildschirm abfotografieren und hier abtippen</b> — beides, nicht nur eines.
+  </div>
+  <div class="reihe">
+    <div><label>Gerätemodell</label><input id="f_geraet" placeholder="z. B. Solariscope SOL 300B"></div>
+    <div><label>Serien-Nr.</label><input id="f_serie"></div>
+  </div>
+  <div class="reihe">
+    <div><label>Breite (°N)</label><input type="number" step="0.001" id="f_breite" inputmode="decimal"></div>
+    <div><label>Länge (°O)</label><input type="number" step="0.001" id="f_laenge" inputmode="decimal"></div>
+  </div>
+  <div class="reihe">
+    <div><label>Atmosph. Durchlässigkeit (%)</label><input type="number" id="f_atm" inputmode="numeric" placeholder="z. B. 60"></div>
+    <div><label>Anzahl Schwellwerte</label><input type="number" id="f_schwellen" inputmode="numeric" placeholder="z. B. 7"></div>
+  </div>
+  <div class="haken"><input type="checkbox" id="f_kosinus"><label for="f_kosinus">Kosinus-Gewichtung eingeschaltet</label></div>
+  <div class="reihe">
+    <div><label>DSF-Zeitspanne von</label><input id="f_periode_von" placeholder="z. B. 1.4."></div>
+    <div><label>bis</label><input id="f_periode_bis" placeholder="z. B. 30.9."></div>
+  </div>
+  <div class="reihe">
+    <div><label>TSF-Formel</label><input id="f_tsf_formel" placeholder="z. B. 60:40"></div>
+    <div><label>Direktanteil p</label><input id="f_p_geraet" placeholder="z. B. 0,60"></div>
+  </div>
+  <div id="pFormelHinweis"></div>
+  <div class="reihe">
+    <div><label>Bildwinkel Openness / GapF (°)</label><input type="number" step="1" id="f_bildwinkel" inputmode="numeric" placeholder="z. B. 60"></div>
+    <div><label>Max. Neigung Fernauslösung (°)</label><input type="number" step="0.1" id="f_max_neigung" inputmode="decimal" placeholder="z. B. 2,9"></div>
+  </div>
+  <div class="info warnung" style="font-size:13px">
+    <b>Zum Bildwinkel:</b> Die Menüzeile lautet „Bildwinkel für <i>Openness und Gap Fraction</i>".
+    Nach dieser Beschriftung wirkt die Einstellung <b>nicht</b> auf ISF, DSF und TSF — die sind
+    Integrale über den ganzen Himmel bzw. die ganze Sonnenbahn.
+    <b>Das ist eine Vermutung, keine Tatsache.</b> Sie ist geprüft, sobald an einem Punkt beide
+    Winkel beim selben Schwellenwert gemessen sind: Bleiben ISF/DSF/TSF gleich, stimmt sie.
+  </div>
+  <label>Himmelsmodell</label>
+  <input id="f_himmelsmodell" placeholder="SOC / gleichförmig / Menübezeichnung">
+  <label>Neigung der Bezugsfläche <span class="hint">— horizontal lassen</span></label>
+  <input id="f_neigung_bezug" value="horizontal">
+
+  <div class="haken"><input type="checkbox" id="f_fotos"><label for="f_fotos">Alle Einstellungsbildschirme fotografiert</label></div>
+  <div class="haken"><input type="checkbox" id="f_bilder"><label for="f_bilder">Gerät speichert Hemisphärenbilder</label></div>
+  <label>Export der Bilder — wie?</label>
+  <input id="f_bildexport" placeholder="SD-Karte / USB / App …">
+
+  <h3>Parzellen, Herkünfte und Maße</h3>
+  <div class="info gut">
+    <b>Festlegung dieser Arbeit:</b> <b>Parzelle A ist die südliche</b>, B die nördliche.
+    Der Buchstabe ist nur ein Etikett — maßgeblich sind <b>Lage</b> und <b>Herkunft</b>.
+    Solange beide erfasst sind, kostet ein späterer Tausch eine Minute.
+  </div>
+
+  <div class="karte">
+    <div class="kopf"><span>Parzelle A</span><span class="zust" id="zustA">Lage</span></div>
+    <div class="reihe">
+      <div><div class="feld" data-auswahl="pa_lage" data-ziel="parzA" data-liste="LAGEN" data-label="Lage im Gatter"></div></div>
+      <div><label>Registernummer</label><input id="pa_code" placeholder="z. B. 99999"></div>
+    </div>
+    <label>Herkunft <span class="hint">— wie auf dem Schild</span></label>
+    <input id="pa_herkunft" placeholder="z. B. Rumänische Herkunft">
+    <div class="reihe">
+      <div><label>Länge (m)</label><input type="number" step="0.1" id="pa_laenge" inputmode="decimal"></div>
+      <div><label>Breite außen (m)</label><input type="number" step="0.1" id="pa_breite_a" inputmode="decimal"></div>
+      <div><label>Breite innen (m)</label><input type="number" step="0.1" id="pa_breite_i" inputmode="decimal"></div>
+    </div>
+  </div>
+
+  <div class="karte">
+    <div class="kopf"><span>Parzelle B</span><span class="zust" id="zustB">Lage</span></div>
+    <div class="reihe">
+      <div><div class="feld" data-auswahl="pb_lage" data-ziel="parzB" data-liste="LAGEN" data-label="Lage im Gatter"></div></div>
+      <div><label>Registernummer</label><input id="pb_code" placeholder="z. B. 82710"></div>
+    </div>
+    <label>Herkunft <span class="hint">— wie auf dem Schild</span></label>
+    <input id="pb_herkunft" placeholder="z. B. Heimische Herkunft">
+    <div class="reihe">
+      <div><label>Länge (m)</label><input type="number" step="0.1" id="pb_laenge" inputmode="decimal"></div>
+      <div><label>Breite außen (m)</label><input type="number" step="0.1" id="pb_breite_a" inputmode="decimal"></div>
+      <div><label>Breite innen (m)</label><input type="number" step="0.1" id="pb_breite_i" inputmode="decimal"></div>
+    </div>
+  </div>
+
+  <div class="reihe">
+    <div><label>Trennstreifen (m)</label><input type="number" step="0.1" id="f_trenn" inputmode="decimal"></div>
+    <div><label>&nbsp;</label><button class="knopf zweit" style="margin:0" onclick="breitenSchaetzen()">Breite innen schätzen</button></div>
+  </div>
+  <div class="info" style="font-size:13px">
+    „Breite innen" ist die Breite an der Seite des Trennstreifens. Wurde sie nicht gemessen,
+    schätzt der Knopf sie unter der Annahme, dass die Breite <b>gleichmäßig</b> von B nach A
+    abnimmt. Die geschätzten Werte sind <b>keine Messung</b> und werden im Export so gekennzeichnet.
+  </div>
+  <div id="geometrieAnzeige"></div>
+
+  <div class="feld" data-auswahl="f_vermarkung" data-ziel="kopf" data-liste="VERMARKUNG"
+       data-label="Vermarkung der Punkte von 2021/22"></div>
+  <div class="reihe">
+    <div><label>Anzahl Marken</label><input type="number" id="f_marken_anzahl" inputmode="numeric"></div>
+    <div><label>Art der Marke</label><input id="f_marken_art" placeholder="Pflock, Stange, Farbe"></div>
+  </div>
+
+  <h3>Standpunkt (GPS)</h3>
+  <div class="info">Grob genügt: für die Kachelauswahl und als Startwert der Einpassung. Die Genauigkeit kommt aus den Bäumen.</div>
+
+  <label>Weg 1 — vom Gerät holen</label>
+  <button class="knopf zweit klein" style="margin-top:0" onclick="gpsHolen()">Position vom Handy holen</button>
+  <div id="gpsMeldung" class="hint" style="margin-top:7px"></div>
+
+  <label>Weg 2 — Koordinate einfügen oder abtippen
+    <span class="hint">aus einer Karten- oder GPS-App</span></label>
+  <div class="reihe">
+    <div style="flex:1"><input id="f_gps_einfuegen" placeholder="48.1769, 11.2554"></div>
+    <div style="flex:0 0 116px"><button class="knopf zweit" style="margin:0" onclick="koordUebernehmen()">übernehmen</button></div>
+  </div>
+  <div class="info" style="font-size:13px">
+    Erkannt werden Dezimalgrad (<i>48.1769, 11.2554</i> — auch mit Komma),
+    Grad und Minuten (<i>N 48° 10.61' E 11° 15.32'</i>), Grad-Minuten-Sekunden
+    und ein <b>UTM-32-Paar</b> (<i>667412 5337588</i>) — so, wie „Rechts- und Hochwert"
+    im Flächenbegleitbogen stehen. Vertauschte Reihenfolge wird erkannt und richtig gedreht.
+  </div>
+
+  <div class="reihe">
+    <div><label>Breite</label><input id="f_gps_lat" inputmode="decimal"></div>
+    <div><label>Länge</label><input id="f_gps_lon" inputmode="decimal"></div>
+    <div><label>± m</label><input id="f_gps_acc" inputmode="decimal"></div>
+  </div>
+  <div id="utmAnzeige" class="info gut" style="display:none; font-size:13px"></div>
+
+  <details class="klapp">
+    <summary>GPS ohne Netz — was wirklich hilft</summary>
+    <div class="klappinhalt">
+      <p><b>Das Satellitensignal braucht kein Mobilfunknetz.</b> Ohne Netz fehlt nur die Karte,
+      und das Handy kann die Bahndaten der Satelliten nicht mehr schnell nachladen — die erste
+      Position dauert dann unter dichtem Schirm gern <b>1–2 Minuten</b> statt Sekunden.</p>
+      <p><b>Was du dagegen tust:</b> eine Karten-App mit <b>heruntergeladener Offline-Karte</b>
+      (Organic Maps, OsmAnd) schon <b>am Waldrand öffnen</b> und laufen lassen. Bis du am
+      Mittelpunkt stehst, hat sie eine Position — die tippst du hier über Weg 2 ein.</p>
+      <p class="pruef"><b>Eine Koordinate je Fläche genügt.</b> Sie dient nur der Kachelauswahl.
+      Die Lage der Punkte kommt aus den Passpunktbäumen, nicht aus dem GPS.</p>
+    </div>
+  </details>
+
+  <h3>Bestandesbeschreibung</h3>
+  <div class="info" style="font-size:13px">
+    Gilt für die ganze Fläche, nicht je Punkt. Die Auswahllisten stammen aus der Projektdatei —
+    <b>jede lässt sich mit „eigene Angabe" überschreiben</b>, wenn nichts passt.
+  </div>
+
+  <div class="feld" data-auswahl="b_typ" data-ziel="bestand" data-liste="BESTANDESTYPEN"
+       data-label="Bestandestyp" data-hint="(Mischungsart)"></div>
+
+  <div class="reihe">
+    <div><div class="feld" data-auswahl="b_mischungsgrad" data-ziel="bestand" data-liste="MISCHUNGSGRAD" data-label="Mischungsgrad"></div></div>
+    <div><div class="feld" data-auswahl="b_mischungsform" data-ziel="bestand" data-liste="MISCHUNGSFORM" data-label="Mischungsform"></div></div>
+  </div>
+
+  <div class="reihe">
+    <div><div class="feld" data-auswahl="b_alter" data-ziel="bestand" data-liste="ALTER" data-label="Alter"></div></div>
+    <div><div class="feld" data-auswahl="b_verteilung" data-ziel="bestand" data-liste="VERTEILUNG" data-label="Verteilung der Schirmbäume"></div></div>
+  </div>
+
+  <div class="feld" data-auswahl="b_schlussgrad" data-ziel="bestand" data-liste="SCHLUSSGRAD"
+       data-label="Waldbaulicher Schlussgrad — überwiegend"></div>
+  <div class="feld" data-auswahl="b_schlussgrad2" data-ziel="bestand" data-liste="SCHLUSSGRAD"
+       data-label="… stellenweise auch" data-hint="(freilassen, wenn einheitlich)"></div>
+  <div id="schlussgradInfo" class="info" style="display:none; font-size:13px"></div>
+  <label>Schlussgrad in eigenen Worten <span class="hint">— was die Klassen nicht fassen</span></label>
+  <textarea id="b_schluss_text" placeholder="z. B. eher geschlossen mit einzelnen licht geschlossenen Stellen"></textarea>
+
+  <div class="feld" data-auswahl="b_aufnehmer" data-ziel="bestand" data-liste="PERSONEN"
+       data-label="Bestandesbeschreibung aufgenommen von"></div>
+
+  <label>Besonderheiten</label>
+  <textarea id="b_besonderheiten" placeholder="Auffälligkeiten im Bestand"></textarea>
+
+  <label>Bemerkungen zur Fläche</label>
+  <textarea id="f_bemerkung"></textarea>
+</section>
+<!-- ================= SKIZZE ================= -->
+<section id="skizze">
+  <h2>Flächenskizze und Punktnummern</h2>
+
+  <div class="info">
+    <b>Wozu das gut ist.</b> Für das Modell zählt nicht die <i>Nummer</i> eines Punktes, sondern
+    seine <b>Lage</b>. Eine Nummer ohne Lage ist wertlos — eine Lage lässt sich jeder späteren
+    Nummerierung zuordnen. Deshalb wird hier festgehalten, <b>wo</b> die Punkte 1 bis 5 liegen.
+  </div>
+
+  <div class="feld" data-auswahl="s_form" data-ziel="schema" data-liste="FORMEN"
+       data-label="Grundform der Skizze"></div>
+
+  <div class="reihe">
+    <div><label>Azimut der Längsachse A → B (°)</label>
+      <input type="number" step="1" id="s_achse" inputmode="numeric" placeholder="0 = A im Süden"></div>
+    <div><label>&nbsp;</label>
+      <button class="knopf zweit" style="margin:0" onclick="achseAusLage()">aus der Lage</button></div>
+  </div>
+  <div class="info" style="font-size:13px">
+    Das ist die Richtung, in die du blickst, wenn du <b>vom Mittelpunkt A zum Mittelpunkt B</b>
+    schaust. Liegt A im Süden und B im Norden, sind das <b>0°</b>.
+    Aus dieser einen Zahl leitet die App alle Himmelsrichtungen und alle Soll-Azimute ab.
+  </div>
+
+  <div class="feld" data-auswahl="s_eingang" data-ziel="schema" data-liste="EINGANG"
+       data-label="Eingang / Tor liegt im"></div>
+
+  <div class="skizzeRahmen" id="skizzeRahmen"></div>
+
+  <div class="info gut" style="font-size:13px">
+    <b>Antippen zum Nummerieren.</b> Tipp einen Kreis an und wähle die Nummer 1 bis 5.
+    Der Kreis in der Mitte ist der Parzellenmittelpunkt (der markierte Pfosten) — er ist selbst
+    ein Messpunkt. Die Buchstaben A und B lassen sich ebenfalls antippen und tauschen.
+  </div>
+
+  <label>Wie die Punkte im Feld gezählt wurden</label>
+  <textarea id="s_regel" placeholder="z. B.: Richtung Norden der rechte Punkt ist 1, dann im Uhrzeigersinn 2, 3, 4; Mitte ist 5"></textarea>
+
+  <h3>Daraus berechnet — zum Nachmessen im Feld</h3>
+  <div class="info" style="font-size:13px">
+    Sollwerte aus Maßen und Achsrichtung, nach der Projektregel
+    <i>Satellit = ¼ der Strecke vom Eckpunkt zum Mittelpunkt</i>.
+    <b>Weichen deine gemessenen Werte deutlich ab, stimmt etwas nicht</b> — das ist der Sinn der Tabelle.
+  </div>
+  <div class="tabellenrahmen"><div id="sollTabelle"></div></div>
+
+  <label>Aufgenommen / abgesteckt von</label>
+  <div class="feld" data-auswahl="s_aufnehmer" data-ziel="schema" data-liste="PERSONEN" data-label=""></div>
+
+  <label>Bemerkung zur Skizze</label>
+  <textarea id="s_bem" placeholder="Abweichungen, Besonderheiten, Zaunverlauf …"></textarea>
+</section>
+<!-- ================= LICHT ================= -->
+<section id="licht">
+  <h2>Lichtmessung</h2>
+  <div class="info">
+    Nur bei <b>gleichmäßig bedecktem Himmel</b>. Reißt die Decke auf: unterbrechen, Uhrzeit notieren.
+    Werte so eintragen, wie das Gerät sie anzeigt — nichts runden, nichts weglassen.
+  </div>
+  <div class="info warnung" style="font-size:13px">
+    <b>Nordausrichtung: mit einer Nordmarke arbeiten.</b> Stativ und Gerät sind aus Metall und verziehen
+    den Kompass. Deshalb zwei Schritte weggehen, Nordrichtung bestimmen, ein Ziel in dieser Richtung
+    merken — und das Gerät danach ausrichten. Anders als bei den Passpunktbäumen ist ein Fehler hier
+    <b>nicht</b> herausrechenbar: Er steckt direkt im Messwert.
+  </div>
+  <div class="info gut" style="font-size:13px">
+    <b>Die Zahlen dürfen später kommen.</b> Werden die sieben Schwellenwerte erst am Rechner
+    ausgewertet, bleiben ISF/DSF/TSF hier leer — trag dann nur <b>Uhrzeit, Höhe, Bild-Nummer und
+    Aufnehmer</b> ein. Das ist die Verbindung zwischen Bild und Punkt, und ohne sie ist das Bild
+    später nicht mehr zuzuordnen.
+  </div>
+  <div id="punktListe"></div>
+</section>
+
+<!-- ================= VEGETATION ================= -->
+<section id="vegetation">
+  <h2>Vegetation</h2>
+  <div class="info">
+    Erhebung um jeden Lichtmesspunkt. <b>Beide Verfahren werden erhoben</b> — die vereinfachte
+    Aufnahme, weil das Projekt sie 2021/22 benutzt hat und nur damit ein Vergleich möglich ist,
+    und Braun-Blanquet für die Artenzusammensetzung.
+  </div>
+
+  <h3>Bezugsradien</h3>
+  <div class="info" style="font-size:13px">
+    Der Projektstandard nennt <b>1 m</b> um den Messpunkt. Für die <b>Baumschichten</b> ist das
+    zu klein — ein Kronendach lässt sich auf 1 m Radius nicht schätzen. Deshalb je Schicht ein
+    eigener Radius, für die ganze Fläche einheitlich. <b>Was hier steht, gilt für alle Punkte
+    und gehört in die Methodik.</b>
+  </div>
+  <div id="radienFelder"></div>
+
+  <div id="vegListe"></div>
+</section>
+
+<!-- ================= TANNEN ================= -->
+<section id="tannen">
+  <h2>Weißtannen</h2>
+  <div class="info">
+    Wachstumsaufnahme je Pflanzplatz: Höhe, Vitalität, Schaden. <b>Erst nach der Vegetationsperiode</b>,
+    also ab Oktober. Reihe für Reihe durcharbeiten — die App springt nach jedem Eintrag weiter.
+  </div>
+
+  <div class="reihe">
+    <div><label>Parzelle</label>
+      <select id="w_parzelle" onchange="wtaAnsicht()">
+        <option value="A">A</option>
+        <option value="B">B</option>
+      </select></div>
+    <div><label>Reihe</label>
+      <select id="w_reihe" onchange="wtaAnsicht()"></select></div>
+  </div>
+  <div id="wtaHerkunft" class="info gut" style="font-size:13px"></div>
+
+  <div class="reihe">
+    <div><label>Reihen je Parzelle</label>
+      <input type="number" id="w_reihen_zahl" inputmode="numeric" min="1" max="40" value="10" onchange="wtaReihenSetzen()"></div>
+    <div><label>Plätze je Reihe</label>
+      <input type="number" id="w_plaetze_zahl" inputmode="numeric" min="1" max="60" value="32" onchange="wtaReihenSetzen()"></div>
+  </div>
+  <div class="info" style="font-size:13px">
+    Projektvorgabe: Verband 2,5 × 1,5 m. Die Stückzahl weicht je Fläche ab — auf <b>BY07</b> wurden
+    laut Abschlussbericht <b>248</b> rumänische und <b>244</b> heimische Pflanzen gesetzt.
+    Zahlen im Feld anpassen.
+  </div>
+
+  <div class="feld" data-auswahl="w_aufnehmer" data-ziel="wta" data-liste="PERSONEN"
+       data-label="Weißtannenaufnahme durch"></div>
+
+  <div id="wtaBereich"></div>
+</section>
+
+<!-- ================= OBERSTAND ================= -->
+<section id="oberstand">
+  <h2>Oberstand</h2>
+  <div class="info">
+    Vollaufnahme ab <b>BHD 7 cm</b>. Koordinaten nur, wenn vorhanden — sie sind im Projektblatt
+    ausdrücklich als „wenn möglich" gekennzeichnet.
+  </div>
+  <div class="feld" data-auswahl="o_aufnehmer" data-ziel="kopf" data-liste="PERSONEN"
+       data-label="Oberstandsaufnahme durch"></div>
+  <div id="obListe"></div>
+  <button class="knopf zweit" onclick="obAnlegen()">+ Baum aufnehmen</button>
+</section>
+<!-- ================= PASSPUNKTE ================= -->
+<section id="baeume">
+  <h2>Ko-Registrierung</h2>
+  <div class="info">
+    Vom <b>markierten Parzellenmittelpunkt</b> aus. Nur <b>herrschende</b> Bäume mit von oben freier
+    Krone, rundum verteilt. <b>Die Distanzen sind wichtiger als die Winkel</b> — bei 25 m entsprechen
+    5° schon gut 2 m Versatz.
+  </div>
+  <div class="info gut">
+    <b>5 Bäume von Mittelpunkt A, 5 von Mittelpunkt B</b> ist besser als 10 von einem Punkt: Der
+    Winkelfehler wächst mit der Entfernung, und lange Visuren quer über beide Parzellen sind im
+    Dickicht ohnehin verdeckt.
+    <b>Neu und wichtig: 1–2 Verbindungsbäume</b>, die du von <i>beiden</i> Mittelpunkten anmisst.
+    Sie verbinden die zwei Netze und prüfen sich gegenseitig — sonst hängt alles an der einen
+    Messung A→B.
+  </div>
+  <div class="info warnung">
+    <b>Der Stahlzaun stört jede magnetische Messung.</b> Ein Fehler, der alle Bäume gleich betrifft,
+    wird bei der Einpassung herausgerechnet; schädlich ist nur die Streuung von Baum zu Baum.
+    Deshalb: alle Azimute mit demselben Gerät, in einem Durchgang, ohne zwischendurch neu zu kalibrieren.
+  </div>
+
+  <details class="klapp">
+    <summary>Handykompass — wohin zeigen, was ablesen</summary>
+    <div class="klappinhalt">
+      <p><b>Was die App anzeigt.</b> Handy <b>flach und waagerecht</b> halten: Die große Gradzahl ist die
+      Richtung, in die die <b>Oberkante</b> zeigt (dort, wo Kamera und Hörmuschel sitzen). Diese Zahl ist
+      der Azimut. Nord 0° · Ost 90° · Süd 180° · West 270°.</p>
+
+      <p class="pruef"><b>Einmal prüfen, nicht raten:</b> Drehen bis <b>0</b> dasteht, dann dich selbst eine
+      Vierteldrehung <b>nach rechts</b> drehen — die Zahl muss auf <b>90</b> gehen. Läuft sie stattdessen
+      auf 270, liest du die Nordnadel statt der Blickrichtung ab. Dann andere App nehmen.</p>
+
+      <table>
+        <tr><th>Messung</th><th>Wo du stehst</th><th>Wohin die Oberkante zeigt</th></tr>
+        <tr><td><b>Nordausrichtung<br>des Geräts</b></td><td>~1 m neben dem Stativ</td>
+            <td>du drehst dich bis <b>0°</b> — und merkst dir ein <b>weit entferntes</b> Ziel in dieser Richtung</td></tr>
+        <tr><td><b>Passpunktbaum</b></td><td>auf der Marke des Mittelpunkts</td>
+            <td><b>Stammmitte in Brusthöhe</b> — nicht auf die Krone</td></tr>
+        <tr><td><b>Klammer A→B</b></td><td>auf Marke A</td><td>auf Marke B (Stab oder Person)</td></tr>
+        <tr><td><b>Gatterseite</b></td><td>2–3 m <i>innerhalb</i> des Zauns</td>
+            <td>parallel am Zaun entlang zur nächsten Ecke</td></tr>
+        <tr><td><b>Exposition</b></td><td>am Mittelpunkt</td>
+            <td><b>hangabwärts</b>, in die Falllinie</td></tr>
+      </table>
+
+      <p><b>1 · Nordbezug — heute Abend einstellen, nicht im Wald.</b> Der Kompass soll <b>geografisch
+      Nord</b> anzeigen („wahres Nord"), nicht magnetisch: In Südbayern liegen dazwischen rund 4°
+      <span class="hint">(Größenordnung)</span>, und das Modell rechnet mit geografisch Nord.
+      iPhone: Einstellungen → Kompass → <i>Wahren Norden verwenden</i>. Kann die App das nicht, ist
+      magnetisch messen in Ordnung — <b>aber unten eintragen</b>, dann wird es herausgerechnet.
+      <b>Magnethülle abnehmen</b> (MagSafe, Kartenhalter): stört stärker als der Zaun.</p>
+
+      <p><b>2 · Nordmarke statt Messung am Gerät.</b> Stativ und Solariskop verziehen den Kompass genau
+      dort, wo du ihn brauchst. Also einen Meter weggehen, auf 0° drehen, <b>ein Ziel in 30–50 m
+      merken</b> (heller Stamm, Zwiesel, auffälliger Ast) — dann das Gerät darauf ausrichten.
+      <b>Weit muss es sein:</b> ein Ziel in 5 m bringt bei einem Meter Versatz schon 11° Fehler,
+      eines in 50 m nur 1°. Die Marke gilt für alle Punkte der Parzelle weiter.</p>
+
+      <p><b>3 · Klemmbrett als Peillinie, dreimal ablesen.</b> Handy flach aufs Brett — <b>nicht auf die
+      Metallklemme</b>, ans andere Ende. Mit dem Brett drehen, bis seine Kante auf das Ziel zeigt.
+      <b>Ganze Grad</b> ablesen, keine Nachkommastellen. Dann wegdrehen, neu einpendeln lassen,
+      insgesamt dreimal — und den Mittelwert eintragen. Ein Handy streut im Freien etwa <b>5–15°</b>
+      <span class="hint">(Größenordnung, ungeprüft)</span>; bei 25 m sind 5° gut zwei Meter Querversatz.
+      <b>Distanz zur selben Stelle messen</b> wie der Winkel.</p>
+
+      <p><b>Nicht:</b> senkrecht halten · am Zaun oder am Stativ messen · zwischendurch neu kalibrieren
+      (nur einmal die liegende Acht am Tagesanfang) · den Standpunkt wechseln, ohne es einzutragen.</p>
+
+      <p class="pruef"><b>Der Gegenkurs-Test.</b> Wer mit Transponder oder Bandmaß ohnehin am Baum steht,
+      dreht sich dort um und peilt <b>zurück</b> auf den Mittelpunkt. Die Differenz muss <b>180°</b> sein.
+      <i>Beispiel: du 47°, er 229° → 182°, in Ordnung.</i> Käme 205° heraus, steht einer von euch in einer
+      Störung — diesen Baum weglassen. Zwei bis drei Bäume genügen; Ergebnis unten eintragen.</p>
+
+      <p class="hint">Der Handykompass ist hier brauchbar, keine Notlösung: Die Genauigkeit der Einpassung
+      kommt aus den <b>Distanzen</b> und aus der <b>Zahl</b> der Bäume. Lieber einen Baum mehr aufnehmen,
+      als lange auf eine ruhige Nadel zu warten.</p>
+    </div>
+  </details>
+
+  <div class="reihe">
+    <div><div class="feld" data-auswahl="k_geraet" data-ziel="koreg" data-liste="AZIMUTGERAET" data-label="Azimutgerät"></div></div>
+    <div><div class="feld" data-auswahl="k_distgeraet" data-ziel="koreg" data-liste="DISTANZGERAET" data-label="Distanzgerät"></div></div>
+  </div>
+  <label>Nordbezug <span class="hint">— wichtig, kein Freitext: nur diese drei Fälle sind später rechenbar</span></label>
+  <select id="k_nordbezug">
+    <option value="">— wählen —</option>
+    <option>geografisch (wahres Nord)</option>
+    <option>magnetisch</option>
+    <option>unbekannt</option>
+  </select>
+  <div id="k_geraetHinweis"></div>
+
+  <div class="haken"><input type="checkbox" id="k_vertex_kal"><label for="k_vertex_kal">Vertex vor der ersten Messung kalibriert</label></div>
+
+  <div class="reihe">
+    <div><label>Azimut A→B (°)</label><input type="number" step="1" id="k_azimut_ab" inputmode="numeric"></div>
+    <div><label>Distanz A→B (m)</label><input type="number" step="0.1" id="k_dist_ab" inputmode="decimal"></div>
+  </div>
+  <label>Gegenkurs-Test <span class="hint">— 2–3 Bäume, Hin- und Rückrichtung</span></label>
+  <input id="k_gegenkurs" placeholder="z. B. Baum 3: 47° / 229° = 182° · Baum 7: 112° / 289° = 177°">
+
+  <div class="feld" data-auswahl="k_aufnehmer" data-ziel="koreg" data-liste="PERSONEN"
+       data-label="Ko-Registrierung aufgenommen von"></div>
+
+  <div id="klammerPruefung"></div>
+
+  <h3>Passpunktbäume</h3>
+  <div id="baumListe"></div>
+  <button class="knopf zweit" onclick="baumAnlegen()">+ Baum hinzufügen</button>
+</section>
+
+<!-- ================= GELÄNDE ================= -->
+<section id="gelaende">
+  <h2>Gelände</h2>
+  <div class="info">Gegenprobe zum digitalen Geländemodell, das laut Betreuervorgabe zwingend in den Rechenkern muss.</div>
+  <div class="reihe">
+    <div><label>Hangneigung (°)</label><input type="number" step="0.5" id="g_neigung" inputmode="decimal"></div>
+    <div><div class="feld" data-auswahl="g_exposition" data-ziel="gelaende" data-liste="EXPOSITION" data-label="Exposition"></div></div>
+  </div>
+  <div class="feld" data-auswahl="g_relief" data-ziel="gelaende" data-liste="RELIEF"
+       data-label="Relief im Umkreis ~100 m"></div>
+  <label>Sichtbare Horizontüberhöhung <span class="hint">Richtung und grobe Höhe</span></label>
+  <input id="g_horizont" placeholder="z. B. Hang im S, ca. 15°">
+
+  <h3>Messbedingungen über den Tag</h3>
+  <table>
+    <tr><th>Zeit</th><th>Himmel</th><th>Messung zulässig</th></tr>
+    <tr><td>Beginn</td><td><select id="g_himmel1" class="himmelSel"></select></td><td><input type="checkbox" id="g_ok1"></td></tr>
+    <tr><td>Mitte</td><td><select id="g_himmel2" class="himmelSel"></select></td><td><input type="checkbox" id="g_ok2"></td></tr>
+    <tr><td>Ende</td><td><select id="g_himmel3" class="himmelSel"></select></td><td><input type="checkbox" id="g_ok3"></td></tr>
+  </table>
+
+  <label>Abfahrt</label>
+  <input type="time" id="g_abfahrt">
+  <div id="dauerAnzeige"></div>
+
+  <h3>Abschlusskontrolle</h3>
+  <div id="kontrolle"></div>
+</section>
+
+<!-- ================= DATEN ================= -->
+<section id="daten">
+  <h2>Daten sichern</h2>
+
+  <div id="offlineZustand"></div>
+
+  <div class="info gut">
+    <b>Gespeichert wird automatisch.</b> Jede Eingabe landet im Speicher deines Geräts —
+    du musst nichts drücken, und auch das Schließen der App oder ein leerer Akku schadet nicht.
+    Oben im Kopf steht, wann zuletzt gespeichert wurde.
+  </div>
+  <div class="info achtung">
+    <b>Trotzdem vor der Heimfahrt sichern.</b> Der Gerätespeicher gehört zu <i>diesem</i> Gerät:
+    Ein anderes Handy, ein gelöschter Browserspeicher oder ein Gerätewechsel — und die Aufnahme ist weg.
+    <b>Kopieren und in eine Notiz oder Mail an dich selbst einfügen</b> kostet zehn Sekunden und
+    überlebt alles.
+  </div>
+  <div id="sicherungHinweis" class="info warnung" style="display:none"></div>
+
+  <button class="knopf" onclick="inZwischenablage('json')">Sicherung kopieren (JSON)</button>
+  <button class="knopf zweit" onclick="inZwischenablage('text')">Lesbaren Bericht kopieren</button>
+  <div id="exportMeldung" class="hint" style="margin-top:6px"></div>
+  <div id="dateiKnoepfe"></div>
+
+  <h3>Zum Kopieren — Projektformat Lichtmessung</h3>
+  <div class="info" style="font-size:13px">
+    Spaltenfolge wie im Blatt <i>Lichtmessungen_ParzelleN</i> der Projektdatei:
+    TIME · DSF · ISF · TSF · LAI · ELAD. Zeilen einzeln einfügen.
+  </div>
+  <textarea class="exportfeld" id="exportProjekt" readonly></textarea>
+
+  <h3>Vollständiger Datensatz</h3>
+  <textarea class="exportfeld" id="exportAlles" readonly></textarea>
+  <datalist id="pflanzenliste"></datalist>
+  <datalist id="personenliste"></datalist>
+
+  <h3>Wiederherstellen</h3>
+  <div class="info" style="font-size:13px">
+    Sicherung von einem anderen Gerät übernehmen: den kopierten JSON-Text hier einfügen.
+    Sicherungen der <b>alten Fassung</b> werden erkannt und umgesetzt.
+    <b>Überschreibt alles, was gerade erfasst ist.</b>
+  </div>
+  <textarea id="importText" class="exportfeld" style="min-height:90px" placeholder="JSON-Sicherung hier einfügen"></textarea>
+  <button class="knopf zweit" onclick="textLaden()">Sicherung übernehmen</button>
+  <div id="dateiImport"></div>
+
+  <h3>App und Speicher</h3>
+  <div id="technik" class="info" style="font-size:13px"></div>
+  <button class="knopf zweit" onclick="tempoMessen()">Tempo messen</button>
+  <button class="knopf zweit" onclick="aktualisierungSuchen()">Nach Aktualisierung suchen</button>
+  <div id="tempoMeldung" class="hint" style="margin-top:6px"></div>
+
+  <button class="knopf warn" onclick="allesLoeschen()">Alle Daten löschen</button>
+
+  <div class="fuss" id="fusszeile"></div>
+</section>
+
+</main>
+<div class="balken" id="balken"></div>
+<script>
+"use strict";
+/* =====================================================================
+   Feldbuch Weißtanne 2.0 — Fassung 2 (08.09.2026)
+   Gebaut nach dem ersten Feldtag auf BY07 (07.09.2026).
+   Neu gegenüber Fassung 1:
+     · läuft offline als installierbare App (Service Worker)
+     · jede Auswahlliste hat eine Zeile "eigene Angabe"
+     · Herkunft und Maße werden je Parzelle erfasst, nicht mehr fest verdrahtet
+     · antippbare Flächenskizze mit abgeleiteten Soll-Azimuten
+     · Vegetation in beiden Verfahren gleichzeitig
+     · "aufgenommen von" in jedem Abschnitt und bei jedem Punkt
+     · Speichern entkoppelt — der Export wird nicht mehr bei jedem Tastendruck gebaut
+   ===================================================================== */
+
+const FASSUNG = "2.0.0";
+const STAND   = "08.09.2026";
+
+/* ---------- Auswahllisten ----------
+   Alles hier ist Vorschlag, nicht Vorschrift: jede Liste bekommt beim Aufbau
+   automatisch die Zeile "eigene Angabe …" mit Freitextfeld. Ausgenommen sind
+   drei Stellen, an denen Freitext die Auswertung zerstören würde und die
+   deshalb von Hand gebaut sind: Nordbezug, Artmächtigkeit, Soziabilität. */
+
+const FLAECHEN = ["BY01","BY02 · Bischberg","BY03","BY04","BY05","BY06",
+                  "BY07 · Revier Lech (AELF Fürstenfeldbruck)",
+                  "BW01","BW02","BW03","BW04","BW05"];
+
+const LAGEN = ["Süd","Nord","West","Ost","Südwest","Nordost","Südost","Nordwest"];
+
+const FORMEN = ["nach den gemessenen Maßen","Quadrat (ca. 50 × 50 m)","Rechteck lang (ca. 25 × 100 m)"];
+
+const EINGANG = ["Süden","Südosten","Osten","Nordosten","Norden","Nordwesten","Westen","Südwesten",
+                 "an einer Ecke","kein Tor gefunden"];
+
+const VERMARKUNG = ["alle 10 Punkte gefunden","nur Parzellenmittelpunkte gefunden",
+                    "einzelne Marken gefunden","nichts gefunden — neu abgesteckt"];
+
+const MISCHUNGSGRAD  = ["20-30%","30-40%","40-50%"];
+const MISCHUNGSFORM  = ["einzelstammweise","truppweise","gruppenweise","horstweise","flächenweise","reihenweise"];
+const ALTER          = ["0-20 Jahre","21-40 Jahre","41-60 Jahre","61-80 Jahre","81-100 Jahre",">100 Jahre"];
+const VERTEILUNG     = ["gleichverteilt","geklumpt","zufällig"];
+const SCHLUSSGRAD    = ["gedrängt","geschlossen","locker","licht","räumig, räumdig"];
+const EXPOSITION     = ["N","NO","O","SO","S","SW","W","NW","eben"];
+const RELIEF         = ["eben","Kuppe","Oberhang","Mittelhang","Unterhang","Mulde/Tal"];
+const AZIMUTGERAET   = ["Handykompass","Bussole","Kompass am Vertex"];
+const DISTANZGERAET  = ["Vertex","Bandmaß","Laser-Entfernungsmesser","Schrittmaß"];
+
+const SCHLUSSGRAD_ERKLAERUNG = {
+  "gedrängt":        "Die Kronen greifen tief ineinander.",
+  "geschlossen":     "Die Kronen berühren sich mit den Zweigspitzen, der Kronenschluss ist erreicht.",
+  "locker":          "Der Kronenabstand ist kleiner als eine Kronenbreite.",
+  "licht":           "Der Kronenabstand entspricht einer Kronenbreite.",
+  "räumig, räumdig": "Der Kronenabstand überschreitet eine Kronenbreite."
+};
+
+const BESTANDESTYPEN = [
+  "BU-R Buchen-Reinbestand","BU-EI Buchen-Eichen","BU-ELB Buchen-Edellaubholz",
+  "BU-DGL Buchen-Douglasien","BU-FI Buchen-Fichten","BU-KI Buchen-Kiefern",
+  "BU-LA Buchen-Lärchen","BU-TA Buchen-Tannen","BU-MW Buchen-Mischbestand",
+  "EI-R Eichen-Reinbestand","EI-BI Eichen-Birken","EI-BU Eichen-Buchen",
+  "EI-ELB Eichen-Edellaubholz","EI-KI Eichen-Kiefern","EI-LI-HBU Eichen-Linden-Hainbuchen",
+  "EI-MW Eichen-Mischbestand","ELB Edellaubholz","ELB-R Edellaubholz-Reinbestand",
+  "ER-R Erlen-Reinbestand","ER-ELB Erlen-Edellaubholz",
+  "WLB-R Weichlaubholz-Reinbestand","WLB-LB Weichlaubholz-Laubholz","WLB-NB Weichlaubholz-Nadelholz",
+  "FI-R Fichten-Reinbestand","FI-BU Fichten-Buchen","FI-ELB Fichten-Edellaubholz",
+  "FI-ER Fichten-Erlen","FI-DGL Fichten-Douglasien","FI-KI Fichten-Kiefern",
+  "FI-TA Fichten-Tannen","FI-LA Fichten-Lärchen","FI-WLB Fichten-Weichlaubholz",
+  "FI-MW Fichten-Mischbestand","KI-R Kiefern-Reinbestand","KI-BU Kiefern-Buchen",
+  "KI-EI Kiefern-Eichen","KI-FI Kiefern-Fichten","LA Lärche","DGL Douglasie","TA Tanne"
+];
+
+/* Herkünfte je Fläche — wörtlich aus Tabelle 1 des Abschlussberichts
+   (BMBF 2219NR278, S. 14) und der Ergebnistabelle 2023. Die rumänische Herkunft ist
+   auf allen Flächen dieselbe: St. George, PS-BR-CV82,B122-C320, Code 99999.
+   BY07 stammt aus der Ergebnistabelle (dort 82710), nicht aus Tabelle 1. */
+const HERKUENFTE = {
+  "BY01":"091 82710 1042 (Übriges Süddeutschland)",
+  "BY02 · Bischberg":"091 82710 1042 (Übriges Süddeutschland)",
+  "BY03":"091 82710 1042",
+  "BY04":"091 82710 1042 (Übriges Süddeutschland)",
+  "BY05":"083 82710 0172",
+  "BY06":"083 82710 0172 (Übriges Süddeutschland)",
+  "BY07 · Revier Lech (AELF Fürstenfeldbruck)":"82710 (Übriges Süddeutschland)",
+  "BW01":"081 82709 1102 (Schwäbisch-Fränkischer Wald)",
+  "BW02":"091 82710 1042 (Übriges Süddeutschland)",
+  "BW03":"083 82708 1752 (Schwarzwald und Albtrauf)",
+  "BW04":"083 82708 1752 (Schwarzwald und Albtrauf)",
+  "BW05":"091 82710 1042 (Übriges Süddeutschland)"
+};
+const RUMAENISCH = "99999 (PS-BR-CV82,B122-C320, St. George)";
+
+/* ---------- Punktdefinition: 10 Messpunkte + zwei Wiederholungen ---------- */
+const PUNKTE = [
+  {id:"W1",   name:"W-1 Wiederholung Beginn", info:"Erste Messung des Tages am Standpunkt"},
+  {id:"A-M",  name:"A-M Mittelpunkt",   info:"Parzelle A — Schnittpunkt der Diagonalen"},
+  {id:"A-S1", name:"A-S1 Satellit",     info:"¼ der Strecke von der Ecke zum Mittelpunkt"},
+  {id:"A-S2", name:"A-S2 Satellit",     info:""},
+  {id:"A-S3", name:"A-S3 Satellit",     info:""},
+  {id:"A-S4", name:"A-S4 Satellit",     info:""},
+  {id:"B-M",  name:"B-M Mittelpunkt",   info:"Parzelle B — Schnittpunkt der Diagonalen"},
+  {id:"B-S1", name:"B-S1 Satellit",     info:""},
+  {id:"B-S2", name:"B-S2 Satellit",     info:""},
+  {id:"B-S3", name:"B-S3 Satellit",     info:""},
+  {id:"B-S4", name:"B-S4 Satellit",     info:""},
+  {id:"W2",   name:"W-2 Wiederholung Ende", info:"Derselbe Punkt wie W-1, am Ende des Tages"}
+];
+const VEG_PUNKTE = PUNKTE.filter(p => p.id !== "W1" && p.id !== "W2");
+
+const HIMMEL = ["gleichmäßig bedeckt","wechselnd bewölkt","Nebel","aufklarend","sonnig"];
+
+const BAUMARTEN = [
+  ["311","Gem. Fichte"],["321","Weißtanne"],["330","Douglasie"],["111","Gemeine Kiefer"],
+  ["211","Europäische Lärche"],["511","Rotbuche"],["411","Stieleiche"],["412","Traubeneiche"],
+  ["413","Roteiche"],["611","Hainbuche"],["621","Gemeine Esche"],["631","Bergahorn"],
+  ["632","Spitzahorn"],["633","Feldahorn"],["711","Gemeine Birke"],["721","Schwarzerle"],
+  ["751","Eberesche"],["781","Winterlinde"],["782","Sommerlinde"],["661","Vogelkirsche"],
+  ["651","Robinie"],["741","Salweide"],["322","Küstentanne"]
+];
+
+/* ---------- Vegetation ---------- */
+const SCHICHTEN = [
+  {k:"B1",  n:"Baumschicht 1",  radius:10},
+  {k:"B2",  n:"Baumschicht 2",  radius:10},
+  {k:"Str", n:"Strauchschicht", radius:5},
+  {k:"Kr",  n:"Krautschicht",   radius:1},
+  {k:"Mo",  n:"Moosschicht",    radius:1}
+];
+const DECKUNG_EINFACH = ["<25%","25-50%","50-75%",">75%"];
+const HOEHE_EINFACH = ["0-10 cm","10-20 cm","20-30 cm","30-40 cm","40-50 cm",
+                       "50-60 cm","60-70 cm","70-80 cm","80-90 cm","90-100 cm",
+                       "1-2 m","2-5 m","5-10 m","10-20 m","20-30 m",">30 m"];
+const KRONENSCHLUSS = ["1","0.9","0.8","0.7","0.6","0.5","0.4","<=0,3"];
+
+const ARTMAECHTIGKEIT = [
+  ["",   ""],
+  ["r",  "einzeln — deutlich unter 1 %"],
+  ["+",  "wenige (2–5) — bis 1 %"],
+  ["1",  "viele (bis 50) — bis 5 %"],
+  ["2m", "sehr viele (über 50) — bis 5 %"],
+  ["2a", "sehr viele — 5 bis 15 %"],
+  ["2b", "sehr viele — 16 bis 25 %"],
+  ["3",  "26 bis 50 %"],
+  ["4",  "51 bis 75 %"],
+  ["5",  "76 bis 100 %"]
+];
+const SOZIABILITAET = [
+  ["",  ""],
+  ["1", "einzeln wachsend"],
+  ["2", "kleine Gruppen, horstweise"],
+  ["3", "kleine Flecken oder Polster"],
+  ["4", "Kolonien bis Teppiche"],
+  ["5", "große Herden"]
+];
+
+const PFLANZEN = [
+  "Rotbuche","Stieleiche","Traubeneiche","Hainbuche","Gemeine Esche","Bergahorn","Spitzahorn",
+  "Feldahorn","Winterlinde","Sommerlinde","Gemeine Birke","Schwarzerle","Eberesche","Vogelkirsche",
+  "Salweide","Gemeine Fichte","Weißtanne","Douglasie","Gemeine Kiefer","Europäische Lärche",
+  "Roteiche","Robinie","Faulbaum","Hasel","Schwarzer Holunder","Roter Hartriegel","Weißdorn",
+  "Schlehe","Himbeere","Brombeere","Heidelbeere","Preiselbeere","Drahtschmiele","Wolliges Reitgras",
+  "Land-Reitgras","Rasen-Schmiele","Flattergras","Waldzwenke","Waldsegge","Hain-Rispengras",
+  "Adlerfarn","Wurmfarn","Dorniger Wurmfarn","Buchenfarn","Frauenfarn","Sauerklee","Waldmeister",
+  "Goldnessel","Bingelkraut","Buschwindröschen","Wald-Veilchen","Efeu","Springkraut",
+  "Kleinblütiges Springkraut","Brennnessel","Giersch","Ackerhohlzahn","Johanniskraut",
+  "Weidenröschen","Fuchssches Greiskraut","Widertonmoos","Schönes Widertonmoos",
+  "Schönes Frauenhaar","Etagenmoos","Schlafmoos","Gabelzahnmoos"
+];
+
+const VITALITAET = [
+  ["",  "—"], ["0","tot"], ["1","vital / lebend"], ["2","Baum"], ["3","Stubben"],
+  ["4","Reisig"], ["5","Fels / Stein"], ["6","Erdloch / Graben"],
+  ["7","Naturverjüngung"], ["8","sonstiges"]
+];
+const SCHAEDEN = [
+  ["",  "—"], ["0","ohne Schäden"], ["1","Verbiss"], ["2","nadelfressende Insekten"],
+  ["3","rindenfressende Insekten"], ["4","Mäuse"], ["5","Frost"], ["6","Trockenheit"],
+  ["7","Pilze"], ["8","Nadelvergilbung"], ["9","unspezifischer Schaden"]
+];
+
+/* Namensregister der Auswahllisten — für die Felder mit data-liste */
+const LISTEN = {
+  FLAECHEN, LAGEN, FORMEN, EINGANG, VERMARKUNG, MISCHUNGSGRAD, MISCHUNGSFORM,
+  ALTER, VERTEILUNG, SCHLUSSGRAD, EXPOSITION, RELIEF, AZIMUTGERAET, DISTANZGERAET,
+  BESTANDESTYPEN, HIMMEL, DECKUNG_EINFACH, HOEHE_EINFACH, KRONENSCHLUSS
+};
+
+/* =====================================================================
+   Datenhaltung
+   ===================================================================== */
+const SCHLUESSEL = "wta_feld_v2";
+const SCHLUESSEL_ALT = "wta_feld_v1";
+
+function leererDatensatz(){
+  return {
+    fassung: 2,
+    kopf:{}, bestand:{}, gelaende:{}, koreg:{}, schema:{nummern:{A:{},B:{}}},
+    parzellen:{ A:{}, B:{} },
+    punkte:{}, baeume:[], veg:{punkte:{}, radien:{}}, wta:{}, oberstand:[],
+    geaendert:null
+  };
+}
+let D = leererDatensatz();
+let SPEICHER_OK = null;      // wird beim Start geprüft
+let SEIT_SICHERUNG = 0;      // Änderungen seit der letzten Sicherung
+let LETZTE_SPEICHERDAUER = null;
+
+/* --- Zielobjekte der Formularfelder --- */
+function zielObjekt(name){
+  switch(name){
+    case "kopf":     return D.kopf;
+    case "bestand":  return D.bestand;
+    case "gelaende": return D.gelaende;
+    case "koreg":    return D.koreg;
+    case "schema":   return D.schema;
+    case "wta":      return D.wta;
+    case "parzA":    return D.parzellen.A;
+    case "parzB":    return D.parzellen.B;
+    default:         return D.kopf;
+  }
+}
+
+function speicherPruefen(){
+  try{
+    localStorage.setItem("_wta_test","1");
+    localStorage.removeItem("_wta_test");
+    SPEICHER_OK = true;
+  }catch(e){ SPEICHER_OK = false; }
+  return SPEICHER_OK;
+}
+
+/* ---------- Speichern, entkoppelt ----------
+   Fassung 1 schrieb bei JEDER Eingabe den ganzen Datensatz weg UND baute beide
+   Exporttexte neu auf. Das wurde mit wachsender Aufnahme spürbar langsamer — genau
+   der Effekt, der am Feldtag aufgefallen ist. Jetzt:
+     · der Schreibvorgang wird gebündelt (250 ms nach der letzten Eingabe),
+     · der Export wird nur noch gebaut, wenn der Abschnitt "Daten" offen ist. */
+let SPEICHER_TIMER = null;
+
+function speichern(sofort){
+  D.geaendert = new Date().toISOString();
+  SEIT_SICHERUNG++;
+  kopfAktualisieren();
+  erinnerungPruefen();
+  if(document.getElementById("daten").classList.contains("aktiv")) exporteAufbauen();
+  if(!SPEICHER_OK){ statusZeigen("KEIN SPEICHER — regelmäßig sichern!", true); return; }
+  if(SPEICHER_TIMER) clearTimeout(SPEICHER_TIMER);
+  if(sofort){ wirklichSpeichern(); return; }
+  SPEICHER_TIMER = setTimeout(wirklichSpeichern, 250);
+}
+
+function wirklichSpeichern(){
+  SPEICHER_TIMER = null;
+  const t0 = performance.now();
+  try{
+    localStorage.setItem(SCHLUESSEL, JSON.stringify(D));
+    LETZTE_SPEICHERDAUER = performance.now() - t0;
+    statusZeigen("gespeichert " + new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})
+      + " · " + LETZTE_SPEICHERDAUER.toFixed(0) + " ms");
+  }catch(e){
+    SPEICHER_OK = false;
+    speicherWarnungZeigen();
+    statusZeigen("Speichern fehlgeschlagen: " + (e && e.name ? e.name : "unbekannt"), true);
+  }
+}
+
+function laden(){
+  if(!SPEICHER_OK) return;
+  try{
+    const roh = localStorage.getItem(SCHLUESSEL);
+    if(roh){ D = Object.assign(leererDatensatz(), JSON.parse(roh)); ergaenzen(); return; }
+    // Kein Datensatz der neuen Fassung — dann nach der alten sehen und umsetzen.
+    const alt = localStorage.getItem(SCHLUESSEL_ALT);
+    if(alt){ D = migrieren(JSON.parse(alt)); wirklichSpeichern(); }
+  }catch(e){ /* leerer Start */ }
+}
+
+/* Fehlende Zweige nachziehen — eine ältere Sicherung kennt sie noch nicht. */
+function ergaenzen(){
+  const leer = leererDatensatz();
+  Object.keys(leer).forEach(k => { if(D[k] === undefined || D[k] === null) D[k] = leer[k]; });
+  if(!D.parzellen) D.parzellen = {A:{},B:{}};
+  if(!D.parzellen.A) D.parzellen.A = {};
+  if(!D.parzellen.B) D.parzellen.B = {};
+  if(!D.schema) D.schema = {};
+  if(!D.schema.nummern) D.schema.nummern = {A:{},B:{}};
+  if(!D.schema.nummern.A) D.schema.nummern.A = {};
+  if(!D.schema.nummern.B) D.schema.nummern.B = {};
+  if(!D.veg) D.veg = {};
+  if(!D.veg.punkte) D.veg.punkte = {};
+  if(!D.veg.radien) D.veg.radien = {};
+  if(!D.wta) D.wta = {};
+  if(!Array.isArray(D.baeume)) D.baeume = [];
+  if(!Array.isArray(D.oberstand)) D.oberstand = [];
+}
+
+/* ---------- Übernahme einer Sicherung der Fassung 1 ----------
+   Der Aufbau ist bis auf drei Punkte gleich:
+     · Herkunft und Gattermaße lagen im Kopf, jetzt je Parzelle
+     · Vegetation hatte einen Modus (entweder/oder), jetzt beides nebeneinander
+     · der Freitext der Auswahlfelder ist neu
+   Nichts wird verworfen: Was sich nicht zuordnen lässt, landet in der Bemerkung. */
+function migrieren(alt){
+  const n = leererDatensatz();
+  if(!alt || typeof alt !== "object") return n;
+  n.kopf      = Object.assign({}, alt.kopf || {});
+  n.bestand   = Object.assign({}, alt.bestand || {});
+  n.gelaende  = Object.assign({}, alt.gelaende || {});
+  n.koreg     = Object.assign({}, alt.koreg || {});
+  n.punkte    = Object.assign({}, alt.punkte || {});
+  n.baeume    = Array.isArray(alt.baeume) ? alt.baeume.slice() : [];
+  n.oberstand = Array.isArray(alt.oberstand) ? alt.oberstand.slice() : [];
+  n.wta       = Object.assign({}, alt.wta || {});
+
+  n.parzellen.A.herkunft = (alt.kopf && alt.kopf.f_herkunft_a) || "";
+  n.parzellen.B.herkunft = (alt.kopf && alt.kopf.f_herkunft_b) || "";
+  if(alt.kopf && alt.kopf.f_laenge_m){ n.parzellen.A.pa_laenge = alt.kopf.f_laenge_m; }
+  if(alt.kopf && alt.kopf.f_breite_m){ n.parzellen.A.pa_breite_a = alt.kopf.f_breite_m; }
+  delete n.kopf.f_herkunft_a; delete n.kopf.f_herkunft_b;
+  delete n.kopf.f_laenge_m;   delete n.kopf.f_breite_m;
+
+  n.veg.punkte = {};
+  const altVeg = (alt.veg && alt.veg.punkte) || {};
+  Object.keys(altVeg).forEach(pid => {
+    const v = altVeg[pid] || {};
+    n.veg.punkte[pid] = {
+      einfach: v.einfach || {},
+      arten:   Array.isArray(v.arten) ? v.arten : [],
+      kronenschluss: v.kronenschluss || "",
+      bem: v.bem || "",
+      aufnehmer: ""
+    };
+  });
+  n.veg.radien = {};
+  n.fassung = 2;
+  n.geaendert = alt.geaendert || new Date().toISOString();
+  n.umgesetzt_aus_fassung1 = true;
+  return n;
+}
+
+/* =====================================================================
+   Anzeige, Navigation, Formularfelder
+   ===================================================================== */
+
+function statusZeigen(txt, fehler){
+  const el = document.getElementById("kopfStatus");
+  if(el) el.innerHTML = fehler ? "<b>"+txt+"</b>" : txt;
+}
+
+function balkenZeigen(txt){
+  const b = document.getElementById("balken");
+  if(!b) return;
+  if(!txt){ b.style.display = "none"; return; }
+  b.style.display = "block";
+  b.innerHTML = txt;
+}
+
+function speicherWarnungZeigen(){
+  if(document.getElementById("speicherWarnung")) return;
+  const div = document.createElement("div");
+  div.id = "speicherWarnung";
+  div.style.cssText = "position:sticky; top:0; z-index:60; background:var(--rot); color:#fff;"
+    + "padding:10px 12px; font-size:14px; font-weight:600; line-height:1.35;";
+  div.innerHTML = "⚠ <b>Dieses Gerät speichert nichts.</b> Die Daten sind weg, sobald die App "
+    + "geschlossen wird. <u>Nach jedem Punkt unter &bdquo;Daten&ldquo; sichern</u> — "
+    + "kopieren und in eine Notiz einfügen, oder als Datei speichern.";
+  document.body.insertBefore(div, document.body.firstChild);
+}
+
+function erinnerungPruefen(){
+  const el = document.getElementById("sicherungHinweis");
+  if(!el) return;
+  const punkte = Object.keys(D.punkte).length;
+  if(SEIT_SICHERUNG >= 6 && punkte >= 3){
+    el.style.display = "block";
+    el.textContent = "Seit der letzten Sicherung wurden " + SEIT_SICHERUNG
+      + " Änderungen erfasst. Jetzt wäre ein guter Moment zum Sichern.";
+    if(SEIT_SICHERUNG >= 25) balkenZeigen("Seit " + SEIT_SICHERUNG + " Änderungen nicht gesichert — unter „Daten“ kopieren.");
+  }else{
+    el.style.display = "none";
+    balkenZeigen("");
+  }
+}
+
+function punktFertig(pid){
+  const d = D.punkte[pid];
+  if(!d) return false;
+  const hatWerte = d.isf !== "" && d.isf != null && d.dsf !== "" && d.dsf != null;
+  const hatBeleg = !!(d.zeit && d.bild);     // Werte kommen später aus der Bildauswertung
+  return hatWerte || hatBeleg;
+}
+
+function kopfAktualisieren(){
+  const f = wertVon("kopf","f_flaeche") || "keine Fläche gewählt";
+  const el = document.getElementById("kopfFlaeche");
+  if(el) el.textContent = "Feldbuch — " + f;
+  const fertig = PUNKTE.filter(p => punktFertig(p.id)).length;
+  const ep = document.getElementById("kopfPunkte");
+  if(ep) ep.textContent = fertig + "/" + PUNKTE.length;
+  const fo = document.getElementById("kopfFortschritt");
+  if(fo) fo.innerHTML = PUNKTE.map(p => {
+    const wdh = (p.id === "W1" || p.id === "W2");
+    const kl = punktFertig(p.id) ? (wdh ? "wdh" : "voll") : "";
+    return '<span class="'+kl+'" title="'+p.name+'"></span>';
+  }).join("");
+}
+
+/* ---------- Navigation ---------- */
+document.querySelectorAll("nav button").forEach(b => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach(x => x.classList.remove("aktiv"));
+    document.querySelectorAll("section").forEach(x => x.classList.remove("aktiv"));
+    b.classList.add("aktiv");
+    document.getElementById(b.dataset.ziel).classList.add("aktiv");
+    window.scrollTo(0,0);
+    if(b.dataset.ziel === "daten"){ exporteAufbauen(); technikZeigen(); }
+    if(b.dataset.ziel === "gelaende") kontrolleAufbauen();
+    if(b.dataset.ziel === "skizze") skizzeZeichnen();
+    if(b.dataset.ziel === "tannen") wtaHerkunftZeigen();
+  });
+});
+
+/* ---------- Einfache Felder an ein Zielobjekt binden ---------- */
+function feldBinden(id, zielName){
+  const el = document.getElementById(id);
+  if(!el) return;
+  const ziel = zielObjekt(zielName);
+  const istHaken = el.type === "checkbox";
+  if(istHaken){ el.checked = !!ziel[id]; }
+  else{ el.value = (ziel[id] !== undefined && ziel[id] !== null) ? ziel[id] : ""; }
+  el.addEventListener("change", () => {
+    zielObjekt(zielName)[id] = istHaken ? el.checked : el.value;
+    speichern();
+  });
+  if(!istHaken) el.addEventListener("input", () => { zielObjekt(zielName)[id] = el.value; });
+}
+
+/* ---------- Auswahl mit Freitext ----------
+   Der Feldtag hat gezeigt, dass die Klassen im Bestand nicht immer passen
+   ("eher geschlossen, teilweise licht geschlossen"). Deshalb hat jede Liste eine
+   Zeile "eigene Angabe …", die ein Textfeld aufklappt. Der ausgewählte Listenwert
+   und der Freitext werden getrennt gespeichert; im Export ist erkennbar, was
+   Klasse und was Freitext ist. */
+const FREI = "__frei__";
+
+function listeHolen(name){
+  if(name === "PERSONEN") return personenListe();
+  return LISTEN[name] || [];
+}
+
+function personenListe(){
+  const roh = (D.kopf.f_team || "");
+  return roh.split(/[,;\/]+|\bund\b/).map(s => s.trim()).filter(s => s.length > 1);
+}
+
+function auswahlfelderAufbauen(){
+  document.querySelectorAll("[data-auswahl]").forEach(el => {
+    const id       = el.dataset.auswahl;
+    const zielName = el.dataset.ziel;
+    const listName = el.dataset.liste;
+    const label    = el.dataset.label || "";
+    const hint     = el.dataset.hint || "";
+    const pflicht  = el.dataset.pflicht ? " pflicht" : "";
+    el.innerHTML =
+      (label ? '<label class="'+pflicht.trim()+'">'+label+(hint?' <span class="hint">'+hint+'</span>':'')+'</label>' : '')
+      + '<select id="'+id+'" data-liste="'+listName+'"></select>'
+      + '<input class="freitext" id="'+id+'_frei" placeholder="eigene Angabe — frei formulieren" style="display:none">';
+    optionenFuellen(id, listName);
+    const sel = document.getElementById(id);
+    const txt = document.getElementById(id+"_frei");
+    const ziel = zielObjekt(zielName);
+    sel.value = ziel[id] || "";
+    txt.value = ziel[id+"_frei"] || "";
+    freitextZeigen(id);
+    sel.addEventListener("change", () => {
+      zielObjekt(zielName)[id] = sel.value;
+      freitextZeigen(id);
+      if(sel.value === FREI) txt.focus();
+      speichern();
+      nachAuswahl(id);
+    });
+    txt.addEventListener("change", () => { zielObjekt(zielName)[id+"_frei"] = txt.value; speichern(); });
+    txt.addEventListener("input",  () => { zielObjekt(zielName)[id+"_frei"] = txt.value; });
+  });
+}
+
+function optionenFuellen(id, listName){
+  const sel = document.getElementById(id);
+  if(!sel) return;
+  const alt = sel.value;
+  const liste = listeHolen(listName);
+  sel.innerHTML = '<option value="">— wählen —</option>'
+    + liste.map(t => '<option value="'+t.replace(/"/g,"&quot;")+'">'+t+'</option>').join("")
+    + '<option value="'+FREI+'">eigene Angabe …</option>';
+  if(alt) sel.value = alt;
+}
+
+function freitextZeigen(id){
+  const sel = document.getElementById(id), txt = document.getElementById(id+"_frei");
+  if(!sel || !txt) return;
+  txt.style.display = (sel.value === FREI) ? "block" : "none";
+}
+
+/* Effektiver Wert eines Auswahlfeldes: Freitext schlägt Liste. */
+function wertVon(zielName, id){
+  const ziel = zielObjekt(zielName);
+  const w = ziel[id];
+  if(w === FREI) return (ziel[id+"_frei"] || "").trim();
+  return (w === undefined || w === null) ? "" : String(w);
+}
+
+/* Reaktionen, die an einer bestimmten Auswahl hängen */
+function nachAuswahl(id){
+  if(id === "b_schlussgrad" || id === "b_schlussgrad2") schlussgradErklaeren();
+  if(id === "f_flaeche") herkunftVorschlagen();
+  if(id === "pa_lage" || id === "pb_lage") achseVorschlagen();
+  if(id === "s_form" || id === "s_eingang") skizzeZeichnen();
+  if(id === "k_nordbezug") kompassHinweis();
+}
+
+/* Personen-Listen neu füllen, wenn sich die Aufnahmegruppe ändert */
+function personenAktualisieren(){
+  document.querySelectorAll('select[data-liste="PERSONEN"]').forEach(sel => {
+    optionenFuellen(sel.id, "PERSONEN");
+  });
+  const dl = document.getElementById("personenliste");
+  if(dl) dl.innerHTML = personenListe().map(n => '<option value="'+n+'">').join("");
+}
+
+/* ---------- Eigener Bestätigungsdialog ----------
+   confirm() liefert in eingebetteten Ansichten ohne Nachfrage false. */
+function nachfragen(titel, text, knopfText, weiter, gefaehrlich){
+  const alt = document.getElementById("dialogGrund");
+  if(alt) alt.remove();
+  const grund = document.createElement("div");
+  grund.className = "dialogGrund";
+  grund.id = "dialogGrund";
+  grund.innerHTML =
+    '<div class="dialog" role="dialog" aria-modal="true">'+
+      '<h3>'+titel+'</h3><p>'+text+'</p>'+
+      '<div class="knopfreihe">'+
+        '<button class="knopf zweit" id="dlgAbbruch">Abbrechen</button>'+
+        '<button class="knopf'+(gefaehrlich?" warn":"")+'" id="dlgOk">'+knopfText+'</button>'+
+      '</div>'+
+    '</div>';
+  document.body.appendChild(grund);
+  const schliessen = () => grund.remove();
+  document.getElementById("dlgAbbruch").addEventListener("click", schliessen);
+  document.getElementById("dlgOk").addEventListener("click", () => { schliessen(); weiter(); });
+  grund.addEventListener("click", e => { if(e.target === grund) schliessen(); });
+  document.addEventListener("keydown", function esc(e){
+    if(e.key === "Escape"){ schliessen(); document.removeEventListener("keydown", esc); }
+  });
+  document.getElementById("dlgOk").focus();
+}
+
+/* Auswahl aus wenigen Möglichkeiten — für die Punktnummern in der Skizze */
+function wahlDialog(titel, text, moeglichkeiten, gewaehlt, weiter){
+  const alt = document.getElementById("dialogGrund");
+  if(alt) alt.remove();
+  const grund = document.createElement("div");
+  grund.className = "dialogGrund";
+  grund.id = "dialogGrund";
+  grund.innerHTML =
+    '<div class="dialog" role="dialog" aria-modal="true">'+
+      '<h3>'+titel+'</h3><p>'+text+'</p>'+
+      '<div class="wahlreihe">'+
+        moeglichkeiten.map(([w,t]) =>
+          '<button data-wert="'+w+'"'+(String(gewaehlt)===String(w)?' class="gewaehlt"':'')+'>'+t+'</button>').join("")+
+      '</div>'+
+      '<div class="knopfreihe"><button class="knopf zweit" id="dlgAbbruch">Schließen</button></div>'+
+    '</div>';
+  document.body.appendChild(grund);
+  const schliessen = () => grund.remove();
+  document.getElementById("dlgAbbruch").addEventListener("click", schliessen);
+  grund.addEventListener("click", e => { if(e.target === grund) schliessen(); });
+  grund.querySelectorAll(".wahlreihe button").forEach(b => {
+    b.addEventListener("click", () => { schliessen(); weiter(b.dataset.wert); });
+  });
+}
+
+/* ---------- Kleine Helfer ---------- */
+function zahl(v){
+  if(v === undefined || v === null || v === "") return NaN;
+  return parseFloat(String(v).replace(",", "."));
+}
+function rund(v, n){ return (Math.round(v * Math.pow(10,n)) / Math.pow(10,n)).toLocaleString("de-DE"); }
+function grad(rad){ let g = rad * 180 / Math.PI; while(g < 0) g += 360; while(g >= 360) g -= 360; return g; }
+function richtungsname(azimut){
+  const namen = ["N","NNO","NO","ONO","O","OSO","SO","SSO","S","SSW","SW","WSW","W","WNW","NW","NNW"];
+  return namen[Math.round(((azimut % 360) + 360) % 360 / 22.5) % 16];
+}
+function autoAus(wurzel){
+  (wurzel || document).querySelectorAll("input, select, textarea").forEach(el => {
+    if(!el.hasAttribute("autocomplete")) el.setAttribute("autocomplete", "off");
+  });
+}
+
+function schlussgradErklaeren(){
+  const w  = wertVon("bestand","b_schlussgrad");
+  const w2 = wertVon("bestand","b_schlussgrad2");
+  const box = document.getElementById("schlussgradInfo");
+  if(!box) return;
+  const teile = [];
+  if(SCHLUSSGRAD_ERKLAERUNG[w])  teile.push("<b>"+w+":</b> "+SCHLUSSGRAD_ERKLAERUNG[w]);
+  if(SCHLUSSGRAD_ERKLAERUNG[w2]) teile.push("<b>"+w2+":</b> "+SCHLUSSGRAD_ERKLAERUNG[w2]);
+  if(teile.length){ box.style.display = "block"; box.innerHTML = teile.join("<br>"); }
+  else box.style.display = "none";
+}
+
+function herkunftVorschlagen(){
+  const f = D.kopf.f_flaeche;
+  if(!f || f === FREI || !HERKUENFTE[f]) return;
+  const heimisch = HERKUENFTE[f];
+  const leer = o => !o.pa_code && !o.pa_herkunft && !o.pb_code && !o.pb_herkunft;
+  if(!leer(Object.assign({}, D.parzellen.A, D.parzellen.B))) return;
+  nachfragen("Herkünfte aus dem Abschlussbericht übernehmen?",
+    "Für <b>"+f+"</b> nennt der Bericht die heimische Herkunft <b>"+heimisch+"</b> "
+    + "und die rumänische <b>"+RUMAENISCH+"</b>. "
+    + "<b>Welche in A und welche in B steht, weiß der Bericht nicht</b> — das trägst du selbst ein. "
+    + "Die Nummern werden nur als Vorschlag in die Felder gesetzt.",
+    "Eintragen",
+    () => {
+      D.parzellen.A.pa_code = RUMAENISCH;
+      D.parzellen.B.pb_code = heimisch;
+      D.parzellen.A.pa_herkunft = D.parzellen.A.pa_herkunft || "rumänisch — im Feld prüfen";
+      D.parzellen.B.pb_herkunft = D.parzellen.B.pb_herkunft || "heimisch — im Feld prüfen";
+      ["pa_code","pa_herkunft"].forEach(id => { const e=document.getElementById(id); if(e) e.value = D.parzellen.A[id]||""; });
+      ["pb_code","pb_herkunft"].forEach(id => { const e=document.getElementById(id); if(e) e.value = D.parzellen.B[id]||""; });
+      speichern(true);
+    });
+}
+
+/* =====================================================================
+   Flächengeometrie und Skizze
+
+   Bezugsrahmen der Skizze: Die Y-Achse läuft entlang der Längsachse des Gatters,
+   von der Außenkante der Parzelle A (Y = 0) durch den Trennstreifen bis zur
+   Außenkante von B. X zeigt nach rechts. Die Skizze wird immer so gezeichnet,
+   A unten und B oben; wo Norden liegt, sagt der gedrehte Nordpfeil.
+   So bleibt die Zeichnung lesbar und ist trotzdem geografisch eindeutig.
+
+   Mittelpunkt = Schnittpunkt der Diagonalen. Beim Trapez liegt der nicht auf
+   halber Höhe, sondern bei  y = L · W_unten / (W_unten + W_oben).
+   Satellit = ¼ der Strecke vom Eckpunkt zum Mittelpunkt, also bei ¾ der
+   Strecke Mittelpunkt → Eckpunkt (Schema Prof. Schölch, Berichtsanhang).
+   ===================================================================== */
+
+const ECKEN = ["or","ur","ul","ol"];
+const ECKENNAME = {or:"oben rechts", ur:"unten rechts", ul:"unten links", ol:"oben links"};
+
+function masse(){
+  const g = {
+    La: zahl(D.parzellen.A.pa_laenge),  Wa_out: zahl(D.parzellen.A.pa_breite_a), Wa_in: zahl(D.parzellen.A.pa_breite_i),
+    Lb: zahl(D.parzellen.B.pb_laenge),  Wb_out: zahl(D.parzellen.B.pb_breite_a), Wb_in: zahl(D.parzellen.B.pb_breite_i),
+    T:  zahl(D.kopf.f_trenn),
+    achse: zahl(D.schema.s_achse),
+    gemessen: true
+  };
+  // Fehlende Breite innen: gleich der Breite außen setzen (Rechteck) — kenntlich gemacht.
+  if(isNaN(g.Wa_in) && !isNaN(g.Wa_out)){ g.Wa_in = g.Wa_out; g.gemessen = false; }
+  if(isNaN(g.Wb_in) && !isNaN(g.Wb_out)){ g.Wb_in = g.Wb_out; g.gemessen = false; }
+  if(isNaN(g.T)) { g.T = 3; g.gemessen = false; }   // Projektstandard: 3 m
+  // Gar nichts gemessen: Ersatzmaße nach der gewählten Grundform
+  const form = wertVon("schema","s_form");
+  if(isNaN(g.La) || isNaN(g.Wa_out)){
+    g.gemessen = false;
+    if(form.indexOf("Rechteck") === 0){ g.La = g.Lb = 48.5; g.Wa_out = g.Wa_in = g.Wb_out = g.Wb_in = 25; g.T = 3; }
+    else { g.La = g.Lb = 23.5; g.Wa_out = g.Wa_in = g.Wb_out = g.Wb_in = 50; g.T = 3; }
+  }
+  if(isNaN(g.Lb)) { g.Lb = g.La; g.gemessen = false; }
+  if(isNaN(g.Wb_out)){ g.Wb_out = g.Wa_out; g.Wb_in = g.Wa_in; g.gemessen = false; }
+  return g;
+}
+
+function geometrie(){
+  const g = masse();
+  const a = g.achse;
+  const bau = (yUnten, L, Wunten, Woben) => {
+    const yc = yUnten + L * Wunten / (Wunten + Woben);
+    const ecken = {
+      ur: { x:  Wunten/2, y: yUnten },
+      ul: { x: -Wunten/2, y: yUnten },
+      or: { x:  Woben/2,  y: yUnten + L },
+      ol: { x: -Woben/2,  y: yUnten + L }
+    };
+    const sat = {};
+    ECKEN.forEach(e => {
+      sat[e] = { x: 0 + 0.75*(ecken[e].x - 0), y: yc + 0.75*(ecken[e].y - yc) };
+      const dx = sat[e].x, dy = sat[e].y - yc;
+      sat[e].dist   = Math.hypot(dx, dy);
+      sat[e].azimut = isNaN(a) ? NaN : (grad(Math.atan2(dx, dy)) + a) % 360;
+    });
+    return { yc:yc, ecken:ecken, sat:sat, L:L, Wunten:Wunten, Woben:Woben,
+             flaeche: L * (Wunten + Woben) / 2 };
+  };
+  // A liegt unten: außen bei y = 0, innen (am Trennstreifen) bei y = La
+  const A = bau(0, g.La, g.Wa_out, g.Wa_in);
+  // B liegt oben: innen bei y = La + T, außen ganz oben
+  const B = bau(g.La + g.T, g.Lb, g.Wb_in, g.Wb_out);
+  const streifen = { y0: g.La, y1: g.La + g.T, W0: g.Wa_in, W1: g.Wb_in,
+                     flaeche: g.T * (g.Wa_in + g.Wb_in) / 2 };
+  return { g:g, A:A, B:B, streifen:streifen,
+           gesamtL: g.La + g.T + g.Lb,
+           abstandAB: B.yc - A.yc,
+           azimutAB: isNaN(g.achse) ? NaN : g.achse };
+}
+
+/* Fehlende Innenbreiten unter der Annahme gleichmäßiger Abnahme schätzen.
+   Das ist eine Annahme, keine Messung — sie wird im Export als solche geführt. */
+function breitenSchaetzen(){
+  const La = zahl(D.parzellen.A.pa_laenge), Lb = zahl(D.parzellen.B.pb_laenge), T = zahl(D.kopf.f_trenn);
+  const Wa = zahl(D.parzellen.A.pa_breite_a), Wb = zahl(D.parzellen.B.pb_breite_a);
+  if([La,Lb,T,Wa,Wb].some(isNaN)){
+    balkenZeigen("Zum Schätzen fehlen Maße: beide Längen, beide Außenbreiten und der Trennstreifen.");
+    setTimeout(() => balkenZeigen(""), 6000);
+    return;
+  }
+  const gesamt = La + T + Lb;
+  const beiY = y => Wa + (Wb - Wa) * (y / gesamt);   // linear von A-außen (y=0) nach B-außen
+  D.parzellen.A.pa_breite_i = (Math.round(beiY(La)*10)/10).toString().replace(".", ",");
+  D.parzellen.B.pb_breite_i = (Math.round(beiY(La+T)*10)/10).toString().replace(".", ",");
+  D.parzellen.A.pa_breite_i_geschaetzt = true;
+  D.parzellen.B.pb_breite_i_geschaetzt = true;
+  ["pa_breite_i"].forEach(id => { const e=document.getElementById(id); if(e) e.value = D.parzellen.A[id]; });
+  ["pb_breite_i"].forEach(id => { const e=document.getElementById(id); if(e) e.value = D.parzellen.B[id]; });
+  speichern(true);
+  geometrieAnzeigen();
+}
+
+function geometrieAnzeigen(){
+  const box = document.getElementById("geometrieAnzeige");
+  if(!box) return;
+  const La = zahl(D.parzellen.A.pa_laenge), Wa = zahl(D.parzellen.A.pa_breite_a);
+  if(isNaN(La) || isNaN(Wa)){
+    box.innerHTML = '<div class="info" style="font-size:13px">Sobald Länge und Breite von Parzelle A '
+      + 'eingetragen sind, rechnet die App hier Flächen, Satellitenabstände und den Sollabstand A→B aus.</div>';
+    return;
+  }
+  const q = geometrie();
+  const zeile = (p, name) => '<tr><td><b>'+name+'</b></td><td>'+rund(p.flaeche,0)+' m²</td>'
+    + '<td>'+rund(p.flaeche/10000,3)+' ha</td>'
+    + '<td>'+rund(p.sat.or.dist,1)+' / '+rund(p.sat.ur.dist,1)+' m</td></tr>';
+  box.innerHTML =
+    '<div class="info rechnung">'
+    + '<b>Aus den Maßen berechnet</b>'
+    + '<div class="tabellenrahmen"><table>'
+    + '<tr><th>Parzelle</th><th>Fläche</th><th></th><th>Satellitenabstand<br>innen / außen</th></tr>'
+    + zeile(q.A,"A") + zeile(q.B,"B")
+    + '<tr><td>Trennstreifen</td><td>'+rund(q.streifen.flaeche,0)+' m²</td><td></td><td></td></tr>'
+    + '<tr><td><b>Gatter gesamt</b></td><td><b>'+rund(q.A.flaeche+q.B.flaeche+q.streifen.flaeche,0)+' m²</b></td>'
+    + '<td><b>'+rund((q.A.flaeche+q.B.flaeche+q.streifen.flaeche)/10000,3)+' ha</b></td><td></td></tr>'
+    + '</table></div>'
+    + '<p style="margin:8px 0 0"><b>Sollabstand Mittelpunkt A → Mittelpunkt B: '+rund(q.abstandAB,1)+' m.</b> '
+    + 'Diese Zahl ist eine <b>Prüfung, die scheitern kann</b>: Sie muss zur gemessenen Klammer A→B passen '
+    + 'und später zu dem Abstand, den die Einpassung der Passpunktbäume liefert.</p>'
+    + (q.g.gemessen ? '' : '<p style="margin:6px 0 0"><b>Achtung:</b> Es fehlen Maße; die Rechnung benutzt '
+        + 'Ersatzwerte oder Schätzungen. Im Export sind sie gekennzeichnet.</p>')
+    + '</div>';
+}
+
+/* Achsrichtung aus der eingetragenen Lage vorschlagen (A → B). */
+const LAGE_AZIMUT = {"Nord":0,"Nordost":45,"Ost":90,"Südost":135,"Süd":180,"Südwest":225,"West":270,"Nordwest":315};
+function achseVorschlagen(){
+  if(D.schema.s_achse) return;
+  achseAusLage(true);
+}
+function achseAusLage(still){
+  const lageA = wertVon("parzA","pa_lage");
+  if(LAGE_AZIMUT[lageA] === undefined){
+    if(!still){ balkenZeigen("Dafür muss bei Parzelle A eine Lage eingetragen sein."); setTimeout(()=>balkenZeigen(""),5000); }
+    return;
+  }
+  // Liegt A im Süden, zeigt A→B nach Norden (0°). Allgemein: Gegenrichtung der Lage von A.
+  const az = (LAGE_AZIMUT[lageA] + 180) % 360;
+  D.schema.s_achse = String(az);
+  const el = document.getElementById("s_achse");
+  if(el) el.value = az;
+  speichern(true);
+  skizzeZeichnen();
+}
+
+/* ---------- Zeichnung ---------- */
+function skizzeZeichnen(){
+  const rahmen = document.getElementById("skizzeRahmen");
+  if(!rahmen) return;
+  const q = geometrie();
+  const maxW = Math.max(q.A.Wunten, q.A.Woben, q.B.Wunten, q.B.Woben);
+  const rand = {l:52, r:52, o:54, u:54};
+  const skala = Math.min(230 / maxW, 330 / q.gesamtL);
+  const bx = maxW * skala, by = q.gesamtL * skala;
+  const breite = bx + rand.l + rand.r, hoehe = by + rand.o + rand.u;
+  const cx = rand.l + bx/2, y0 = rand.o + by;          // y0 = Bildzeile von y = 0
+  const P = (x,y) => [cx + x*skala, y0 - y*skala];
+  const poly = pts => pts.map(([x,y]) => P(x,y).join(",")).join(" ");
+
+  const a = zahl(D.schema.s_achse);
+  const kanten = isNaN(a) ? null : {
+    oben:  a, rechts:(a+90)%360, unten:(a+180)%360, links:(a+270)%360
+  };
+
+  let s = '<svg viewBox="0 0 '+breite.toFixed(0)+' '+hoehe.toFixed(0)+'" width="'+breite.toFixed(0)+'" height="'+hoehe.toFixed(0)+'" role="img" aria-label="Skizze der Fläche">';
+
+  // Parzellenflächen und Trennstreifen
+  s += '<polygon class="parzflaeche" points="'+poly([
+        [q.A.ecken.ul.x,q.A.ecken.ul.y],[q.A.ecken.ur.x,q.A.ecken.ur.y],
+        [q.A.ecken.or.x,q.A.ecken.or.y],[q.A.ecken.ol.x,q.A.ecken.ol.y]])+'"/>';
+  s += '<polygon class="streifen" points="'+poly([
+        [-q.streifen.W0/2,q.streifen.y0],[q.streifen.W0/2,q.streifen.y0],
+        [q.streifen.W1/2,q.streifen.y1],[-q.streifen.W1/2,q.streifen.y1]])+'"/>';
+  s += '<polygon class="parzflaeche" points="'+poly([
+        [q.B.ecken.ul.x,q.B.ecken.ul.y],[q.B.ecken.ur.x,q.B.ecken.ur.y],
+        [q.B.ecken.or.x,q.B.ecken.or.y],[q.B.ecken.ol.x,q.B.ecken.ol.y]])+'"/>';
+
+  // Eingang auf der passenden Kante
+  const eingang = wertVon("schema","s_eingang");
+  if(kanten && eingang && LAGE_AZIMUT[eingang.replace("Süden","Süd").replace("Norden","Nord")
+        .replace("Osten","Ost").replace("Westen","West")] !== undefined){
+    const ez = LAGE_AZIMUT[eingang.replace("Süden","Süd").replace("Norden","Nord")
+                 .replace("Osten","Ost").replace("Westen","West")];
+    let beste = "unten", diff = 999;
+    Object.keys(kanten).forEach(k => {
+      const d = Math.abs(((kanten[k] - ez + 540) % 360) - 180);   // Winkelabstand zur Kantennormalen
+      if(d < diff){ diff = d; beste = k; }
+    });
+    const [x1,y1a] = P(-maxW/6, 0), [x2,y2a] = P(maxW/6, 0);
+    const [x3,y3a] = P(-maxW/6, q.gesamtL), [x4,y4a] = P(maxW/6, q.gesamtL);
+    if(beste === "unten") s += '<line class="eingang" x1="'+x1+'" y1="'+y1a+'" x2="'+x2+'" y2="'+y2a+'"/>';
+    else if(beste === "oben") s += '<line class="eingang" x1="'+x3+'" y1="'+y3a+'" x2="'+x4+'" y2="'+y4a+'"/>';
+    else{
+      const seite = (beste === "rechts") ? 1 : -1;
+      const [xa,ya] = P(seite*maxW/2, q.gesamtL*0.42), [xb,yb] = P(seite*maxW/2, q.gesamtL*0.58);
+      s += '<line class="eingang" x1="'+xa+'" y1="'+ya+'" x2="'+xb+'" y2="'+yb+'"/>';
+    }
+  }
+
+  // Messpunkte
+  ["A","B"].forEach(pz => {
+    const teil = q[pz];
+    const nummern = D.schema.nummern[pz] || {};
+    ECKEN.forEach(e => {
+      const [px,py] = P(teil.sat[e].x, teil.sat[e].y);
+      const n = nummern[e];
+      s += '<g class="punkt'+(n?" belegt":"")+'" onclick="nummerWaehlen(\''+pz+'\',\''+e+'\')">'
+         + '<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="13"/>'
+         + '<text x="'+px.toFixed(1)+'" y="'+py.toFixed(1)+'">'+(n||"?")+'</text></g>';
+    });
+    const [mx,my] = P(0, teil.yc);
+    const nm = nummern.M;
+    s += '<g class="punkt'+(nm?" belegt":"")+'" onclick="nummerWaehlen(\''+pz+'\',\'M\')">'
+       + '<circle cx="'+mx.toFixed(1)+'" cy="'+my.toFixed(1)+'" r="13"/>'
+       + '<text x="'+mx.toFixed(1)+'" y="'+my.toFixed(1)+'">'+(nm||"M")+'</text></g>';
+    const [lx,ly] = P(0, teil.yc + (pz==="A" ? -teil.L*0.28 : teil.L*0.28));
+    s += '<text class="parzname" x="'+lx.toFixed(1)+'" y="'+ly.toFixed(1)+'" onclick="parzellenTausch()">'+pz+'</text>';
+  });
+
+  // Kantenbeschriftung mit Himmelsrichtungen
+  if(kanten){
+    const [ox,oy] = P(0, q.gesamtL); s += '<text class="beschriftung" x="'+ox+'" y="'+(oy-14)+'">'+richtungsname(kanten.oben)+'</text>';
+    const [ux,uy] = P(0, 0);         s += '<text class="beschriftung" x="'+ux+'" y="'+(uy+26)+'">'+richtungsname(kanten.unten)+'</text>';
+    const [rx,ry] = P(maxW/2, q.gesamtL/2); s += '<text class="beschriftung" x="'+(rx+26)+'" y="'+ry+'">'+richtungsname(kanten.rechts)+'</text>';
+    const [lx2,ly2] = P(-maxW/2, q.gesamtL/2); s += '<text class="beschriftung" x="'+(lx2-26)+'" y="'+ly2+'">'+richtungsname(kanten.links)+'</text>';
+    // Nordpfeil: zeigt in der Skizze um −Achsazimut gedreht nach oben
+    s += '<g transform="translate(26,30) rotate('+(-a)+')">'
+       + '<line class="nordpfeil" x1="0" y1="16" x2="0" y2="-14"/>'
+       + '<polyline class="nordpfeil" points="-6,-6 0,-15 6,-6"/></g>'
+       + '<text class="nordtext" x="26" y="52">N</text>';
+  }else{
+    s += '<text class="beschriftung" x="'+(breite/2)+'" y="18">Azimut der Längsachse fehlt — '
+       + 'Himmelsrichtungen unbekannt</text>';
+  }
+  s += '</svg>';
+  rahmen.innerHTML = s;
+  sollTabelleAufbauen();
+}
+
+function parzellenTausch(){
+  nachfragen("Parzellen A und B tauschen?",
+    "Buchstaben, Herkünfte, Maße und Punktnummern werden zwischen A und B vertauscht. "
+    + "Nutze das, wenn sich herausstellt, dass die Zuordnung andersherum ist.",
+    "Tauschen",
+    () => {
+      const a = D.parzellen.A, b = D.parzellen.B, um = {};
+      Object.keys(a).forEach(k => { um[k.replace(/^pa_/,"pb_")] = a[k]; });
+      const neuA = {}; Object.keys(b).forEach(k => { neuA[k.replace(/^pb_/,"pa_")] = b[k]; });
+      D.parzellen.A = neuA; D.parzellen.B = um;
+      const n = D.schema.nummern; const h = n.A; n.A = n.B; n.B = h;
+      speichern(true); alles();
+      balkenZeigen("A und B sind getauscht. Herkünfte gegenlesen!");
+      setTimeout(() => balkenZeigen(""), 8000);
+    }, true);
+}
+
+function nummerWaehlen(pz, ecke){
+  const nummern = D.schema.nummern[pz] || (D.schema.nummern[pz] = {});
+  const belegt = Object.keys(nummern).filter(k => nummern[k]).map(k => nummern[k]);
+  const moeglich = [["","—"],["1","1"],["2","2"],["3","3"],["4","4"],["5","5"]];
+  const stelle = (ecke === "M") ? "Mittelpunkt (markierter Pfosten)" : "Satellit " + ECKENNAME[ecke];
+  wahlDialog("Parzelle " + pz + " — " + stelle,
+    "Welche Nummer trägt dieser Punkt in eurer Zählung?"
+    + (belegt.length ? " Schon vergeben: " + belegt.sort().join(", ") + "." : ""),
+    moeglich, nummern[ecke] || "",
+    wert => {
+      if(wert){
+        // Nummer schon woanders? Dann tauschen statt doppelt vergeben.
+        Object.keys(nummern).forEach(k => { if(nummern[k] === wert) nummern[k] = nummern[ecke] || ""; });
+      }
+      nummern[ecke] = wert;
+      Object.keys(nummern).forEach(k => { if(!nummern[k]) delete nummern[k]; });
+      speichern(true);
+      skizzeZeichnen();
+    });
+}
+
+function sollTabelleAufbauen(){
+  const box = document.getElementById("sollTabelle");
+  if(!box) return;
+  const q = geometrie();
+  const a = zahl(D.schema.s_achse);
+  let h = '<table><tr><th>Punkt</th><th>Lage in der Skizze</th><th>Abstand vom<br>Mittelpunkt</th><th>Azimut<br>(geografisch)</th></tr>';
+  ["A","B"].forEach(pz => {
+    const teil = q[pz], nummern = D.schema.nummern[pz] || {};
+    const reihen = [];
+    ECKEN.forEach(e => reihen.push([e, teil.sat[e]]));
+    reihen.forEach(([e, s]) => {
+      const n = nummern[e];
+      h += '<tr><td><b>'+pz+(n ? "-"+n : "-?")+'</b></td><td>'+ECKENNAME[e]+'</td>'
+         + '<td>'+rund(s.dist,1)+' m</td>'
+         + '<td>'+(isNaN(a) ? "—" : Math.round(s.azimut)+"° "+richtungsname(s.azimut))+'</td></tr>';
+    });
+    h += '<tr><td><b>'+pz+(nummern.M ? "-"+nummern.M : "-M")+'</b></td><td>Mittelpunkt</td><td>0 m</td><td>—</td></tr>';
+  });
+  h += '</table>';
+  if(!q.g.gemessen) h += '<div class="info warnung" style="font-size:13px"><b>Ersatzmaße im Spiel.</b> '
+    + 'Solange nicht alle Längen und Breiten gemessen sind, sind diese Sollwerte nur grob.</div>';
+  box.innerHTML = h;
+}
+
+/* =====================================================================
+   Lichtmesspunkte
+   ===================================================================== */
+function punktListeAufbauen(){
+  const box = document.getElementById("punktListe");
+  if(!box) return;
+  box.innerHTML = "";
+  PUNKTE.forEach(p => {
+    const d = D.punkte[p.id] || {};
+    const fertig = punktFertig(p.id);
+    const hatWerte = d.isf !== "" && d.isf != null;
+    const k = document.createElement("div");
+    k.className = "karte" + (fertig ? " fertig" : "");
+    k.innerHTML =
+      '<div class="kopf"><span>'+p.name+'</span>'+
+      '<span class="zust">'+(hatWerte ? "Werte da" : fertig ? "Bild belegt" : "offen")+'</span></div>'+
+      (hatWerte
+        ? '<div class="werte">ISF '+d.isf+' · DSF '+d.dsf+' · TSF '+(d.tsf!==undefined?d.tsf:"–")+
+          (d.zeit ? ' · '+d.zeit : '')+(d.bild ? ' · Bild '+d.bild : '')+'</div>'
+        : (fertig
+            ? '<div class="werte">'+(d.zeit||"")+(d.bild?' · Bild '+d.bild:'')
+              +(d.winkel?' · '+d.winkel+'°':'')+(d.aufnehmer?' · '+d.aufnehmer:'')+'</div>'
+            : (p.info ? '<div class="werte">'+p.info+'</div>' : '')));
+    k.addEventListener("click", () => punktOeffnen(p.id));
+    box.appendChild(k);
+  });
+}
+
+function punktOeffnen(pid){
+  const p = PUNKTE.find(x => x.id === pid);
+  const d = D.punkte[pid] || {};
+  const box = document.getElementById("punktListe");
+  const optionen = (liste, gewaehlt) => liste.map(t =>
+    '<option'+((gewaehlt||"")===t?" selected":"")+'>'+t+'</option>').join("");
+  box.innerHTML =
+    '<button class="knopf zweit klein" onclick="punktListeAufbauen()">&larr; zurück zur Übersicht</button>'+
+    '<h3>'+p.name+'</h3>'+
+    (p.info ? '<div class="info" style="font-size:13px">'+p.info+'</div>' : '')+
+
+    '<div class="reihe">'+
+      '<div><label>Uhrzeit</label><input type="time" id="p_zeit" value="'+(d.zeit||"")+'"></div>'+
+      '<div><label>&nbsp;</label><button class="knopf zweit" style="margin:0" onclick="jetzt()">jetzt</button></div>'+
+      '<div><label>Aufstellhöhe (cm)</label><input type="number" id="p_hoehe" inputmode="numeric" value="'+(d.hoehe!==undefined&&d.hoehe!==""?d.hoehe:130)+'"></div>'+
+    '</div>'+
+
+    '<div class="reihe">'+
+      '<div><label>Bild-Nr. / Datei</label><input id="p_bild" value="'+(d.bild||"")+'" placeholder="Nummer am Gerät"></div>'+
+      '<div><label>Bildwinkel (°)</label><input type="number" id="p_winkel" inputmode="numeric" value="'+(d.winkel||"")+'" placeholder="60"></div>'+
+      '<div><label>Schwellenwert</label><input id="p_schwelle" value="'+(d.schwelle||"")+'" placeholder="1–7"></div>'+
+    '</div>'+
+    '<div class="info" style="font-size:13px">Der <b>Schwellenwert</b> wird erst bei der gemeinsamen '+
+      'Bildauswertung festgelegt — hier bleibt das Feld im Feld leer. Wichtig ist die <b>Bild-Nummer</b>: '+
+      'Sie ist die einzige Verbindung zwischen Datei und Punkt.</div>'+
+
+    '<div class="reihe">'+
+      '<div><label>ISF (%)</label><input type="number" id="p_isf" inputmode="numeric" value="'+(d.isf!==undefined?d.isf:"")+'"></div>'+
+      '<div><label>DSF (%)</label><input type="number" id="p_dsf" inputmode="numeric" value="'+(d.dsf!==undefined?d.dsf:"")+'"></div>'+
+      '<div><label>TSF (%)</label><input type="number" id="p_tsf" inputmode="numeric" value="'+(d.tsf!==undefined?d.tsf:"")+'"></div>'+
+    '</div>'+
+    '<div id="pPruefung"></div>'+
+
+    '<div class="reihe">'+
+      '<div><label>LAI</label><input type="number" step="0.01" id="p_lai" inputmode="decimal" value="'+(d.lai!==undefined?d.lai:"")+'"></div>'+
+      '<div><label>ELAD</label><input type="number" step="0.01" id="p_elad" inputmode="decimal" value="'+(d.elad!==undefined?d.elad:"")+'"></div>'+
+      '<div><label>Openness</label><input type="number" step="0.01" id="p_open" inputmode="decimal" value="'+(d.open!==undefined?d.open:"")+'"></div>'+
+    '</div>'+
+
+    '<label>Himmelszustand</label>'+
+    '<select id="p_himmel"><option value="">—</option>'+optionen(HIMMEL, d.himmel)+'</select>'+
+
+    '<label>Gemessen von</label>'+
+    '<input list="personenliste" id="p_aufnehmer" value="'+(d.aufnehmer||"")+'" placeholder="Name">'+
+
+    '<div class="haken"><input type="checkbox" id="p_nord"'+(d.nord?" checked":"")+'><label for="p_nord">nach Norden ausgerichtet</label></div>'+
+    '<div class="haken"><input type="checkbox" id="p_horiz"'+(d.horiz?" checked":"")+'><label for="p_horiz">horizontiert (Gerät meldet keine Übernneigung)</label></div>'+
+
+    '<label>Bemerkung</label><textarea id="p_bem">'+(d.bem||"")+'</textarea>'+
+
+    '<button class="knopf" onclick="punktSpeichern(\''+pid+'\')">Speichern und zurück</button>';
+
+  autoAus(box);
+  ["p_isf","p_dsf","p_tsf"].forEach(id =>
+    document.getElementById(id).addEventListener("input", pruefungZeigen));
+  pruefungZeigen();
+  window.scrollTo(0,0);
+}
+
+function jetzt(){
+  const n = new Date();
+  document.getElementById("p_zeit").value =
+    String(n.getHours()).padStart(2,"0")+":"+String(n.getMinutes()).padStart(2,"0");
+}
+
+/* ---------- Live-Plausibilität: p = (TSF−ISF)/(DSF−ISF) ---------- */
+function pBerechnen(isf, dsf, tsf){
+  if([isf,dsf,tsf].some(v => v === "" || v === null || isNaN(v))) return null;
+  const nenner = dsf - isf;
+  if(Math.abs(nenner) < 0.5) return null;
+  return (tsf - isf) / nenner;
+}
+
+function pBisher(ausser){
+  const werte = [];
+  Object.keys(D.punkte).forEach(k => {
+    if(k === ausser) return;
+    const d = D.punkte[k];
+    const p = pBerechnen(Number(d.isf), Number(d.dsf), Number(d.tsf));
+    if(p !== null && p > -0.5 && p < 1.5) werte.push(p);
+  });
+  if(!werte.length) return null;
+  werte.sort((a,b) => a-b);
+  return werte[Math.floor(werte.length/2)];
+}
+
+function pruefungZeigen(){
+  const isf = Number(document.getElementById("p_isf").value);
+  const dsf = Number(document.getElementById("p_dsf").value);
+  const tsf = Number(document.getElementById("p_tsf").value);
+  const box = document.getElementById("pPruefung");
+  const meldungen = [];
+
+  [["ISF",isf],["DSF",dsf],["TSF",tsf]].forEach(([n,v]) => {
+    const roh = document.getElementById("p_"+n.toLowerCase()).value;
+    if(roh !== "" && (v < 0 || v > 100)) meldungen.push(['fehler', n+" liegt außerhalb 0–100 %"]);
+  });
+
+  const alleDa = ["p_isf","p_dsf","p_tsf"].every(id => document.getElementById(id).value !== "");
+  if(alleDa){
+    const min = Math.min(isf,dsf), max = Math.max(isf,dsf);
+    if(tsf < min - 0.5 || tsf > max + 0.5)
+      meldungen.push(['fehler', "TSF ("+tsf+") liegt nicht zwischen ISF und DSF — bitte nachsehen"]);
+
+    const p = pBerechnen(isf,dsf,tsf);
+    if(p === null){
+      meldungen.push(['warn', "ISF und DSF liegen zu dicht beieinander — p ist hier nicht bestimmbar. Kein Fehler."]);
+    }else{
+      const ref = pBisher(null);
+      const geraet = zahl(D.kopf.f_p_geraet);
+      let txt = "Direktanteil p = " + p.toFixed(2);
+      if(p < -0.1 || p > 1.1){
+        meldungen.push(['fehler', txt + " — außerhalb des Möglichen. Zahlendreher?"]);
+      }else if(!isNaN(geraet) && Math.abs(p - geraet) > 0.15){
+        meldungen.push(['warn', txt + ", am Gerät eingestellt ist " + geraet.toFixed(2) + ". Werte gegenlesen."]);
+      }else if(ref !== null && Math.abs(p - ref) > 0.2){
+        meldungen.push(['warn', txt + ", die anderen Punkte liegen bei " + ref.toFixed(2) + ". Werte bitte am Gerät gegenlesen."]);
+      }else{
+        meldungen.push(['ok', txt + (!isNaN(geraet) ? " — passt zur Geräteeinstellung (" + geraet.toFixed(2) + ")"
+                                    : (ref !== null ? " — passt zu den übrigen Punkten (" + ref.toFixed(2) + ")" : ""))]);
+      }
+    }
+  }
+
+  box.innerHTML = meldungen.map(([art,txt]) =>
+    '<div class="p-anzeige p-'+(art==='ok'?'ok':art==='warn'?'warn':'fehler')+'">'+txt+'</div>').join("");
+}
+
+function punktSpeichern(pid){
+  const g = id => document.getElementById(id);
+  D.punkte[pid] = {
+    zeit:g("p_zeit").value, hoehe:g("p_hoehe").value,
+    bild:g("p_bild").value, winkel:g("p_winkel").value, schwelle:g("p_schwelle").value,
+    isf:g("p_isf").value, dsf:g("p_dsf").value, tsf:g("p_tsf").value,
+    lai:g("p_lai").value, elad:g("p_elad").value, open:g("p_open").value,
+    himmel:g("p_himmel").value, aufnehmer:g("p_aufnehmer").value,
+    nord:g("p_nord").checked, horiz:g("p_horiz").checked,
+    bem:g("p_bem").value
+  };
+  speichern(true);
+  punktListeAufbauen();
+  window.scrollTo(0,0);
+}
+
+/* =====================================================================
+   Vegetation — beide Verfahren nebeneinander
+   ===================================================================== */
+function radius(k){
+  const r = zahl((D.veg.radien||{})[k]);
+  if(!isNaN(r)) return r;
+  const s = SCHICHTEN.find(x => x.k === k);
+  return s ? s.radius : 1;
+}
+
+/* Wurde der Radius im Feld bestätigt oder ist es nur die Vorgabe? Der Unterschied
+   gehört in den Export — sonst behauptet das Protokoll etwas, das niemand gemessen hat. */
+function radiusGesetzt(k){ return !isNaN(zahl((D.veg.radien||{})[k])); }
+function radiusText(k){ return radius(k) + " m" + (radiusGesetzt(k) ? "" : " [Vorgabe, im Feld nicht bestätigt]"); }
+
+function radienFelderAufbauen(){
+  const box = document.getElementById("radienFelder");
+  if(!box) return;
+  box.innerHTML = '<div class="reihe">' + SCHICHTEN.map(s =>
+    '<div><label>'+s.k+' (m)</label><input type="number" step="0.5" inputmode="decimal" '
+    + 'value="'+radius(s.k)+'" onchange="radiusSetzen(\''+s.k+'\',this.value)"></div>').join("")
+    + '</div>';
+  autoAus(box);
+}
+function radiusSetzen(k, wert){
+  if(!D.veg.radien) D.veg.radien = {};
+  D.veg.radien[k] = wert;
+  speichern();
+}
+
+function vegEinfachFertig(pid){
+  const v = (D.veg.punkte||{})[pid];
+  return !!(v && SCHICHTEN.some(s => (v.einfach||{})[s.k+"_d"]));
+}
+function vegBBFertig(pid){
+  const v = (D.veg.punkte||{})[pid];
+  return !!(v && (v.arten||[]).length);
+}
+
+function vegListeAufbauen(){
+  const box = document.getElementById("vegListe");
+  if(!box) return;
+  box.innerHTML = "";
+  VEG_PUNKTE.forEach(p => {
+    const e = vegEinfachFertig(p.id), b = vegBBFertig(p.id);
+    const v = (D.veg.punkte||{})[p.id] || {};
+    const k = document.createElement("div");
+    k.className = "karte" + ((e && b) ? " fertig" : "");
+    k.innerHTML = '<div class="kopf"><span>'+p.name+'</span>'+
+      '<span class="zust">'+((e&&b) ? "beides" : (e||b) ? "halb" : "offen")+'</span></div>'+
+      '<div class="marken">'+
+        '<span class="marke '+(e?"an":"")+'">vereinfacht</span>'+
+        '<span class="marke '+(b?"an":"")+'">Braun-Blanquet'+(b?" · "+(v.arten||[]).length+" Arten":"")+'</span>'+
+        (v.aufnehmer ? '<span class="marke">'+v.aufnehmer+'</span>' : '')+
+      '</div>';
+    k.addEventListener("click", () => vegOeffnen(p.id));
+    box.appendChild(k);
+  });
+}
+
+function vegOeffnen(pid){
+  const p = VEG_PUNKTE.find(x => x.id === pid);
+  if(!D.veg.punkte) D.veg.punkte = {};
+  if(!D.veg.punkte[pid]) D.veg.punkte[pid] = {einfach:{}, arten:[], kronenschluss:"", bem:"", aufnehmer:""};
+  const v = D.veg.punkte[pid];
+  if(!v.einfach) v.einfach = {};
+  if(!v.arten) v.arten = [];
+  const box = document.getElementById("vegListe");
+  const opt = (liste, gewaehlt) => '<option value=""></option>' +
+    liste.map(t => '<option'+((gewaehlt||"")===t?" selected":"")+'>'+t+'</option>').join("");
+
+  let inhalt = '<button class="knopf zweit klein" onclick="vegListeAufbauen()">&larr; zurück zur Übersicht</button>'+
+    '<h3>Vegetation — '+p.name+'</h3>'+
+    '<label>Aufgenommen von</label>'+
+    '<input list="personenliste" value="'+(v.aufnehmer||"")+'" placeholder="Name" '+
+      'onchange="vegSetzen(\''+pid+'\',\'aufnehmer\',this.value)">';
+
+  /* --- Verfahren 1: vereinfacht --- */
+  inhalt += '<h4>Verfahren 1 — vereinfacht (Projektstandard 2021/22)</h4>'+
+    '<div class="info" style="font-size:13px">Je Schicht Deckungsgrad und mittlere Höhe. '+
+    'Leere Schichten überspringen. <b>Diese Aufnahme ist die Brücke zu den Altdaten.</b></div>';
+  SCHICHTEN.forEach(s => {
+    inhalt += '<div class="karte"><div class="kopf"><span>'+s.n+'</span>'+
+      '<span class="zust">r = '+radius(s.k)+' m</span></div>'+
+      '<div class="reihe">'+
+        '<div><label>Deckung</label><select onchange="vegEinfachSetzen(\''+pid+'\',\''+s.k+'_d\',this.value)">'+
+          opt(DECKUNG_EINFACH, v.einfach[s.k+"_d"])+'</select></div>'+
+        '<div><label>Höhe</label><select onchange="vegEinfachSetzen(\''+pid+'\',\''+s.k+'_h\',this.value)">'+
+          opt(HOEHE_EINFACH, v.einfach[s.k+"_h"])+'</select></div>'+
+      '</div>'+
+      '<label>eigene Angabe <span class="hint">falls keine Klasse passt</span></label>'+
+      '<input value="'+(v.einfach[s.k+"_frei"]||"")+'" placeholder="frei formulieren" '+
+        'onchange="vegEinfachSetzen(\''+pid+'\',\''+s.k+'_frei\',this.value)">'+
+      '</div>';
+  });
+
+  /* --- Verfahren 2: Braun-Blanquet --- */
+  inhalt += '<h4>Verfahren 2 — Braun-Blanquet</h4>'+
+    '<label>Kronenschlussgrad <span class="hint">(Baumschicht 1)</span></label>'+
+    '<select onchange="vegSetzen(\''+pid+'\',\'kronenschluss\',this.value)">'+
+      opt(KRONENSCHLUSS, v.kronenschluss)+'</select>';
+  SCHICHTEN.filter(s => s.k !== "Mo").forEach(s => {
+    const arten = (v.arten||[]).map((a,i) => [a,i]).filter(([a]) => a.schicht === s.k);
+    inhalt += '<div class="karte"><div class="kopf"><span>'+s.n+'</span>'+
+      '<button class="knopf zweit" style="width:auto;margin:0;padding:6px 12px;font-size:14px" '+
+      'onclick="artAnlegen(\''+pid+'\',\''+s.k+'\')">+ Art</button></div>';
+    if(!arten.length){ inhalt += '<div class="werte">keine Art erfasst</div>'; }
+    arten.forEach(([a,i]) => {
+      inhalt += '<div style="border-top:1px solid var(--rand); padding-top:8px; margin-top:8px">'+
+        '<label>Art</label>'+
+        '<input list="pflanzenliste" value="'+(a.art||"").replace(/"/g,"&quot;")+'" placeholder="deutscher Name" '+
+          'onchange="artSetzen(\''+pid+'\','+i+',\'art\',this.value)">'+
+        '<div class="reihe">'+
+          '<div><label>Artmächtigkeit</label><select onchange="artSetzen(\''+pid+'\','+i+',\'am\',this.value)">'+
+            ARTMAECHTIGKEIT.map(([w,t]) => '<option value="'+w+'"'+((a.am||"")===w?" selected":"")+'>'+(w?w+" — "+t:"—")+'</option>').join("")+
+          '</select></div>'+
+        '</div>'+
+        '<div class="reihe">'+
+          '<div><label>Soziabilität</label><select onchange="artSetzen(\''+pid+'\','+i+',\'soz\',this.value)">'+
+            SOZIABILITAET.map(([w,t]) => '<option value="'+w+'"'+((a.soz||"")===w?" selected":"")+'>'+(w?w+" — "+t:"—")+'</option>').join("")+
+          '</select></div>'+
+          '<div style="flex:0 0 92px"><label>&nbsp;</label>'+
+            '<button class="knopf zweit" style="margin:0" onclick="artLoeschen(\''+pid+'\','+i+')">löschen</button></div>'+
+        '</div></div>';
+    });
+    inhalt += '</div>';
+  });
+
+  inhalt += '<label>Bemerkung zum Punkt</label>'+
+    '<textarea onchange="vegSetzen(\''+pid+'\',\'bem\',this.value)">'+(v.bem||"")+'</textarea>'+
+    '<button class="knopf" onclick="vegListeAufbauen()">Fertig</button>';
+
+  box.innerHTML = inhalt;
+  autoAus(box);
+  window.scrollTo(0,0);
+}
+
+function vegEinfachSetzen(pid, feld, wert){ D.veg.punkte[pid].einfach[feld] = wert; speichern(); }
+function vegSetzen(pid, feld, wert){ D.veg.punkte[pid][feld] = wert; speichern(); }
+function artAnlegen(pid, schicht){
+  D.veg.punkte[pid].arten.push({schicht:schicht, art:"", am:"", soz:""});
+  speichern(true); vegOeffnen(pid);
+}
+function artSetzen(pid, i, feld, wert){ D.veg.punkte[pid].arten[i][feld] = wert; speichern(); }
+function artLoeschen(pid, i){
+  D.veg.punkte[pid].arten.splice(i,1); speichern(true); vegOeffnen(pid);
+}
+
+/* =====================================================================
+   Passpunktbäume und Ko-Registrierung
+   ===================================================================== */
+const STANDPUNKTE = ["A","B","AB","and"];
+const STANDPUNKT_NAME = {A:"Mittelpunkt A", B:"Mittelpunkt B",
+                         AB:"beide — Verbindungsbaum", and:"anderer (Bemerkung)"};
+
+function baumAnlegen(){
+  const letzte = D.baeume.length ? D.baeume[D.baeume.length-1].standpunkt : "A";
+  D.baeume.push({nr:D.baeume.length+1, azimut:"", dist:"", azimut_b:"", dist_b:"",
+                 art:"311", hoehe:"", bhd:"", merkmal:"", standpunkt:letzte});
+  speichern(true); baumListeAufbauen();
+  window.scrollTo(0, document.body.scrollHeight);
+}
+
+function baumListeAufbauen(){
+  const box = document.getElementById("baumListe");
+  if(!box) return;
+  box.innerHTML = "";
+  if(!D.baeume.length){
+    box.innerHTML = '<div class="info">Noch kein Baum erfasst. <b>5 je Mittelpunkt</b> sind das Ziel, '
+      + '6–7 sind besser — und 1–2 davon als <b>Verbindungsbaum</b> von beiden Mittelpunkten anmessen.</div>';
+    klammerPruefen();
+    return;
+  }
+  D.baeume.forEach((b,i) => {
+    const k = document.createElement("div");
+    const vollstaendig = b.azimut && b.dist && b.hoehe && b.merkmal;
+    k.className = "karte" + (vollstaendig ? " fertig" : "");
+    k.innerHTML =
+      '<div class="kopf"><span>Baum '+b.nr+'</span>'+
+      '<button class="knopf zweit" style="width:auto;margin:0;padding:6px 12px;font-size:14px" onclick="baumLoeschen('+i+')">löschen</button></div>'+
+      '<label>Standpunkt</label>'+
+      '<select onchange="baumSetzen('+i+',\'standpunkt\',this.value)">'+
+        STANDPUNKTE.map(s => '<option value="'+s+'"'+((b.standpunkt||"A")===s?" selected":"")+'>'+STANDPUNKT_NAME[s]+'</option>').join("")+
+      '</select>'+
+      '<div class="reihe">'+
+        '<div><label>Azimut'+(b.standpunkt==="AB"?" von A":"")+' (°)</label><input type="number" inputmode="numeric" value="'+(b.azimut||"")+'" onchange="baumSetzen('+i+',\'azimut\',this.value)"></div>'+
+        '<div><label>Distanz'+(b.standpunkt==="AB"?" von A":"")+' (m)</label><input type="number" step="0.1" inputmode="decimal" value="'+(b.dist||"")+'" onchange="baumSetzen('+i+',\'dist\',this.value)"></div>'+
+      '</div>'+
+      (b.standpunkt === "AB"
+        ? '<div class="reihe">'+
+            '<div><label>Azimut von B (°)</label><input type="number" inputmode="numeric" value="'+(b.azimut_b||"")+'" onchange="baumSetzen('+i+',\'azimut_b\',this.value)"></div>'+
+            '<div><label>Distanz von B (m)</label><input type="number" step="0.1" inputmode="decimal" value="'+(b.dist_b||"")+'" onchange="baumSetzen('+i+',\'dist_b\',this.value)"></div>'+
+          '</div>'
+        : '')+
+      '<label>Baumart</label>'+
+      '<select onchange="baumSetzen('+i+',\'art\',this.value)">'+
+        '<option value="">—</option>'+
+        BAUMARTEN.map(([c,n]) => '<option value="'+c+'"'+(b.art===c?" selected":"")+'>'+n+'</option>').join("")+
+      '</select>'+
+      '<div class="reihe">'+
+        '<div><label class="pflicht">Höhe (m)</label><input type="number" step="0.1" inputmode="decimal" value="'+(b.hoehe||"")+'" onchange="baumSetzen('+i+',\'hoehe\',this.value)"></div>'+
+        '<div><label>BHD (cm)</label><input type="number" inputmode="numeric" value="'+(b.bhd||"")+'" onchange="baumSetzen('+i+',\'bhd\',this.value)"></div>'+
+      '</div>'+
+      '<label class="pflicht">Erkennungsmerkmal</label>'+
+      '<input value="'+(b.merkmal||"").replace(/"/g,"&quot;")+'" placeholder="Zwiesel, Schiefstand, Totast, Sprühmarke …" onchange="baumSetzen('+i+',\'merkmal\',this.value)">'+
+      '<div id="baumHinweis'+i+'"></div>';
+    box.appendChild(k);
+    baumPruefen(i);
+  });
+  autoAus(box);
+  klammerPruefen();
+}
+
+/* Zwei Prüfungen je Baum, beide können scheitern:
+   · Höhe deutlich unter dem Bestand → im Kronenhöhenmodell nicht auffindbar
+   · Distanz gleich der Höhe → typischer Übertragungsfehler (beim Vertex leicht passiert) */
+function baumPruefen(i){
+  const b = D.baeume[i];
+  const box = document.getElementById("baumHinweis"+i);
+  if(!box) return;
+  const meldungen = [];
+  const h = zahl(b.hoehe), d = zahl(b.dist);
+  const hoehen = D.baeume.map(x => zahl(x.hoehe)).filter(x => !isNaN(x));
+  if(!isNaN(h) && hoehen.length >= 3){
+    const sortiert = hoehen.slice().sort((x,y) => x-y);
+    const median = sortiert[Math.floor(sortiert.length/2)];
+    if(h < median - 5) meldungen.push(["warn",
+      "Höhe "+rund(h,1)+" m liegt "+rund(median-h,1)+" m unter dem Median der anderen Bäume ("
+      +rund(median,1)+" m). Ein <b>unterständiger</b> Baum ist im Kronenhöhenmodell nicht sicher "
+      +"wiederzufinden — für die Einpassung nur herrschende Bäume nehmen."]);
+  }
+  if(!isNaN(h) && !isNaN(d) && Math.abs(h-d) < 0.05 && h > 3) meldungen.push(["warn",
+    "Höhe und Distanz sind <b>dieselbe Zahl</b> ("+rund(h,1)+"). Das ist meist ein Übertragungsfehler — bitte gegenlesen."]);
+  if(!isNaN(d) && d < 3) meldungen.push(["warn",
+    "Nur "+rund(d,1)+" m Abstand: geometrisch bringt so ein Baum wenig, und Stammfuß und Kronenspitze "
+    +"liegen hier leicht mehrere Meter auseinander. Lieber einen weiter entfernten mitnehmen."]);
+  box.innerHTML = meldungen.map(([art,txt]) => '<div class="p-anzeige p-'+art+'">'+txt+'</div>').join("");
+}
+
+function baumSetzen(i, feld, wert){
+  D.baeume[i][feld] = wert;
+  speichern();
+  if(feld === "standpunkt"){ baumListeAufbauen(); return; }
+  baumPruefen(i);
+  klammerPruefen();
+}
+
+function baumLoeschen(i){
+  const b = D.baeume[i];
+  nachfragen("Baum " + b.nr + " löschen?",
+    "Azimut " + (b.azimut||"—") + "°, Distanz " + (b.dist||"—") + " m. "
+    + "Die folgenden Bäume werden neu durchnummeriert.",
+    "Löschen",
+    () => {
+      D.baeume.splice(i,1);
+      D.baeume.forEach((x,j) => x.nr = j+1);
+      speichern(true); baumListeAufbauen();
+    }, true);
+}
+
+/* ---------- Die Klammer A→B ----------
+   Aus jedem Verbindungsbaum lässt sich der Vektor A→B ausrechnen:
+        A→B  =  A→Baum  −  B→Baum
+   Damit prüfen sich die beiden Teilnetze gegenseitig, und zusammen mit dem
+   Sollabstand aus den Gattermaßen gibt es drei unabhängige Wege zur selben Zahl. */
+function vektor(azimut, dist){
+  const a = zahl(azimut) * Math.PI/180, d = zahl(dist);
+  if(isNaN(a) || isNaN(d)) return null;
+  return { x: d*Math.sin(a), y: d*Math.cos(a) };
+}
+
+function klammerAusBaeumen(){
+  const werte = [];
+  D.baeume.forEach(b => {
+    if(b.standpunkt !== "AB") return;
+    const vA = vektor(b.azimut, b.dist), vB = vektor(b.azimut_b, b.dist_b);
+    if(!vA || !vB) return;
+    const dx = vA.x - vB.x, dy = vA.y - vB.y;      // A→B = A→Baum − B→Baum
+    werte.push({ nr:b.nr, dist: Math.hypot(dx,dy), azimut: grad(Math.atan2(dx,dy)) });
+  });
+  return werte;
+}
+
+function klammerPruefen(){
+  const box = document.getElementById("klammerPruefung");
+  if(!box) return;
+  const teile = [];
+  const gemessenD = zahl(D.koreg.k_dist_ab), gemessenA = zahl(D.koreg.k_azimut_ab);
+  const q = geometrie();
+  const sollD = q.abstandAB;
+
+  const ausBaum = klammerAusBaeumen();
+  const zeilen = [];
+  if(!isNaN(gemessenD)) zeilen.push(["direkt gemessen", gemessenD, gemessenA]);
+  ausBaum.forEach(w => zeilen.push(["über Verbindungsbaum "+w.nr, w.dist, w.azimut]));
+  if(!isNaN(sollD) && sollD > 0) zeilen.push(["aus den Gattermaßen", sollD, zahl(D.schema.s_achse)]);
+
+  if(zeilen.length < 2){
+    box.innerHTML = '<div class="info" style="font-size:13px"><b>Die Klammer A→B ist der einzige Faden '
+      + 'zwischen beiden Parzellen.</b> Es gibt drei Wege dorthin: direkt messen, über einen '
+      + '<b>Verbindungsbaum</b> (Standpunkt „beide“), oder rechnerisch aus den Gattermaßen. '
+      + '<b>Mindestens zwei davon</b> sollten übereinstimmen — dann ist die Einpassung abgesichert.</div>';
+    return;
+  }
+  let h = '<div class="info rechnung"><b>Klammer A→B — Vergleich der Wege</b>'
+        + '<div class="tabellenrahmen"><table><tr><th>Weg</th><th>Distanz</th><th>Azimut</th></tr>';
+  zeilen.forEach(([n,dd,aa]) => {
+    h += '<tr><td>'+n+'</td><td>'+rund(dd,1)+' m</td><td>'+(isNaN(aa)?"—":Math.round(aa)+"°")+'</td></tr>';
+  });
+  h += '</table></div>';
+  const dists = zeilen.map(z => z[1]).filter(x => !isNaN(x));
+  const spanne = Math.max.apply(null,dists) - Math.min.apply(null,dists);
+  h += '<p style="margin:8px 0 0"><b>Spannweite '+rund(spanne,1)+' m.</b> '
+     + (spanne <= 2 ? 'Das passt zusammen — die beiden Teilnetze hängen sauber aneinander.'
+        : 'Das ist mehr, als die Messgenauigkeit hergibt. Nachrechnen: Wurde derselbe Baum gemeint? '
+        + 'Stimmen die Gattermaße? Wurde ein Azimut aus der Gegenrichtung notiert?')+'</p></div>';
+  box.innerHTML = h;
+}
+
+/* =====================================================================
+   Weißtannen
+   ===================================================================== */
+function wtaEinrichten(){
+  if(!D.wta) D.wta = {};
+  if(!D.wta.reihen) D.wta.reihen = 10;
+  if(!D.wta.plaetze) D.wta.plaetze = 32;
+  if(!D.wta.werte) D.wta.werte = {};
+  const a = document.getElementById("w_reihen_zahl"), b = document.getElementById("w_plaetze_zahl");
+  if(a) a.value = D.wta.reihen;
+  if(b) b.value = D.wta.plaetze;
+  wtaReihenListe();
+}
+
+function wtaHerkunftZeigen(){
+  const box = document.getElementById("wtaHerkunft");
+  if(!box) return;
+  const pz = (document.getElementById("w_parzelle")||{}).value || "A";
+  const p  = pz === "A" ? D.parzellen.A : D.parzellen.B;
+  const herkunft = (pz === "A" ? p.pa_herkunft : p.pb_herkunft) || "";
+  const code     = (pz === "A" ? p.pa_code     : p.pb_code) || "";
+  const lage     = wertVon(pz === "A" ? "parzA" : "parzB", pz === "A" ? "pa_lage" : "pb_lage");
+  if(!herkunft && !code){
+    box.className = "info achtung";
+    box.innerHTML = "<b>Für Parzelle "+pz+" ist keine Herkunft eingetragen.</b> "
+      + "Ohne sie sind die Höhen später nicht zuzuordnen — bitte im Abschnitt <i>Fläche</i> nachtragen.";
+  }else{
+    box.className = "info gut";
+    box.innerHTML = "Parzelle <b>"+pz+"</b>"+(lage?" ("+lage+")":"")+": <b>"+(herkunft||"—")+"</b>"
+      + (code ? " · " + code : "");
+  }
+}
+
+function wtaReihenSetzen(){
+  D.wta.reihen  = Math.max(1, Number(document.getElementById("w_reihen_zahl").value)||10);
+  D.wta.plaetze = Math.max(1, Number(document.getElementById("w_plaetze_zahl").value)||32);
+  speichern(true); wtaReihenListe(); wtaAnsicht();
+}
+
+function wtaReihenListe(){
+  const sel = document.getElementById("w_reihe");
+  if(!sel) return;
+  const alt = sel.value;
+  sel.innerHTML = "";
+  for(let r = 1; r <= D.wta.reihen; r++){
+    const o = document.createElement("option");
+    o.value = r; o.textContent = "Reihe " + r + " (" + wtaReiheFertig("", r) + ")";
+    sel.appendChild(o);
+  }
+  if(alt) sel.value = alt;
+}
+
+function wtaReiheFertig(parz, reihe){
+  const p = parz || (document.getElementById("w_parzelle")||{}).value || "A";
+  let n = 0;
+  for(let i = 1; i <= D.wta.plaetze; i++){
+    const w = D.wta.werte[p+"-"+reihe+"-"+i];
+    if(w && (w.h || w.v)) n++;
+  }
+  return n + "/" + D.wta.plaetze;
+}
+
+function wtaAnsicht(){
+  const sel = document.getElementById("w_parzelle");
+  if(!sel) return;
+  const p = sel.value;
+  const r = Number(document.getElementById("w_reihe").value) || 1;
+  const box = document.getElementById("wtaBereich");
+  let gesamt = 0, erfasst = 0;
+  for(const pz of ["A","B"]) for(let rr = 1; rr <= D.wta.reihen; rr++) for(let i = 1; i <= D.wta.plaetze; i++){
+    gesamt++; const w = D.wta.werte[pz+"-"+rr+"-"+i]; if(w && (w.h || w.v)) erfasst++;
+  }
+  wtaHerkunftZeigen();
+
+  let h = '<div class="info gut" style="font-size:13px">Parzelle '+p+', Reihe '+r+
+          ' — <b>'+wtaReiheFertig(p,r)+'</b> Plätze erfasst. Insgesamt '+erfasst+' von '+gesamt+'.</div>';
+
+  for(let i = 1; i <= D.wta.plaetze; i++){
+    const s = p+"-"+r+"-"+i;
+    const w = D.wta.werte[s] || {};
+    const fertig = !!(w.h || w.v);
+    h += '<div class="karte'+(fertig?" fertig":"")+'" style="padding:9px">'+
+      '<div class="kopf" style="font-size:15px"><span>Platz '+i+'</span>'+
+      (fertig ? '<span class="zust">'+(w.h?w.h+" cm":"")+(w.v?" · "+(VITALITAET.find(x=>x[0]===w.v)||["",""])[1]:"")+'</span>' : '')+
+      '</div>'+
+      '<div class="reihe" style="margin-top:6px">'+
+        '<div style="flex:0 0 88px"><input type="number" inputmode="numeric" placeholder="cm" '+
+          'value="'+(w.h||"")+'" onchange="wtaSetzen(\''+s+'\',\'h\',this.value)"></div>'+
+        '<div><select onchange="wtaSetzen(\''+s+'\',\'v\',this.value)">'+
+          VITALITAET.map(([c,t]) => '<option value="'+c+'"'+((w.v||"")===c?" selected":"")+'>'+t+'</option>').join("")+
+        '</select></div>'+
+        '<div><select onchange="wtaSetzen(\''+s+'\',\'s\',this.value)">'+
+          SCHAEDEN.map(([c,t]) => '<option value="'+c+'"'+((w.s||"")===c?" selected":"")+'>'+t+'</option>').join("")+
+        '</select></div>'+
+      '</div></div>';
+  }
+  box.innerHTML = h;
+  autoAus(box);
+}
+
+function wtaSetzen(schluessel, feld, wert){
+  if(!D.wta.werte[schluessel]) D.wta.werte[schluessel] = {};
+  D.wta.werte[schluessel][feld] = wert;
+  if(feld === "h" && wert && !D.wta.werte[schluessel].v) D.wta.werte[schluessel].v = "1";
+  speichern();
+  wtaReihenListe();
+}
+
+/* =====================================================================
+   Oberstand
+   ===================================================================== */
+function obAnlegen(){
+  if(!D.oberstand) D.oberstand = [];
+  D.oberstand.push({nr:D.oberstand.length+1, art:"", bhd:"", hoehe:"", x:"", y:"", ks:""});
+  speichern(true); obListeAufbauen();
+  window.scrollTo(0, document.body.scrollHeight);
+}
+
+function obListeAufbauen(){
+  const box = document.getElementById("obListe");
+  if(!box) return;
+  if(!D.oberstand) D.oberstand = [];
+  if(!D.oberstand.length){
+    box.innerHTML = '<div class="info">Noch kein Baum aufgenommen.</div>';
+    return;
+  }
+  box.innerHTML = D.oberstand.map((b,i) =>
+    '<div class="karte'+(b.art&&b.bhd?" fertig":"")+'">'+
+    '<div class="kopf"><span>Baum '+b.nr+'</span>'+
+      '<button class="knopf zweit" style="width:auto;margin:0;padding:6px 12px;font-size:14px" '+
+      'onclick="obLoeschen('+i+')">löschen</button></div>'+
+    '<label>Baumart</label>'+
+    '<select onchange="obSetzen('+i+',\'art\',this.value)"><option value="">—</option>'+
+      BAUMARTEN.map(([c,n]) => '<option value="'+c+'"'+(b.art===c?" selected":"")+'>'+n+'</option>').join("")+
+    '</select>'+
+    '<div class="reihe">'+
+      '<div><label>BHD (cm)</label><input type="number" inputmode="numeric" value="'+(b.bhd||"")+'" '+
+        'onchange="obSetzen('+i+',\'bhd\',this.value)"></div>'+
+      '<div><label>Höhe (m)</label><input type="number" step="0.5" inputmode="decimal" value="'+(b.hoehe||"")+'" '+
+        'onchange="obSetzen('+i+',\'hoehe\',this.value)"></div>'+
+    '</div>'+
+    '<div class="reihe">'+
+      '<div><label>X</label><input value="'+(b.x||"")+'" onchange="obSetzen('+i+',\'x\',this.value)"></div>'+
+      '<div><label>Y</label><input value="'+(b.y||"")+'" onchange="obSetzen('+i+',\'y\',this.value)"></div>'+
+    '</div>'+
+    '<label>Koordinatensystem <span class="hint">nur falls Koordinaten erfasst</span></label>'+
+    '<input value="'+(b.ks||"")+'" placeholder="z. B. UTM32N / ETRS89" onchange="obSetzen('+i+',\'ks\',this.value)">'+
+    '</div>').join("");
+  autoAus(box);
+}
+
+function obSetzen(i, feld, wert){ D.oberstand[i][feld] = wert; speichern(); }
+function obLoeschen(i){
+  const b = D.oberstand[i];
+  nachfragen("Baum " + b.nr + " löschen?",
+    "Die folgenden Bäume werden neu durchnummeriert.",
+    "Löschen",
+    () => {
+      D.oberstand.splice(i,1);
+      D.oberstand.forEach((x,j) => x.nr = j+1);
+      speichern(true); obListeAufbauen();
+    }, true);
+}
+
+/* =====================================================================
+   Standpunktkoordinate
+   Drei Wege, weil der bequemste ausfallen kann:
+   (1) Ortung durch den Browser  (2) Text aus einer Karten-App einfügen
+   (3) die drei Felder von Hand füllen.
+   Gebraucht wird die Koordinate nur grob: die richtige Laserdaten-Kachel finden
+   und der Einpassung einen Startwert geben.
+   ===================================================================== */
+function gpsMelden(txt, art){
+  const m = document.getElementById("gpsMeldung");
+  if(!m) return;
+  m.className = art ? ("p-anzeige p-" + art) : "hint";
+  m.innerHTML = txt;
+}
+
+function gpsHolen(){
+  if(!navigator.geolocation){
+    gpsMelden("Dieses Gerät bietet keine Ortung an. Bitte Weg 2 benutzen.", "warn");
+    return;
+  }
+  if(!window.isSecureContext){
+    gpsMelden("<b>Ortung gesperrt.</b> Die Seite läuft nicht über eine gesicherte Verbindung "
+      + "(https). Als installierte App ist das erfüllt — als lose Datei nicht. Nimm Weg 2.", "warn");
+    return;
+  }
+  gpsMelden("Position wird bestimmt … unter dichtem Schirm dauert das oft 30–60 Sekunden. "
+    + "<b>Nicht wegtippen.</b>", null);
+  let fertig = false;
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      fertig = true;
+      const g = Math.round(pos.coords.accuracy);
+      gpsSetzen(pos.coords.latitude, pos.coords.longitude, g);
+      gpsMelden("Position übernommen, ± " + g + " m. "
+        + (g <= 30 ? "Das genügt für Kachel und Startwert."
+                   : "Auch das genügt — die Kachel ist einen Kilometer groß."), "ok");
+    },
+    err => {
+      fertig = true;
+      const eingebettet = (window.top !== window.self);
+      const grund = {
+        1: eingebettet
+           ? "Die Seite läuft in einer eingebetteten Ansicht, und die gibt die Ortung nicht "
+             + "frei — daran ändert auch die Standortfreigabe des Browsers nichts."
+           : "Die Ortung ist für diese App gesperrt: keine Standortfreigabe erteilt, "
+             + "oder der Standortdienst des Geräts ist aus.",
+        2: "Das Gerät bekommt gerade keine Position (kein Empfang, Ortung ausgeschaltet).",
+        3: "Zeitüberschreitung — unter dichtem Kronendach kann das Signal ausbleiben."
+      }[err.code] || "Unbekannter Fehler.";
+      gpsMelden("<b>Ortung nicht möglich.</b> " + grund
+        + "<br><span style='font-weight:400'>Meldung des Geräts: „" + (err.message || "—")
+        + "“ (Code " + err.code + ")</span>"
+        + "<br><b>Nimm Weg 2:</b> Koordinate in einer Karten- oder GPS-App ablesen, kopieren "
+        + "und unten einfügen. Für diese Arbeit ist das gleichwertig.", "warn");
+    },
+    {enableHighAccuracy:true, timeout:60000, maximumAge:0}
+  );
+  setTimeout(() => { if(!fertig) gpsMelden("Immer noch am Suchen … das ist unter Schirm normal. "
+    + "Wenn nach zwei Minuten nichts kommt: Weg 2.", null); }, 20000);
+}
+
+function gpsSetzen(lat, lon, genauigkeit){
+  const la = Number(lat).toFixed(6), lo = Number(lon).toFixed(6);
+  document.getElementById("f_gps_lat").value = la;
+  document.getElementById("f_gps_lon").value = lo;
+  D.kopf.f_gps_lat = la;
+  D.kopf.f_gps_lon = lo;
+  if(genauigkeit !== null && genauigkeit !== undefined){
+    document.getElementById("f_gps_acc").value = genauigkeit;
+    D.kopf.f_gps_acc = genauigkeit;
+  }
+  speichern(true);
+  utmZeigen();
+}
+
+function zahlenAus(text, kommaAls){
+  const roh = text.replace(/[^\d.,;+\-\s]/g, " ").replace(/,/g, kommaAls);
+  return (roh.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+}
+
+function alsGrad(a, b){
+  const drin = v => Math.abs(v) >= 45 && Math.abs(v) <= 56;
+  if(drin(a) && Math.abs(b) <= 20) return {lat:a, lon:b, art:"grad", gedreht:false};
+  if(drin(b) && Math.abs(a) <= 20) return {lat:b, lon:a, art:"grad", gedreht:true};
+  return null;
+}
+
+function alsUTM(a, b){
+  const ostOk  = v => v > 100000  && v < 900000;
+  const nordOk = v => v > 4000000 && v < 7000000;
+  let ost = null, nord = null;
+  if(ostOk(a) && nordOk(b)){ ost = a; nord = b; }
+  else if(ostOk(b) && nordOk(a)){ ost = b; nord = a; }
+  if(ost === null) return null;
+  const g = vonUTM32(ost, nord);
+  return {lat:g.lat, lon:g.lon, art:"utm", gedreht:(ost === b)};
+}
+
+function koordLesen(roh){
+  const t = (roh || "").trim();
+  if(!t) return null;
+  if(/[°'"´`′″]/.test(t)){
+    const treffer = [];
+    const re = /(-?\d+(?:[.,]\d+)?)\s*[°]\s*(?:(\d+(?:[.,]\d+)?)\s*['´`′]\s*(?:(\d+(?:[.,]\d+)?)\s*["″]?)?)?/g;
+    let m;
+    while((m = re.exec(t)) !== null){
+      const g = parseFloat(m[1].replace(",", "."));
+      const mi = m[2] ? parseFloat(m[2].replace(",", ".")) : 0;
+      const se = m[3] ? parseFloat(m[3].replace(",", ".")) : 0;
+      const vz = g < 0 ? -1 : 1;
+      treffer.push(vz * (Math.abs(g) + mi/60 + se/3600));
+    }
+    if(treffer.length >= 2) return alsGrad(treffer[0], treffer[1]);
+    return null;
+  }
+  const kandidaten = [];
+  [" ", "."].forEach(art => {
+    const z = zahlenAus(t, art);
+    if(z.length === 2) kandidaten.push(z);
+  });
+  for(const [a,b] of kandidaten){ const g = alsGrad(a,b); if(g) return g; }
+  for(const [a,b] of kandidaten){ const u = alsUTM(a,b);  if(u) return u; }
+  return null;
+}
+
+function koordUebernehmen(){
+  const feld = document.getElementById("f_gps_einfuegen");
+  const gelesen = koordLesen(feld.value);
+  if(!gelesen){
+    gpsMelden("<b>Daraus kann ich keine Koordinate lesen.</b> Erwartet werden zwei Zahlen, "
+      + "etwa <i>48.1769, 11.2554</i> oder <i>667412 5337588</i>. Notfalls die drei Felder "
+      + "unten direkt ausfüllen — das tut es auch.", "fehler");
+    return;
+  }
+  gpsSetzen(gelesen.lat, gelesen.lon, null);
+  const inDeutschland = gelesen.lat > 47 && gelesen.lat < 55.2
+                     && gelesen.lon > 5.5 && gelesen.lon < 15.5;
+  const txt = "Übernommen als " + gelesen.lat.toFixed(5) + " / " + gelesen.lon.toFixed(5)
+          + (gelesen.art === "utm" ? " (aus UTM 32 zurückgerechnet)" : "")
+          + (gelesen.gedreht ? " — die Reihenfolge war vertauscht und wurde gedreht" : "") + ".";
+  if(!inDeutschland){
+    gpsMelden(txt + " <b>Achtung: Dieser Punkt liegt nicht in Deutschland</b> — bitte nachsehen, "
+      + "ob die Zahlen stimmen.", "warn");
+  }else{
+    gpsMelden(txt + " Genauigkeit von Hand eintragen, falls die App sie anzeigt.", "ok");
+  }
+}
+
+/* ---------- UTM 32 (ETRS89 / WGS 84, EPSG 25832), Reihenentwicklung nach Snyder ---------- */
+const UTM = {a:6378137.0, e2:0.0066943799901413165, k0:0.9996, lon0:9*Math.PI/180, FE:500000};
+
+function nachUTM32(latGrad, lonGrad){
+  const {a,e2,k0,lon0,FE} = UTM, ep2 = e2/(1-e2);
+  const phi = latGrad*Math.PI/180, lam = lonGrad*Math.PI/180;
+  const s = Math.sin(phi), c = Math.cos(phi), t = Math.tan(phi);
+  const N = a/Math.sqrt(1-e2*s*s), T = t*t, C = ep2*c*c, A = (lam-lon0)*c;
+  const M = a*((1 - e2/4 - 3*e2*e2/64 - 5*e2*e2*e2/256)*phi
+             - (3*e2/8 + 3*e2*e2/32 + 45*e2*e2*e2/1024)*Math.sin(2*phi)
+             + (15*e2*e2/256 + 45*e2*e2*e2/1024)*Math.sin(4*phi)
+             - (35*e2*e2*e2/3072)*Math.sin(6*phi));
+  return {
+    ost:  FE + k0*N*(A + (1-T+C)*Math.pow(A,3)/6
+          + (5-18*T+T*T+72*C-58*ep2)*Math.pow(A,5)/120),
+    nord: k0*(M + N*t*(A*A/2 + (5-T+9*C+4*C*C)*Math.pow(A,4)/24
+          + (61-58*T+T*T+600*C-330*ep2)*Math.pow(A,6)/720))
+  };
+}
+
+function vonUTM32(ost, nord){
+  const {a,e2,k0,lon0,FE} = UTM, ep2 = e2/(1-e2);
+  const M = nord/k0;
+  const mu = M/(a*(1 - e2/4 - 3*e2*e2/64 - 5*e2*e2*e2/256));
+  const e1 = (1-Math.sqrt(1-e2))/(1+Math.sqrt(1-e2));
+  const phi1 = mu + (3*e1/2 - 27*Math.pow(e1,3)/32)*Math.sin(2*mu)
+             + (21*e1*e1/16 - 55*Math.pow(e1,4)/32)*Math.sin(4*mu)
+             + (151*Math.pow(e1,3)/96)*Math.sin(6*mu)
+             + (1097*Math.pow(e1,4)/512)*Math.sin(8*mu);
+  const s = Math.sin(phi1), c = Math.cos(phi1), t = Math.tan(phi1);
+  const C1 = ep2*c*c, T1 = t*t;
+  const N1 = a/Math.sqrt(1-e2*s*s);
+  const R1 = a*(1-e2)/Math.pow(1-e2*s*s, 1.5);
+  const Dd = (ost-FE)/(N1*k0);
+  const phi = phi1 - (N1*t/R1)*(Dd*Dd/2
+            - (5+3*T1+10*C1-4*C1*C1-9*ep2)*Math.pow(Dd,4)/24
+            + (61+90*T1+298*C1+45*T1*T1-252*ep2-3*C1*C1)*Math.pow(Dd,6)/720);
+  const lam = lon0 + (Dd - (1+2*T1+C1)*Math.pow(Dd,3)/6
+            + (5-2*C1+28*T1-3*C1*C1+8*ep2+24*T1*T1)*Math.pow(Dd,5)/120)/c;
+  return {lat: phi*180/Math.PI, lon: lam*180/Math.PI};
+}
+
+function tausenderPunkt(n){
+  return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
+function utmZeigen(){
+  const box = document.getElementById("utmAnzeige");
+  if(!box) return;
+  const lat = zahl(document.getElementById("f_gps_lat").value);
+  const lon = zahl(document.getElementById("f_gps_lon").value);
+  if(isNaN(lat) || isNaN(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180){
+    box.style.display = "none"; return;
+  }
+  const u = nachUTM32(lat, lon);
+  const kx = Math.floor(u.ost/1000), ky = Math.floor(u.nord/1000);
+  box.style.display = "block";
+  box.innerHTML = "<b>UTM 32 (ETRS89):</b> Rechtswert " + tausenderPunkt(u.ost)
+    + " · Hochwert " + tausenderPunkt(u.nord)
+    + "<br><b>Laserdaten-Kachel (1 km): " + kx + "_" + ky + "</b>"
+    + " <span class='hint'>— diese Kachel wird abends beim Landesamt geladen. "
+    + "Liegt der Standpunkt nahe am Rand, die Nachbarkachel gleich mitnehmen.</span>";
+}
+
+function kompassHinweis(){
+  const box = document.getElementById("k_geraetHinweis");
+  if(!box) return;
+  const geraet = wertVon("koreg","k_geraet") || "Handykompass";
+  const bezug  = D.koreg.k_nordbezug || "";
+  if(!bezug){
+    box.innerHTML = '<div class="p-anzeige p-warn">Nordbezug noch offen. '
+      + (geraet.indexOf("Handy") === 0
+         ? 'Beim Handy steht die Einstellung unter Kompass — „wahres Nord" oder magnetisch?'
+         : 'Auch bei der Bussole festhalten, worauf sie bezogen ist.')
+      + '</div>';
+  }else if(bezug === "magnetisch"){
+    box.innerHTML = '<div class="p-anzeige p-ok">Magnetisch gemessen — in Ordnung, '
+      + 'die Missweisung wird bei der Auswertung herausgerechnet.</div>';
+  }else if(bezug === "unbekannt"){
+    box.innerHTML = '<div class="p-anzeige p-fehler">Unbekannter Nordbezug: Die Azimute lassen sich '
+      + 'später nicht mehr korrigieren. Wenn möglich noch am Standpunkt klären.</div>';
+  }else{
+    box.innerHTML = '<div class="p-anzeige p-ok">Geografisch Nord — passt zur Rechnung des Modells.</div>';
+  }
+}
+
+/* ---------- Kleine laufende Prüfungen ---------- */
+function datumPruefen(){
+  const box = document.getElementById("datumHinweis");
+  if(!box) return;
+  const heute = new Date().toISOString().slice(0,10);
+  const d = D.kopf.f_datum;
+  if(d && d !== heute){
+    box.innerHTML = '<div class="p-anzeige p-warn">Das Aufnahmedatum steht auf <b>'
+      + d.split("-").reverse().join(".") + '</b>, heute ist der '
+      + heute.split("-").reverse().join(".") + '. '
+      + '<button class="knopf zweit klein" style="width:auto;padding:6px 12px" onclick="datumHeute()">auf heute setzen</button></div>';
+  }else box.innerHTML = "";
+}
+function datumHeute(){
+  D.kopf.f_datum = new Date().toISOString().slice(0,10);
+  const el = document.getElementById("f_datum");
+  if(el) el.value = D.kopf.f_datum;
+  speichern(true); datumPruefen();
+}
+
+/* Aus "60:40" den Direktanteil p ableiten — die Zahl, mit der das Modell rechnet. */
+function pFormelPruefen(){
+  const box = document.getElementById("pFormelHinweis");
+  if(!box) return;
+  const f = (D.kopf.f_tsf_formel || "").trim();
+  const m = f.match(/(\d+(?:[.,]\d+)?)\s*[:\/]\s*(\d+(?:[.,]\d+)?)/);
+  if(!m){ box.innerHTML = ""; return; }
+  const a = zahl(m[1]), b = zahl(m[2]);
+  if(isNaN(a) || isNaN(b) || a+b === 0){ box.innerHTML = ""; return; }
+  const p = a/(a+b);
+  const eingetragen = zahl(D.kopf.f_p_geraet);
+  let txt = "Aus der Formel <b>"+f+"</b> folgt <b>p = "+p.toFixed(2)+"</b> "
+          + "— der Anteil der Direktstrahlung an TSF. Das ist die Zahl, mit der das Modell rechnet.";
+  let art = "ok";
+  if(isNaN(eingetragen)){
+    txt += ' <button class="knopf zweit klein" style="width:auto;padding:6px 12px" onclick="pUebernehmen('
+         + p.toFixed(2) + ')">als p eintragen</button>';
+  }else if(Math.abs(eingetragen - p) > 0.02){
+    art = "warn";
+    txt += " Eingetragen ist aber <b>"+eingetragen.toFixed(2)+"</b> — eines von beiden stimmt nicht.";
+  }
+  box.innerHTML = '<div class="p-anzeige p-'+art+'">'+txt+'</div>';
+}
+function pUebernehmen(p){
+  D.kopf.f_p_geraet = String(p).replace(".", ",");
+  const el = document.getElementById("f_p_geraet");
+  if(el) el.value = D.kopf.f_p_geraet;
+  speichern(true); pFormelPruefen();
+}
+
+function dauerZeigen(){
+  const box = document.getElementById("dauerAnzeige");
+  if(!box) return;
+  const an = D.kopf.f_ankunft, ab = D.gelaende.g_abfahrt;
+  if(!an || !ab){ box.innerHTML = ""; return; }
+  const min = (h => Number(h.split(":")[0])*60 + Number(h.split(":")[1]));
+  let d = min(ab) - min(an);
+  if(d < 0) d += 24*60;
+  box.innerHTML = '<div class="info gut" style="font-size:13px">Aufenthalt auf der Fläche: <b>'
+    + Math.floor(d/60) + " h " + (d%60) + ' min.</b> Diese Zahl trägt die Planung der '
+    + 'restlichen Flächen — bitte nicht überschreiben.</div>';
+}
+
+/* ---------- Abschlusskontrolle ---------- */
+function kontrolleAufbauen(){
+  const gemessen = PUNKTE.filter(p => { const d = D.punkte[p.id]; return d && d.isf !== "" && d.isf != null; });
+  const belegt   = PUNKTE.filter(p => punktFertig(p.id));
+  const offen    = PUNKTE.filter(p => !punktFertig(p.id));
+  const q = geometrie();
+  const ohneMerkmal = D.baeume.filter(b => !b.merkmal).length;
+  const verbindung  = D.baeume.filter(b => b.standpunkt === "AB").length;
+  const nummernA = Object.keys(D.schema.nummern.A||{}).length;
+  const nummernB = Object.keys(D.schema.nummern.B||{}).length;
+
+  const pruefungen = [
+    [belegt.length === PUNKTE.length, belegt.length + " von " + PUNKTE.length + " Punkten belegt (Zeit und Bild-Nr.)" +
+      (offen.length ? " — offen: " + offen.map(p=>p.id).join(", ") : "")],
+    [gemessen.length === PUNKTE.length, gemessen.length + " Punkte mit ISF/DSF-Werten" +
+      (gemessen.length < PUNKTE.length ? " — der Rest kommt aus der Bildauswertung" : "")],
+    [!!(D.punkte["W1"] && D.punkte["W2"]), "Wiederholungsmessung W-1 und W-2 vorhanden"],
+    [!!D.kopf.f_fotos, "Geräteeinstellungen fotografiert"],
+    [!!(D.kopf.f_geraet && D.kopf.f_atm && D.kopf.f_tsf_formel && D.kopf.f_schwellen),
+      "Geräteeinstellungen abgetippt (Modell, Durchlässigkeit, TSF-Formel, Schwellenzahl)"],
+    [D.baeume.length >= 10, D.baeume.length + " Passpunktbäume erfasst (5 je Mittelpunkt = 10)"],
+    [ohneMerkmal === 0, "Alle Passpunktbäume haben ein Erkennungsmerkmal" +
+      (ohneMerkmal ? " — es fehlen " + ohneMerkmal : "")],
+    [verbindung >= 1, verbindung + " Verbindungsbaum/-bäume von beiden Mittelpunkten"],
+    [!!(D.koreg.k_azimut_ab && D.koreg.k_dist_ab) || verbindung >= 1, "Klammer A→B gemessen oder über Verbindungsbaum bestimmbar"],
+    [!!(D.koreg.k_nordbezug) && D.koreg.k_nordbezug !== "unbekannt",
+      "Nordbezug der Azimute festgehalten" + (D.koreg.k_nordbezug ? " (" + D.koreg.k_nordbezug + ")" : "")],
+    [!!D.kopf.f_gps_lat, "GPS-Wegpunkt gespeichert"],
+    [q.g.gemessen, "Alle Gattermaße gemessen (Längen, Breiten außen und innen, Trennstreifen)"],
+    [!isNaN(zahl(D.schema.s_achse)), "Azimut der Längsachse A→B eingetragen"],
+    [nummernA >= 5 && nummernB >= 5, "Punktnummern in der Skizze vergeben (A: "+nummernA+"/5, B: "+nummernB+"/5)"],
+    [!!(D.parzellen.A.pa_herkunft && D.parzellen.B.pb_herkunft), "Herkunft je Parzelle eingetragen"],
+    [!!(wertVon("parzA","pa_lage") && wertVon("parzB","pb_lage")), "Lage je Parzelle eingetragen"],
+    [!!D.kopf.f_vermarkung, "Vermarkungsbefund eingetragen"],
+    [!!(wertVon("bestand","b_typ") && wertVon("bestand","b_schlussgrad")), "Bestandesbeschreibung ausgefüllt"],
+    [VEG_PUNKTE.every(p => vegEinfachFertig(p.id)), "Vegetation vereinfacht an allen 10 Punkten (" +
+      VEG_PUNKTE.filter(p => vegEinfachFertig(p.id)).length + " von " + VEG_PUNKTE.length + ")"],
+    [VEG_PUNKTE.every(p => vegBBFertig(p.id)), "Vegetation Braun-Blanquet an allen 10 Punkten (" +
+      VEG_PUNKTE.filter(p => vegBBFertig(p.id)).length + " von " + VEG_PUNKTE.length + ")"],
+    [!!D.kopf.f_team, "Aufnahmegruppe eingetragen"]
+  ];
+  const box = document.getElementById("kontrolle");
+  box.innerHTML = pruefungen.map(([ok,txt]) =>
+    '<div class="info '+(ok?"gut":"achtung")+'" style="margin:6px 0">'+
+    (ok ? "&#10003; " : "<b>offen:</b> ") + txt + '</div>').join("");
+
+  const w1 = D.punkte["W1"], w2 = D.punkte["W2"];
+  if(w1 && w2 && w1.isf !== "" && w2.isf !== "" && w1.isf != null && w2.isf != null){
+    const d = Math.abs(Number(w1.isf) - Number(w2.isf));
+    box.innerHTML +=
+      '<div class="info '+(d <= 2 ? "gut" : "warnung")+'" style="margin:6px 0">'+
+      'Wiederholbarkeit ISF: <b>' + d.toFixed(1) + ' Prozentpunkte</b> Unterschied zwischen W-1 und W-2. ' +
+      (d <= 2 ? 'Im erwarteten Rahmen.' : 'Größer als erwartet — im Protokoll vermerken, das ist ein Ergebnis.') +
+      '</div>';
+  }
+  dauerZeigen();
+}
+
+/* =====================================================================
+   Export, Sicherung, Wiederherstellung
+   ===================================================================== */
+function exporteAufbauen(){
+  const zeilen = [];
+  PUNKTE.forEach(p => {
+    const d = D.punkte[p.id];
+    if(!d || d.isf === "" || d.isf == null) return;
+    zeilen.push([d.zeit||"", d.dsf||"", d.isf||"", d.tsf||"", d.lai||"", d.elad||""].join("\t"));
+  });
+  const ep = document.getElementById("exportProjekt");
+  if(ep) ep.value = zeilen.length ? zeilen.join("\n") : "(noch keine Messwerte — die kommen aus der Bildauswertung)";
+  const ea = document.getElementById("exportAlles");
+  if(ea) ea.value = textFassung();
+}
+
+function jaNein(v){ return v ? "ja" : "nein"; }
+
+function textFassung(){
+  const q = geometrie();
+  const z = [];
+  const w = (ziel,id) => wertVon(ziel,id) || "—";
+  z.push("FELDAUFNAHME WEISSTANNE 2.0   (Feldbuch Fassung " + FASSUNG + ")");
+  z.push("Fläche: " + w("kopf","f_flaeche") + "   Datum: " + (D.kopf.f_datum||"—"));
+  z.push("Aufnahmegruppe: " + (D.kopf.f_team||"—"));
+  z.push("Ankunft " + (D.kopf.f_ankunft||"—") + "   Abfahrt " + (D.gelaende.g_abfahrt||"—"));
+  z.push("");
+  z.push("GERÄT: " + (D.kopf.f_geraet||"—") + "  Nr. " + (D.kopf.f_serie||"—"));
+  z.push("  Standort im Gerät: " + (D.kopf.f_breite||"—") + " °N / " + (D.kopf.f_laenge||"—") + " °O");
+  z.push("  Atmosphärische Durchlässigkeit: " + (D.kopf.f_atm||"—") + " %");
+  z.push("  Kosinus-Gewichtung: " + jaNein(D.kopf.f_kosinus));
+  z.push("  DSF-Zeitspanne: " + (D.kopf.f_periode_von||"—") + " bis " + (D.kopf.f_periode_bis||"—"));
+  z.push("  TSF-Formel: " + (D.kopf.f_tsf_formel||"—") + "   -> p = " + (D.kopf.f_p_geraet||"—"));
+  z.push("  Bildwinkel Openness/GapFraction: " + (D.kopf.f_bildwinkel||"—") + " °");
+  z.push("  Max. Neigung bei Fernauslösung: " + (D.kopf.f_max_neigung||"—") + " °");
+  z.push("  Anzahl Schwellwerte: " + (D.kopf.f_schwellen||"—"));
+  z.push("  Himmelsmodell: " + (D.kopf.f_himmelsmodell||"—") + "   Bezugsfläche: " + (D.kopf.f_neigung_bezug||"—"));
+  z.push("  Einstellungen fotografiert: " + jaNein(D.kopf.f_fotos));
+  z.push("  Hemisphärenbilder gespeichert: " + jaNein(D.kopf.f_bilder) + "   Export: " + (D.kopf.f_bildexport||"—"));
+  z.push("");
+  z.push("PARZELLEN");
+  z.push("  A: Lage " + w("parzA","pa_lage") + " | Herkunft " + (D.parzellen.A.pa_herkunft||"—")
+         + " | Reg.-Nr. " + (D.parzellen.A.pa_code||"—"));
+  z.push("     L " + (D.parzellen.A.pa_laenge||"?") + " m, B außen " + (D.parzellen.A.pa_breite_a||"?")
+         + " m, B innen " + (D.parzellen.A.pa_breite_i||"?") + " m"
+         + (D.parzellen.A.pa_breite_i_geschaetzt ? "  [innen GESCHÄTZT, nicht gemessen]" : ""));
+  z.push("  B: Lage " + w("parzB","pb_lage") + " | Herkunft " + (D.parzellen.B.pb_herkunft||"—")
+         + " | Reg.-Nr. " + (D.parzellen.B.pb_code||"—"));
+  z.push("     L " + (D.parzellen.B.pb_laenge||"?") + " m, B außen " + (D.parzellen.B.pb_breite_a||"?")
+         + " m, B innen " + (D.parzellen.B.pb_breite_i||"?") + " m"
+         + (D.parzellen.B.pb_breite_i_geschaetzt ? "  [innen GESCHÄTZT, nicht gemessen]" : ""));
+  z.push("  Trennstreifen: " + (D.kopf.f_trenn||"?") + " m");
+  z.push("  Berechnet: Fläche A " + rund(q.A.flaeche,0) + " m², B " + rund(q.B.flaeche,0)
+         + " m², Gatter gesamt " + rund(q.A.flaeche+q.B.flaeche+q.streifen.flaeche,0) + " m²");
+  z.push("  Berechnet: Sollabstand Mittelpunkt A -> B = " + rund(q.abstandAB,1) + " m");
+  z.push("  Vermarkung: " + w("kopf","f_vermarkung") + "  (" + (D.kopf.f_marken_anzahl||"?")
+         + " Marken, " + (D.kopf.f_marken_art||"—") + ")");
+  z.push("  GPS: " + (D.kopf.f_gps_lat||"—") + " / " + (D.kopf.f_gps_lon||"—") + "  ± " + (D.kopf.f_gps_acc||"?") + " m");
+  if(D.kopf.f_gps_lat && D.kopf.f_gps_lon){
+    const u = nachUTM32(Number(D.kopf.f_gps_lat), Number(D.kopf.f_gps_lon));
+    z.push("  UTM32: " + Math.round(u.ost) + " / " + Math.round(u.nord) +
+           "   Kachel " + Math.floor(u.ost/1000) + "_" + Math.floor(u.nord/1000));
+  }
+  z.push("");
+  z.push("SKIZZE UND PUNKTNUMMERN");
+  z.push("  Azimut Längsachse A->B: " + (D.schema.s_achse||"—") + " °   Eingang: " + w("schema","s_eingang"));
+  z.push("  Zählregel: " + (D.schema.s_regel||"—"));
+  z.push("  Abgesteckt von: " + w("schema","s_aufnehmer"));
+  z.push("Parzelle\tLage\tNummer\tAbstand_m\tAzimut_grad");
+  ["A","B"].forEach(pz => {
+    const teil = q[pz], num = D.schema.nummern[pz] || {};
+    ECKEN.forEach(e => z.push([pz, ECKENNAME[e], num[e]||"?", rund(teil.sat[e].dist,1),
+      isNaN(teil.sat[e].azimut) ? "?" : Math.round(teil.sat[e].azimut)].join("\t")));
+    z.push([pz, "Mittelpunkt", num.M||"M", "0", "-"].join("\t"));
+  });
+  z.push("");
+  z.push("LICHTMESSUNG");
+  z.push("Punkt\tZeit\tHöhe\tBild\tWinkel\tSchwelle\tISF\tDSF\tTSF\tLAI\tELAD\tOpenness\tHimmel\tN\tHor\tvon\tBemerkung");
+  PUNKTE.forEach(p => {
+    const d = D.punkte[p.id]; if(!d) return;
+    z.push([p.id, d.zeit, d.hoehe, d.bild, d.winkel, d.schwelle, d.isf, d.dsf, d.tsf,
+            d.lai, d.elad, d.open, d.himmel, d.nord?"x":"", d.horiz?"x":"", d.aufnehmer||"",
+            (d.bem||"").replace(/\s+/g," ")].join("\t"));
+  });
+  z.push("");
+  z.push("KO-REGISTRIERUNG");
+  z.push("  Azimutgerät: " + w("koreg","k_geraet") + "   Distanzgerät: " + w("koreg","k_distgeraet")
+         + "   Vertex kalibriert: " + jaNein(D.koreg.k_vertex_kal));
+  z.push("  Nordbezug: " + (D.koreg.k_nordbezug||"NICHT ANGEGEBEN"));
+  z.push("  Gegenkurs-Test: " + (D.koreg.k_gegenkurs||"—"));
+  z.push("  Klammer A->B gemessen: Azimut " + (D.koreg.k_azimut_ab||"—") + "°, Distanz " + (D.koreg.k_dist_ab||"—") + " m");
+  klammerAusBaeumen().forEach(k => z.push("  Klammer A->B über Verbindungsbaum " + k.nr + ": "
+    + Math.round(k.azimut) + "°, " + rund(k.dist,1) + " m"));
+  z.push("  Aufgenommen von: " + w("koreg","k_aufnehmer"));
+  z.push("Nr\tStandpunkt\tAzimut\tDistanz\tAzimut_B\tDistanz_B\tArt\tHöhe\tBHD\tMerkmal");
+  D.baeume.forEach(b => z.push([b.nr,b.standpunkt,b.azimut,b.dist,b.azimut_b||"",b.dist_b||"",
+    b.art,b.hoehe,b.bhd,(b.merkmal||"").replace(/\s+/g," ")].join("\t")));
+  z.push("");
+  z.push("BESTANDESBESCHREIBUNG");
+  z.push("  Bestandestyp: " + w("bestand","b_typ"));
+  z.push("  Mischungsgrad: " + w("bestand","b_mischungsgrad") + "   Mischungsform: " + w("bestand","b_mischungsform"));
+  z.push("  Alter: " + w("bestand","b_alter") + "   Verteilung: " + w("bestand","b_verteilung"));
+  z.push("  Schlussgrad: " + w("bestand","b_schlussgrad")
+         + (wertVon("bestand","b_schlussgrad2") ? ", stellenweise " + wertVon("bestand","b_schlussgrad2") : ""));
+  z.push("  Schlussgrad in Worten: " + (D.bestand.b_schluss_text||"—"));
+  z.push("  Besonderheiten: " + (D.bestand.b_besonderheiten||"—"));
+  z.push("  Aufgenommen von: " + w("bestand","b_aufnehmer"));
+  z.push("");
+  z.push("VEGETATION — Bezugsradien: " + SCHICHTEN.map(s => s.k+" "+radiusText(s.k)).join(", "));
+  z.push("A) vereinfacht");
+  z.push("Punkt\tvon\t" + SCHICHTEN.map(s => s.k+"-Deckung\t"+s.k+"-Höhe\t"+s.k+"-frei").join("\t"));
+  VEG_PUNKTE.forEach(p => {
+    const v = (D.veg.punkte||{})[p.id]; if(!v) return;
+    z.push(p.id + "\t" + (v.aufnehmer||"") + "\t" + SCHICHTEN.map(s =>
+      ((v.einfach||{})[s.k+"_d"]||"") + "\t" + ((v.einfach||{})[s.k+"_h"]||"") + "\t"
+      + ((v.einfach||{})[s.k+"_frei"]||"")).join("\t"));
+  });
+  z.push("B) Braun-Blanquet");
+  z.push("Punkt\tvon\tKronenschluss\tSchicht\tArt\tArtmächtigkeit\tSoziabilität");
+  VEG_PUNKTE.forEach(p => {
+    const v = (D.veg.punkte||{})[p.id]; if(!v) return;
+    (v.arten||[]).forEach(a => z.push([p.id, v.aufnehmer||"", v.kronenschluss||"", a.schicht, a.art, a.am, a.soz].join("\t")));
+    if(v.bem) z.push(p.id + "\t\t\t\t[Bemerkung] " + v.bem.replace(/\s+/g," ") + "\t\t");
+  });
+  z.push("");
+  const wtaZeilen = [];
+  Object.keys(D.wta.werte||{}).sort().forEach(s => {
+    const wv = D.wta.werte[s];
+    if(!wv || (!wv.h && !wv.v)) return;
+    const [pz,r,pl] = s.split("-");
+    wtaZeilen.push([pz, r, pl, wv.h||"", wv.v||"", wv.s||""].join("\t"));
+  });
+  if(wtaZeilen.length){
+    z.push("WEISSTANNEN (" + wtaZeilen.length + " Pflanzplätze) — aufgenommen von " + w("wta","w_aufnehmer"));
+    z.push("Parzelle\tReihe\tPlatz\tHöhe_cm\tVitalität\tSchaden");
+    wtaZeilen.forEach(x => z.push(x));
+    z.push("");
+  }
+  if((D.oberstand||[]).length){
+    z.push("OBERSTAND — aufgenommen von " + w("kopf","o_aufnehmer"));
+    z.push("Nr\tBaumart\tBHD_cm\tHöhe_m\tX\tY\tKoordinatensystem");
+    D.oberstand.forEach(b => z.push([b.nr,b.art,b.bhd,b.hoehe,b.x,b.y,b.ks].join("\t")));
+    z.push("");
+  }
+  z.push("GELÄNDE");
+  z.push("  Neigung: " + (D.gelaende.g_neigung||"—") + "°   Exposition: " + w("gelaende","g_exposition"));
+  z.push("  Relief: " + w("gelaende","g_relief") + "   Horizont: " + (D.gelaende.g_horizont||"—"));
+  z.push("  Himmel Beginn/Mitte/Ende: " + (D.gelaende.g_himmel1||"—") + " / " +
+         (D.gelaende.g_himmel2||"—") + " / " + (D.gelaende.g_himmel3||"—"));
+  z.push("");
+  z.push("Bemerkungen zur Fläche: " + (D.kopf.f_bemerkung||"—"));
+  z.push("Bemerkung zur Skizze: " + (D.schema.s_bem||"—"));
+  z.push("");
+  z.push("Erzeugt: " + new Date().toLocaleString("de-DE") + "  ·  Feldbuch " + FASSUNG + " (" + STAND + ")");
+  return z.join("\n");
+}
+
+function dateiname(endung){
+  const f = (wertVon("kopf","f_flaeche")||"Flaeche").replace(/[^A-Za-z0-9]/g,"_").replace(/_+/g,"_");
+  const d = (D.kopf.f_datum||new Date().toISOString().slice(0,10)).replace(/-/g,"");
+  return "WTa_" + f + "_" + d + "." + endung;
+}
+
+function dateiSichern(art){
+  let inhalt, typ, endung;
+  if(art === "json"){ inhalt = JSON.stringify(D,null,1); typ = "application/json"; endung = "json"; }
+  else { inhalt = textFassung(); typ = "text/plain;charset=utf-8"; endung = "txt"; }
+  try{
+    const blob = new Blob([inhalt], {type:typ});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = dateiname(endung);
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    SEIT_SICHERUNG = 0; erinnerungPruefen();
+    meldung("Datei " + dateiname(endung) + " gespeichert.");
+  }catch(e){
+    meldung("Herunterladen ging nicht (" + (e && e.name ? e.name : "unbekannt")
+      + "). Bitte den Text unten markieren und kopieren.");
+  }
+}
+
+function inZwischenablage(art){
+  const txt = (art === "json") ? JSON.stringify(D) : textFassung();
+  const fertig = () => {
+    SEIT_SICHERUNG = 0; erinnerungPruefen();
+    meldung("Kopiert (" + txt.length + " Zeichen) — jetzt in eine Notiz oder Mail einfügen und abschicken.");
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(fertig).catch(() => ersatzKopie(txt, fertig));
+  }else{
+    ersatzKopie(txt, fertig);
+  }
+}
+
+function ersatzKopie(txt, fertig){
+  const ta = document.createElement("textarea");
+  ta.value = txt;
+  ta.style.cssText = "position:fixed; top:0; left:0; opacity:0;";
+  document.body.appendChild(ta);
+  ta.focus(); ta.select(); ta.setSelectionRange(0, txt.length);
+  let ok = false;
+  try{ ok = document.execCommand("copy"); }catch(e){ ok = false; }
+  ta.remove();
+  if(ok){ fertig(); }
+  else{ meldung("Automatisches Kopieren ging nicht. Bitte den Text unten lange antippen, alles markieren und kopieren."); }
+}
+
+function meldung(t){ const e = document.getElementById("exportMeldung"); if(e) e.textContent = t; }
+
+function dateiLaden(ev){
+  const datei = ev.target.files[0]; if(!datei) return;
+  const leser = new FileReader();
+  leser.onload = e => uebernehmen(e.target.result, "Datei");
+  leser.readAsText(datei);
+}
+
+function textLaden(){
+  const txt = document.getElementById("importText").value.trim();
+  if(!txt){ meldung("Bitte zuerst den JSON-Text einfügen."); return; }
+  uebernehmen(txt, "Text");
+}
+
+function uebernehmen(roh, quelle){
+  let neu;
+  try{ neu = JSON.parse(roh); }
+  catch(err){ meldung("Das war kein gültiger JSON-Text — bitte die vollständige Sicherung einfügen."); return; }
+  if(!neu || typeof neu !== "object" || !("punkte" in neu)){
+    meldung("Der Inhalt sieht nicht nach einer Sicherung dieser App aus."); return;
+  }
+  const alteFassung = !neu.fassung || neu.fassung < 2;
+  const anzahl = Object.keys(neu.punkte||{}).length;
+  const jetzt = Object.keys(D.punkte||{}).length;
+  nachfragen("Sicherung übernehmen?",
+    "Die Sicherung enthält <b>" + anzahl + " Messpunkte</b>"
+    + (neu.kopf && neu.kopf.f_flaeche ? " von " + neu.kopf.f_flaeche : "") + ". "
+    + (alteFassung ? "Sie stammt aus der <b>alten Fassung</b> und wird beim Übernehmen umgesetzt. " : "")
+    + (jetzt ? "Die aktuell erfassten " + jetzt + " Punkte werden dabei <b>überschrieben</b>." : ""),
+    "Übernehmen",
+    () => {
+      D = alteFassung ? migrieren(neu) : Object.assign(leererDatensatz(), neu);
+      ergaenzen();
+      speichern(true); alles();
+      meldung("Sicherung aus " + quelle + " übernommen: " + anzahl + " Messpunkte, "
+              + (D.baeume||[]).length + " Passpunktbäume."
+              + (alteFassung ? " Aus der alten Fassung umgesetzt — Herkünfte und Maße je Parzelle bitte gegenlesen." : ""));
+    }, jetzt > 0);
+}
+
+function dateiWegePruefen(){
+  const eingebettet = (window.top !== window.self);
+  const k = document.getElementById("dateiKnoepfe");
+  if(k && !eingebettet) k.innerHTML =
+    '<button class="knopf zweit" onclick="dateiSichern(\'json\')">Als Datei speichern (JSON)</button>'+
+    '<button class="knopf zweit" onclick="dateiSichern(\'txt\')">Als Datei speichern (Text)</button>';
+  const i = document.getElementById("dateiImport");
+  if(i && !eingebettet) i.innerHTML =
+    '<label style="margin-top:14px">…oder eine Sicherungsdatei wählen</label>'+
+    '<input type="file" accept=".json,.txt" onchange="dateiLaden(event)">';
+}
+
+function allesLoeschen(){
+  const anzahl = Object.keys(D.punkte||{}).length;
+  nachfragen("Alle Daten löschen?",
+    "Gelöscht werden <b>" + anzahl + " Messpunkte</b>, "
+    + (D.baeume||[]).length + " Passpunktbäume und alle übrigen Eingaben dieser Fläche. "
+    + "<b>Das lässt sich nicht rückgängig machen.</b> Hast du vorher gesichert?",
+    "Endgültig löschen",
+    () => {
+      D = leererDatensatz();
+      try{ localStorage.removeItem(SCHLUESSEL); }catch(e){}
+      alles(); meldung("Alle Daten gelöscht.");
+    }, true);
+}
+
+/* =====================================================================
+   Offline-Betrieb: Service Worker, Installation, Selbstauskunft
+   ===================================================================== */
+let SW_REG = null;
+
+function offlineEinrichten(){
+  const box = document.getElementById("offlineZustand");
+  if(!("serviceWorker" in navigator)){
+    if(box) box.innerHTML = '<div class="info achtung"><b>Dieser Browser kann die App nicht offline '
+      + 'vorhalten.</b> Sie funktioniert trotzdem, braucht zum Öffnen aber Netz. '
+      + 'Das gedruckte Feldprotokoll bleibt die Rückfallebene.</div>';
+    return;
+  }
+  navigator.serviceWorker.register("sw.js").then(reg => {
+    SW_REG = reg;
+    offlineZustandZeigen();
+    reg.addEventListener("updatefound", () => {
+      const neu = reg.installing;
+      if(!neu) return;
+      neu.addEventListener("statechange", () => {
+        if(neu.state === "installed" && navigator.serviceWorker.controller){
+          balkenZeigen('Eine neuere Fassung der App ist geladen. <button class="knopf zweit klein" '
+            + 'style="width:auto;padding:4px 10px;margin:0" onclick="location.reload()">neu starten</button>');
+        }
+      });
+    });
+  }).catch(e => {
+    if(box) box.innerHTML = '<div class="info warnung"><b>Offline-Vorhaltung nicht eingerichtet.</b> '
+      + 'Meldung: ' + (e && e.message ? e.message : "unbekannt") + '. '
+      + 'Die App läuft weiter, braucht zum Öffnen aber Netz.</div>';
+  });
+}
+
+function offlineZustandZeigen(){
+  const box = document.getElementById("offlineZustand");
+  if(!box) return;
+  const bereit = !!(navigator.serviceWorker && navigator.serviceWorker.controller);
+  const installiert = window.matchMedia("(display-mode: standalone)").matches
+                   || window.navigator.standalone === true;
+  if(bereit && installiert){
+    box.innerHTML = '<div class="info gut"><b>&#10003; Offline einsatzbereit.</b> '
+      + 'Die App ist installiert und vollständig auf dem Gerät — sie startet ohne Netz.</div>';
+  }else if(bereit){
+    box.innerHTML = '<div class="info gut"><b>&#10003; Offline gespeichert.</b> Die App öffnet auch '
+      + 'ohne Netz. <b>Noch besser:</b> im Browsermenü <i>„Zum Startbildschirm hinzufügen"</i> — '
+      + 'dann bekommt sie ein eigenes Symbol und startet ohne Browser.</div>';
+  }else{
+    box.innerHTML = '<div class="info warnung"><b>Wird gerade offline gespeichert …</b> '
+      + 'Diese Seite <b>einmal mit Netz</b> geöffnet lassen, bis hier ein Haken steht. '
+      + 'Danach läuft sie ohne Verbindung.</div>';
+  }
+}
+
+function aktualisierungSuchen(){
+  if(!SW_REG){ meldungTempo("Keine Offline-Vorhaltung aktiv — nichts zu prüfen."); return; }
+  SW_REG.update().then(() => meldungTempo("Geprüft. Gibt es eine neuere Fassung, meldet sich die App."))
+                 .catch(e => meldungTempo("Prüfung nicht möglich: " + (e && e.message ? e.message : "unbekannt")));
+}
+
+function meldungTempo(t){ const e = document.getElementById("tempoMeldung"); if(e) e.innerHTML = t; }
+
+/* Zeigt schwarz auf weiß, was das Speichern kostet — die Klage über Trägheit
+   war der Anlass für den Umbau, also muss sie nachprüfbar sein. */
+function tempoMessen(){
+  const gross = JSON.stringify(D).length;
+  const t0 = performance.now();
+  let n = 0;
+  for(let i = 0; i < 20; i++){ JSON.stringify(D); n++; }
+  const bauen = (performance.now() - t0) / n;
+  const t1 = performance.now();
+  let schreiben = null;
+  try{
+    localStorage.setItem("_wta_tempo", JSON.stringify(D));
+    localStorage.removeItem("_wta_tempo");
+    schreiben = performance.now() - t1;
+  }catch(e){ schreiben = null; }
+  const t2 = performance.now();
+  textFassung();
+  const bericht = performance.now() - t2;
+  meldungTempo("Datensatz <b>" + (gross/1024).toFixed(1) + " kB</b> · "
+    + "Umwandeln <b>" + bauen.toFixed(1) + " ms</b> · "
+    + "Schreiben <b>" + (schreiben === null ? "geht nicht" : schreiben.toFixed(1) + " ms") + "</b> · "
+    + "Berichtstext <b>" + bericht.toFixed(1) + " ms</b>."
+    + "<br>Der Berichtstext wird jetzt <b>nur noch beim Öffnen dieses Abschnitts</b> gebaut — "
+    + "in der alten Fassung lief er bei jeder einzelnen Eingabe mit.");
+}
+
+function technikZeigen(){
+  const box = document.getElementById("technik");
+  if(!box) return;
+  let platz = "unbekannt";
+  try{
+    const gross = new Blob([localStorage.getItem(SCHLUESSEL)||""]).size;
+    platz = (gross/1024).toFixed(1) + " kB belegt";
+  }catch(e){}
+  box.innerHTML =
+    "<b>Fassung:</b> " + FASSUNG + " (" + STAND + ")<br>"
+    + "<b>Speicher:</b> " + (SPEICHER_OK ? "verfügbar, " + platz : "<b>NICHT verfügbar</b>") + "<br>"
+    + "<b>Gesicherte Verbindung:</b> " + jaNein(window.isSecureContext)
+    + " &middot; <b>Offline vorgehalten:</b> " + jaNein(!!(navigator.serviceWorker && navigator.serviceWorker.controller)) + "<br>"
+    + "<b>Als App installiert:</b> " + jaNein(window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true) + "<br>"
+    + "<b>Netz gerade:</b> " + (navigator.onLine ? "verbunden" : "getrennt — die App läuft trotzdem")
+    + (LETZTE_SPEICHERDAUER !== null ? "<br><b>Letztes Speichern:</b> " + LETZTE_SPEICHERDAUER.toFixed(0) + " ms" : "");
+  offlineZustandZeigen();
+}
+
+/* =====================================================================
+   Start
+   ===================================================================== */
+const KOPF_FELDER = ["f_datum","f_ankunft","f_team","f_geraet","f_serie","f_breite","f_laenge",
+  "f_atm","f_schwellen","f_kosinus","f_periode_von","f_periode_bis","f_tsf_formel","f_p_geraet",
+  "f_bildwinkel","f_max_neigung","f_himmelsmodell","f_neigung_bezug","f_fotos","f_bilder",
+  "f_bildexport","f_trenn","f_marken_anzahl","f_marken_art","f_gps_lat","f_gps_lon","f_gps_acc",
+  "f_bemerkung"];
+const PARZ_A_FELDER = ["pa_code","pa_herkunft","pa_laenge","pa_breite_a","pa_breite_i"];
+const PARZ_B_FELDER = ["pb_code","pb_herkunft","pb_laenge","pb_breite_a","pb_breite_i"];
+const BESTAND_FELDER = ["b_besonderheiten","b_schluss_text"];
+const GELAENDE_FELDER = ["g_neigung","g_horizont","g_himmel1","g_himmel2","g_himmel3",
+  "g_ok1","g_ok2","g_ok3","g_abfahrt"];
+const KOREG_FELDER = ["k_azimut_ab","k_dist_ab","k_gegenkurs","k_nordbezug","k_vertex_kal"];
+const SCHEMA_FELDER = ["s_achse","s_regel","s_bem"];
+
+function anhaengen(id, ereignis, was){
+  const el = document.getElementById(id);
+  if(el) el.addEventListener(ereignis, was);
+}
+
+function alles(){
+  KOPF_FELDER.forEach(id => feldBinden(id, "kopf"));
+  PARZ_A_FELDER.forEach(id => feldBinden(id, "parzA"));
+  PARZ_B_FELDER.forEach(id => feldBinden(id, "parzB"));
+  BESTAND_FELDER.forEach(id => feldBinden(id, "bestand"));
+  GELAENDE_FELDER.forEach(id => feldBinden(id, "gelaende"));
+  KOREG_FELDER.forEach(id => feldBinden(id, "koreg"));
+  SCHEMA_FELDER.forEach(id => feldBinden(id, "schema"));
+
+  auswahlfelderAufbauen();
+  personenAktualisieren();
+
+  // Reaktionen auf einzelne Felder
+  ["f_gps_lat","f_gps_lon"].forEach(id => anhaengen(id, "input", utmZeigen));
+  anhaengen("f_team", "change", personenAktualisieren);
+  anhaengen("f_datum", "change", datumPruefen);
+  ["f_tsf_formel","f_p_geraet"].forEach(id => { anhaengen(id,"input",pFormelPruefen); anhaengen(id,"change",pFormelPruefen); });
+  PARZ_A_FELDER.concat(PARZ_B_FELDER, ["f_trenn"]).forEach(id =>
+    anhaengen(id, "change", () => { geometrieAnzeigen(); skizzeZeichnen(); klammerPruefen(); }));
+  anhaengen("s_achse", "change", () => { skizzeZeichnen(); klammerPruefen(); });
+  anhaengen("k_nordbezug", "change", kompassHinweis);
+  ["k_azimut_ab","k_dist_ab"].forEach(id => anhaengen(id, "change", klammerPruefen));
+  anhaengen("g_abfahrt", "change", dauerZeigen);
+  anhaengen("w_parzelle", "change", wtaHerkunftZeigen);
+
+  utmZeigen();
+  kompassHinweis();
+  schlussgradErklaeren();
+  datumPruefen();
+  pFormelPruefen();
+  geometrieAnzeigen();
+  radienFelderAufbauen();
+  vegListeAufbauen();
+  punktListeAufbauen();
+  baumListeAufbauen();
+  wtaEinrichten();
+  wtaAnsicht();
+  obListeAufbauen();
+  skizzeZeichnen();
+  kopfAktualisieren();
+  dauerZeigen();
+  autoAus();
+}
+
+/* Auswahllisten, die außerhalb des Auswahl-Bausteins stehen */
+document.querySelectorAll(".himmelSel").forEach(s => {
+  s.innerHTML = '<option value=""></option>' + HIMMEL.map(h => '<option>'+h+'</option>').join("");
+});
+const pl = document.getElementById("pflanzenliste");
+if(pl) pl.innerHTML = PFLANZEN.map(a => '<option value="'+a+'">').join("");
+const fz = document.getElementById("fusszeile");
+if(fz) fz.innerHTML = "Feldaufnahme Weißtanne 2.0 · Fassung " + FASSUNG + " · Stand " + STAND
+  + " · gehört zur Bachelorarbeit Lichtmodell, Konzept rev. 9"
+  + "<br>Läuft ohne Netz. Das gedruckte Feldprotokoll bleibt die Rückfallebene.";
+
+dateiWegePruefen();
+speicherPruefen();
+laden();
+if(!D.kopf.f_datum) D.kopf.f_datum = new Date().toISOString().slice(0,10);
+alles();
+offlineEinrichten();
+
+if(!SPEICHER_OK){
+  speicherWarnungZeigen();
+  statusZeigen("KEIN SPEICHER — regelmäßig sichern!", true);
+}else{
+  statusZeigen(D.geaendert
+    ? "zuletzt gespeichert " + new Date(D.geaendert).toLocaleString("de-DE")
+    : "bereit — noch nichts erfasst");
+}
+
+/* Beim Verlassen warnen, solange etwas erfasst ist. In der installierten App
+   greift das selten — schadet aber nicht. */
+window.addEventListener("beforeunload", e => {
+  const hatDaten = Object.keys(D.punkte).length || D.baeume.length;
+  if(hatDaten && SEIT_SICHERUNG > 0){ e.preventDefault(); e.returnValue = ""; }
+});
+
+/* Vor dem Schließen bzw. beim Wegschalten sofort schreiben, nicht erst nach 250 ms. */
+document.addEventListener("visibilitychange", () => {
+  if(document.visibilityState === "hidden" && SPEICHER_TIMER) wirklichSpeichern();
+});
+window.addEventListener("online",  technikZeigen);
+window.addEventListener("offline", technikZeigen);
+</script>
+</body>
+</html>

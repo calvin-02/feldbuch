@@ -1,0 +1,339 @@
+<script>
+"use strict";
+/* =====================================================================
+   Feldbuch Weißtanne 2.0 — Fassung 2 (08.09.2026)
+   Gebaut nach dem ersten Feldtag auf BY07 (07.09.2026).
+   Neu gegenüber Fassung 1:
+     · läuft offline als installierbare App (Service Worker)
+     · jede Auswahlliste hat eine Zeile "eigene Angabe"
+     · Herkunft und Maße werden je Parzelle erfasst, nicht mehr fest verdrahtet
+     · antippbare Flächenskizze mit abgeleiteten Soll-Azimuten
+     · Vegetation in beiden Verfahren gleichzeitig
+     · "aufgenommen von" in jedem Abschnitt und bei jedem Punkt
+     · Speichern entkoppelt — der Export wird nicht mehr bei jedem Tastendruck gebaut
+   ===================================================================== */
+
+const FASSUNG = "2.0.0";
+const STAND   = "08.09.2026";
+
+/* ---------- Auswahllisten ----------
+   Alles hier ist Vorschlag, nicht Vorschrift: jede Liste bekommt beim Aufbau
+   automatisch die Zeile "eigene Angabe …" mit Freitextfeld. Ausgenommen sind
+   drei Stellen, an denen Freitext die Auswertung zerstören würde und die
+   deshalb von Hand gebaut sind: Nordbezug, Artmächtigkeit, Soziabilität. */
+
+const FLAECHEN = ["BY01","BY02 · Bischberg","BY03","BY04","BY05","BY06",
+                  "BY07 · Revier Lech (AELF Fürstenfeldbruck)",
+                  "BW01","BW02","BW03","BW04","BW05"];
+
+const LAGEN = ["Süd","Nord","West","Ost","Südwest","Nordost","Südost","Nordwest"];
+
+const FORMEN = ["nach den gemessenen Maßen","Quadrat (ca. 50 × 50 m)","Rechteck lang (ca. 25 × 100 m)"];
+
+const EINGANG = ["Süden","Südosten","Osten","Nordosten","Norden","Nordwesten","Westen","Südwesten",
+                 "an einer Ecke","kein Tor gefunden"];
+
+const VERMARKUNG = ["alle 10 Punkte gefunden","nur Parzellenmittelpunkte gefunden",
+                    "einzelne Marken gefunden","nichts gefunden — neu abgesteckt"];
+
+const MISCHUNGSGRAD  = ["20-30%","30-40%","40-50%"];
+const MISCHUNGSFORM  = ["einzelstammweise","truppweise","gruppenweise","horstweise","flächenweise","reihenweise"];
+const ALTER          = ["0-20 Jahre","21-40 Jahre","41-60 Jahre","61-80 Jahre","81-100 Jahre",">100 Jahre"];
+const VERTEILUNG     = ["gleichverteilt","geklumpt","zufällig"];
+const SCHLUSSGRAD    = ["gedrängt","geschlossen","locker","licht","räumig, räumdig"];
+const EXPOSITION     = ["N","NO","O","SO","S","SW","W","NW","eben"];
+const RELIEF         = ["eben","Kuppe","Oberhang","Mittelhang","Unterhang","Mulde/Tal"];
+const AZIMUTGERAET   = ["Handykompass","Bussole","Kompass am Vertex"];
+const DISTANZGERAET  = ["Vertex","Bandmaß","Laser-Entfernungsmesser","Schrittmaß"];
+
+const SCHLUSSGRAD_ERKLAERUNG = {
+  "gedrängt":        "Die Kronen greifen tief ineinander.",
+  "geschlossen":     "Die Kronen berühren sich mit den Zweigspitzen, der Kronenschluss ist erreicht.",
+  "locker":          "Der Kronenabstand ist kleiner als eine Kronenbreite.",
+  "licht":           "Der Kronenabstand entspricht einer Kronenbreite.",
+  "räumig, räumdig": "Der Kronenabstand überschreitet eine Kronenbreite."
+};
+
+const BESTANDESTYPEN = [
+  "BU-R Buchen-Reinbestand","BU-EI Buchen-Eichen","BU-ELB Buchen-Edellaubholz",
+  "BU-DGL Buchen-Douglasien","BU-FI Buchen-Fichten","BU-KI Buchen-Kiefern",
+  "BU-LA Buchen-Lärchen","BU-TA Buchen-Tannen","BU-MW Buchen-Mischbestand",
+  "EI-R Eichen-Reinbestand","EI-BI Eichen-Birken","EI-BU Eichen-Buchen",
+  "EI-ELB Eichen-Edellaubholz","EI-KI Eichen-Kiefern","EI-LI-HBU Eichen-Linden-Hainbuchen",
+  "EI-MW Eichen-Mischbestand","ELB Edellaubholz","ELB-R Edellaubholz-Reinbestand",
+  "ER-R Erlen-Reinbestand","ER-ELB Erlen-Edellaubholz",
+  "WLB-R Weichlaubholz-Reinbestand","WLB-LB Weichlaubholz-Laubholz","WLB-NB Weichlaubholz-Nadelholz",
+  "FI-R Fichten-Reinbestand","FI-BU Fichten-Buchen","FI-ELB Fichten-Edellaubholz",
+  "FI-ER Fichten-Erlen","FI-DGL Fichten-Douglasien","FI-KI Fichten-Kiefern",
+  "FI-TA Fichten-Tannen","FI-LA Fichten-Lärchen","FI-WLB Fichten-Weichlaubholz",
+  "FI-MW Fichten-Mischbestand","KI-R Kiefern-Reinbestand","KI-BU Kiefern-Buchen",
+  "KI-EI Kiefern-Eichen","KI-FI Kiefern-Fichten","LA Lärche","DGL Douglasie","TA Tanne"
+];
+
+/* Herkünfte je Fläche — wörtlich aus Tabelle 1 des Abschlussberichts
+   (BMBF 2219NR278, S. 14) und der Ergebnistabelle 2023. Die rumänische Herkunft ist
+   auf allen Flächen dieselbe: St. George, PS-BR-CV82,B122-C320, Code 99999.
+   BY07 stammt aus der Ergebnistabelle (dort 82710), nicht aus Tabelle 1. */
+const HERKUENFTE = {
+  "BY01":"091 82710 1042 (Übriges Süddeutschland)",
+  "BY02 · Bischberg":"091 82710 1042 (Übriges Süddeutschland)",
+  "BY03":"091 82710 1042",
+  "BY04":"091 82710 1042 (Übriges Süddeutschland)",
+  "BY05":"083 82710 0172",
+  "BY06":"083 82710 0172 (Übriges Süddeutschland)",
+  "BY07 · Revier Lech (AELF Fürstenfeldbruck)":"82710 (Übriges Süddeutschland)",
+  "BW01":"081 82709 1102 (Schwäbisch-Fränkischer Wald)",
+  "BW02":"091 82710 1042 (Übriges Süddeutschland)",
+  "BW03":"083 82708 1752 (Schwarzwald und Albtrauf)",
+  "BW04":"083 82708 1752 (Schwarzwald und Albtrauf)",
+  "BW05":"091 82710 1042 (Übriges Süddeutschland)"
+};
+const RUMAENISCH = "99999 (PS-BR-CV82,B122-C320, St. George)";
+
+/* ---------- Punktdefinition: 10 Messpunkte + zwei Wiederholungen ---------- */
+const PUNKTE = [
+  {id:"W1",   name:"W-1 Wiederholung Beginn", info:"Erste Messung des Tages am Standpunkt"},
+  {id:"A-M",  name:"A-M Mittelpunkt",   info:"Parzelle A — Schnittpunkt der Diagonalen"},
+  {id:"A-S1", name:"A-S1 Satellit",     info:"¼ der Strecke von der Ecke zum Mittelpunkt"},
+  {id:"A-S2", name:"A-S2 Satellit",     info:""},
+  {id:"A-S3", name:"A-S3 Satellit",     info:""},
+  {id:"A-S4", name:"A-S4 Satellit",     info:""},
+  {id:"B-M",  name:"B-M Mittelpunkt",   info:"Parzelle B — Schnittpunkt der Diagonalen"},
+  {id:"B-S1", name:"B-S1 Satellit",     info:""},
+  {id:"B-S2", name:"B-S2 Satellit",     info:""},
+  {id:"B-S3", name:"B-S3 Satellit",     info:""},
+  {id:"B-S4", name:"B-S4 Satellit",     info:""},
+  {id:"W2",   name:"W-2 Wiederholung Ende", info:"Derselbe Punkt wie W-1, am Ende des Tages"}
+];
+const VEG_PUNKTE = PUNKTE.filter(p => p.id !== "W1" && p.id !== "W2");
+
+const HIMMEL = ["gleichmäßig bedeckt","wechselnd bewölkt","Nebel","aufklarend","sonnig"];
+
+const BAUMARTEN = [
+  ["311","Gem. Fichte"],["321","Weißtanne"],["330","Douglasie"],["111","Gemeine Kiefer"],
+  ["211","Europäische Lärche"],["511","Rotbuche"],["411","Stieleiche"],["412","Traubeneiche"],
+  ["413","Roteiche"],["611","Hainbuche"],["621","Gemeine Esche"],["631","Bergahorn"],
+  ["632","Spitzahorn"],["633","Feldahorn"],["711","Gemeine Birke"],["721","Schwarzerle"],
+  ["751","Eberesche"],["781","Winterlinde"],["782","Sommerlinde"],["661","Vogelkirsche"],
+  ["651","Robinie"],["741","Salweide"],["322","Küstentanne"]
+];
+
+/* ---------- Vegetation ---------- */
+const SCHICHTEN = [
+  {k:"B1",  n:"Baumschicht 1",  radius:10},
+  {k:"B2",  n:"Baumschicht 2",  radius:10},
+  {k:"Str", n:"Strauchschicht", radius:5},
+  {k:"Kr",  n:"Krautschicht",   radius:1},
+  {k:"Mo",  n:"Moosschicht",    radius:1}
+];
+const DECKUNG_EINFACH = ["<25%","25-50%","50-75%",">75%"];
+const HOEHE_EINFACH = ["0-10 cm","10-20 cm","20-30 cm","30-40 cm","40-50 cm",
+                       "50-60 cm","60-70 cm","70-80 cm","80-90 cm","90-100 cm",
+                       "1-2 m","2-5 m","5-10 m","10-20 m","20-30 m",">30 m"];
+const KRONENSCHLUSS = ["1","0.9","0.8","0.7","0.6","0.5","0.4","<=0,3"];
+
+const ARTMAECHTIGKEIT = [
+  ["",   ""],
+  ["r",  "einzeln — deutlich unter 1 %"],
+  ["+",  "wenige (2–5) — bis 1 %"],
+  ["1",  "viele (bis 50) — bis 5 %"],
+  ["2m", "sehr viele (über 50) — bis 5 %"],
+  ["2a", "sehr viele — 5 bis 15 %"],
+  ["2b", "sehr viele — 16 bis 25 %"],
+  ["3",  "26 bis 50 %"],
+  ["4",  "51 bis 75 %"],
+  ["5",  "76 bis 100 %"]
+];
+const SOZIABILITAET = [
+  ["",  ""],
+  ["1", "einzeln wachsend"],
+  ["2", "kleine Gruppen, horstweise"],
+  ["3", "kleine Flecken oder Polster"],
+  ["4", "Kolonien bis Teppiche"],
+  ["5", "große Herden"]
+];
+
+const PFLANZEN = [
+  "Rotbuche","Stieleiche","Traubeneiche","Hainbuche","Gemeine Esche","Bergahorn","Spitzahorn",
+  "Feldahorn","Winterlinde","Sommerlinde","Gemeine Birke","Schwarzerle","Eberesche","Vogelkirsche",
+  "Salweide","Gemeine Fichte","Weißtanne","Douglasie","Gemeine Kiefer","Europäische Lärche",
+  "Roteiche","Robinie","Faulbaum","Hasel","Schwarzer Holunder","Roter Hartriegel","Weißdorn",
+  "Schlehe","Himbeere","Brombeere","Heidelbeere","Preiselbeere","Drahtschmiele","Wolliges Reitgras",
+  "Land-Reitgras","Rasen-Schmiele","Flattergras","Waldzwenke","Waldsegge","Hain-Rispengras",
+  "Adlerfarn","Wurmfarn","Dorniger Wurmfarn","Buchenfarn","Frauenfarn","Sauerklee","Waldmeister",
+  "Goldnessel","Bingelkraut","Buschwindröschen","Wald-Veilchen","Efeu","Springkraut",
+  "Kleinblütiges Springkraut","Brennnessel","Giersch","Ackerhohlzahn","Johanniskraut",
+  "Weidenröschen","Fuchssches Greiskraut","Widertonmoos","Schönes Widertonmoos",
+  "Schönes Frauenhaar","Etagenmoos","Schlafmoos","Gabelzahnmoos"
+];
+
+const VITALITAET = [
+  ["",  "—"], ["0","tot"], ["1","vital / lebend"], ["2","Baum"], ["3","Stubben"],
+  ["4","Reisig"], ["5","Fels / Stein"], ["6","Erdloch / Graben"],
+  ["7","Naturverjüngung"], ["8","sonstiges"]
+];
+const SCHAEDEN = [
+  ["",  "—"], ["0","ohne Schäden"], ["1","Verbiss"], ["2","nadelfressende Insekten"],
+  ["3","rindenfressende Insekten"], ["4","Mäuse"], ["5","Frost"], ["6","Trockenheit"],
+  ["7","Pilze"], ["8","Nadelvergilbung"], ["9","unspezifischer Schaden"]
+];
+
+/* Namensregister der Auswahllisten — für die Felder mit data-liste */
+const LISTEN = {
+  FLAECHEN, LAGEN, FORMEN, EINGANG, VERMARKUNG, MISCHUNGSGRAD, MISCHUNGSFORM,
+  ALTER, VERTEILUNG, SCHLUSSGRAD, EXPOSITION, RELIEF, AZIMUTGERAET, DISTANZGERAET,
+  BESTANDESTYPEN, HIMMEL, DECKUNG_EINFACH, HOEHE_EINFACH, KRONENSCHLUSS
+};
+
+/* =====================================================================
+   Datenhaltung
+   ===================================================================== */
+const SCHLUESSEL = "wta_feld_v2";
+const SCHLUESSEL_ALT = "wta_feld_v1";
+
+function leererDatensatz(){
+  return {
+    fassung: 2,
+    kopf:{}, bestand:{}, gelaende:{}, koreg:{}, schema:{nummern:{A:{},B:{}}},
+    parzellen:{ A:{}, B:{} },
+    punkte:{}, baeume:[], veg:{punkte:{}, radien:{}}, wta:{}, oberstand:[],
+    geaendert:null
+  };
+}
+let D = leererDatensatz();
+let SPEICHER_OK = null;      // wird beim Start geprüft
+let SEIT_SICHERUNG = 0;      // Änderungen seit der letzten Sicherung
+let LETZTE_SPEICHERDAUER = null;
+
+/* --- Zielobjekte der Formularfelder --- */
+function zielObjekt(name){
+  switch(name){
+    case "kopf":     return D.kopf;
+    case "bestand":  return D.bestand;
+    case "gelaende": return D.gelaende;
+    case "koreg":    return D.koreg;
+    case "schema":   return D.schema;
+    case "wta":      return D.wta;
+    case "parzA":    return D.parzellen.A;
+    case "parzB":    return D.parzellen.B;
+    default:         return D.kopf;
+  }
+}
+
+function speicherPruefen(){
+  try{
+    localStorage.setItem("_wta_test","1");
+    localStorage.removeItem("_wta_test");
+    SPEICHER_OK = true;
+  }catch(e){ SPEICHER_OK = false; }
+  return SPEICHER_OK;
+}
+
+/* ---------- Speichern, entkoppelt ----------
+   Fassung 1 schrieb bei JEDER Eingabe den ganzen Datensatz weg UND baute beide
+   Exporttexte neu auf. Das wurde mit wachsender Aufnahme spürbar langsamer — genau
+   der Effekt, der am Feldtag aufgefallen ist. Jetzt:
+     · der Schreibvorgang wird gebündelt (250 ms nach der letzten Eingabe),
+     · der Export wird nur noch gebaut, wenn der Abschnitt "Daten" offen ist. */
+let SPEICHER_TIMER = null;
+
+function speichern(sofort){
+  D.geaendert = new Date().toISOString();
+  SEIT_SICHERUNG++;
+  kopfAktualisieren();
+  erinnerungPruefen();
+  if(document.getElementById("daten").classList.contains("aktiv")) exporteAufbauen();
+  if(!SPEICHER_OK){ statusZeigen("KEIN SPEICHER — regelmäßig sichern!", true); return; }
+  if(SPEICHER_TIMER) clearTimeout(SPEICHER_TIMER);
+  if(sofort){ wirklichSpeichern(); return; }
+  SPEICHER_TIMER = setTimeout(wirklichSpeichern, 250);
+}
+
+function wirklichSpeichern(){
+  SPEICHER_TIMER = null;
+  const t0 = performance.now();
+  try{
+    localStorage.setItem(SCHLUESSEL, JSON.stringify(D));
+    LETZTE_SPEICHERDAUER = performance.now() - t0;
+    statusZeigen("gespeichert " + new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})
+      + " · " + LETZTE_SPEICHERDAUER.toFixed(0) + " ms");
+  }catch(e){
+    SPEICHER_OK = false;
+    speicherWarnungZeigen();
+    statusZeigen("Speichern fehlgeschlagen: " + (e && e.name ? e.name : "unbekannt"), true);
+  }
+}
+
+function laden(){
+  if(!SPEICHER_OK) return;
+  try{
+    const roh = localStorage.getItem(SCHLUESSEL);
+    if(roh){ D = Object.assign(leererDatensatz(), JSON.parse(roh)); ergaenzen(); return; }
+    // Kein Datensatz der neuen Fassung — dann nach der alten sehen und umsetzen.
+    const alt = localStorage.getItem(SCHLUESSEL_ALT);
+    if(alt){ D = migrieren(JSON.parse(alt)); wirklichSpeichern(); }
+  }catch(e){ /* leerer Start */ }
+}
+
+/* Fehlende Zweige nachziehen — eine ältere Sicherung kennt sie noch nicht. */
+function ergaenzen(){
+  const leer = leererDatensatz();
+  Object.keys(leer).forEach(k => { if(D[k] === undefined || D[k] === null) D[k] = leer[k]; });
+  if(!D.parzellen) D.parzellen = {A:{},B:{}};
+  if(!D.parzellen.A) D.parzellen.A = {};
+  if(!D.parzellen.B) D.parzellen.B = {};
+  if(!D.schema) D.schema = {};
+  if(!D.schema.nummern) D.schema.nummern = {A:{},B:{}};
+  if(!D.schema.nummern.A) D.schema.nummern.A = {};
+  if(!D.schema.nummern.B) D.schema.nummern.B = {};
+  if(!D.veg) D.veg = {};
+  if(!D.veg.punkte) D.veg.punkte = {};
+  if(!D.veg.radien) D.veg.radien = {};
+  if(!D.wta) D.wta = {};
+  if(!Array.isArray(D.baeume)) D.baeume = [];
+  if(!Array.isArray(D.oberstand)) D.oberstand = [];
+}
+
+/* ---------- Übernahme einer Sicherung der Fassung 1 ----------
+   Der Aufbau ist bis auf drei Punkte gleich:
+     · Herkunft und Gattermaße lagen im Kopf, jetzt je Parzelle
+     · Vegetation hatte einen Modus (entweder/oder), jetzt beides nebeneinander
+     · der Freitext der Auswahlfelder ist neu
+   Nichts wird verworfen: Was sich nicht zuordnen lässt, landet in der Bemerkung. */
+function migrieren(alt){
+  const n = leererDatensatz();
+  if(!alt || typeof alt !== "object") return n;
+  n.kopf      = Object.assign({}, alt.kopf || {});
+  n.bestand   = Object.assign({}, alt.bestand || {});
+  n.gelaende  = Object.assign({}, alt.gelaende || {});
+  n.koreg     = Object.assign({}, alt.koreg || {});
+  n.punkte    = Object.assign({}, alt.punkte || {});
+  n.baeume    = Array.isArray(alt.baeume) ? alt.baeume.slice() : [];
+  n.oberstand = Array.isArray(alt.oberstand) ? alt.oberstand.slice() : [];
+  n.wta       = Object.assign({}, alt.wta || {});
+
+  n.parzellen.A.herkunft = (alt.kopf && alt.kopf.f_herkunft_a) || "";
+  n.parzellen.B.herkunft = (alt.kopf && alt.kopf.f_herkunft_b) || "";
+  if(alt.kopf && alt.kopf.f_laenge_m){ n.parzellen.A.pa_laenge = alt.kopf.f_laenge_m; }
+  if(alt.kopf && alt.kopf.f_breite_m){ n.parzellen.A.pa_breite_a = alt.kopf.f_breite_m; }
+  delete n.kopf.f_herkunft_a; delete n.kopf.f_herkunft_b;
+  delete n.kopf.f_laenge_m;   delete n.kopf.f_breite_m;
+
+  n.veg.punkte = {};
+  const altVeg = (alt.veg && alt.veg.punkte) || {};
+  Object.keys(altVeg).forEach(pid => {
+    const v = altVeg[pid] || {};
+    n.veg.punkte[pid] = {
+      einfach: v.einfach || {},
+      arten:   Array.isArray(v.arten) ? v.arten : [],
+      kronenschluss: v.kronenschluss || "",
+      bem: v.bem || "",
+      aufnehmer: ""
+    };
+  });
+  n.veg.radien = {};
+  n.fassung = 2;
+  n.geaendert = alt.geaendert || new Date().toISOString();
+  n.umgesetzt_aus_fassung1 = true;
+  return n;
+}

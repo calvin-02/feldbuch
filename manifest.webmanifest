@@ -1,0 +1,19 @@
+{
+  "name": "Feldbuch Weißtanne 2.0",
+  "short_name": "Feldbuch",
+  "description": "Feldaufnahme für die Dauerbeobachtungsflächen: Lichtmessung, Vegetation, Ko-Registrierung. Funktioniert ohne Netz.",
+  "lang": "de",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#fbfaf7",
+  "theme_color": "#1f4a34",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,109 @@
+
+/* =====================================================================
+   Start
+   ===================================================================== */
+const KOPF_FELDER = ["f_datum","f_ankunft","f_team","f_geraet","f_serie","f_breite","f_laenge",
+  "f_atm","f_schwellen","f_kosinus","f_periode_von","f_periode_bis","f_tsf_formel","f_p_geraet",
+  "f_bildwinkel","f_max_neigung","f_himmelsmodell","f_neigung_bezug","f_fotos","f_bilder",
+  "f_bildexport","f_trenn","f_marken_anzahl","f_marken_art","f_gps_lat","f_gps_lon","f_gps_acc",
+  "f_bemerkung"];
+const PARZ_A_FELDER = ["pa_code","pa_herkunft","pa_laenge","pa_breite_a","pa_breite_i"];
+const PARZ_B_FELDER = ["pb_code","pb_herkunft","pb_laenge","pb_breite_a","pb_breite_i"];
+const BESTAND_FELDER = ["b_besonderheiten","b_schluss_text"];
+const GELAENDE_FELDER = ["g_neigung","g_horizont","g_himmel1","g_himmel2","g_himmel3",
+  "g_ok1","g_ok2","g_ok3","g_abfahrt"];
+const KOREG_FELDER = ["k_azimut_ab","k_dist_ab","k_gegenkurs","k_nordbezug","k_vertex_kal"];
+const SCHEMA_FELDER = ["s_achse","s_regel","s_bem"];
+
+function anhaengen(id, ereignis, was){
+  const el = document.getElementById(id);
+  if(el) el.addEventListener(ereignis, was);
+}
+
+function alles(){
+  KOPF_FELDER.forEach(id => feldBinden(id, "kopf"));
+  PARZ_A_FELDER.forEach(id => feldBinden(id, "parzA"));
+  PARZ_B_FELDER.forEach(id => feldBinden(id, "parzB"));
+  BESTAND_FELDER.forEach(id => feldBinden(id, "bestand"));
+  GELAENDE_FELDER.forEach(id => feldBinden(id, "gelaende"));
+  KOREG_FELDER.forEach(id => feldBinden(id, "koreg"));
+  SCHEMA_FELDER.forEach(id => feldBinden(id, "schema"));
+
+  auswahlfelderAufbauen();
+  personenAktualisieren();
+
+  // Reaktionen auf einzelne Felder
+  ["f_gps_lat","f_gps_lon"].forEach(id => anhaengen(id, "input", utmZeigen));
+  anhaengen("f_team", "change", personenAktualisieren);
+  anhaengen("f_datum", "change", datumPruefen);
+  ["f_tsf_formel","f_p_geraet"].forEach(id => { anhaengen(id,"input",pFormelPruefen); anhaengen(id,"change",pFormelPruefen); });
+  PARZ_A_FELDER.concat(PARZ_B_FELDER, ["f_trenn"]).forEach(id =>
+    anhaengen(id, "change", () => { geometrieAnzeigen(); skizzeZeichnen(); klammerPruefen(); }));
+  anhaengen("s_achse", "change", () => { skizzeZeichnen(); klammerPruefen(); });
+  anhaengen("k_nordbezug", "change", kompassHinweis);
+  ["k_azimut_ab","k_dist_ab"].forEach(id => anhaengen(id, "change", klammerPruefen));
+  anhaengen("g_abfahrt", "change", dauerZeigen);
+  anhaengen("w_parzelle", "change", wtaHerkunftZeigen);
+
+  utmZeigen();
+  kompassHinweis();
+  schlussgradErklaeren();
+  datumPruefen();
+  pFormelPruefen();
+  geometrieAnzeigen();
+  radienFelderAufbauen();
+  vegListeAufbauen();
+  punktListeAufbauen();
+  baumListeAufbauen();
+  wtaEinrichten();
+  wtaAnsicht();
+  obListeAufbauen();
+  skizzeZeichnen();
+  kopfAktualisieren();
+  dauerZeigen();
+  autoAus();
+}
+
+/* Auswahllisten, die außerhalb des Auswahl-Bausteins stehen */
+document.querySelectorAll(".himmelSel").forEach(s => {
+  s.innerHTML = '<option value=""></option>' + HIMMEL.map(h => '<option>'+h+'</option>').join("");
+});
+const pl = document.getElementById("pflanzenliste");
+if(pl) pl.innerHTML = PFLANZEN.map(a => '<option value="'+a+'">').join("");
+const fz = document.getElementById("fusszeile");
+if(fz) fz.innerHTML = "Feldaufnahme Weißtanne 2.0 · Fassung " + FASSUNG + " · Stand " + STAND
+  + " · gehört zur Bachelorarbeit Lichtmodell, Konzept rev. 9"
+  + "<br>Läuft ohne Netz. Das gedruckte Feldprotokoll bleibt die Rückfallebene.";
+
+dateiWegePruefen();
+speicherPruefen();
+laden();
+if(!D.kopf.f_datum) D.kopf.f_datum = new Date().toISOString().slice(0,10);
+alles();
+offlineEinrichten();
+
+if(!SPEICHER_OK){
+  speicherWarnungZeigen();
+  statusZeigen("KEIN SPEICHER — regelmäßig sichern!", true);
+}else{
+  statusZeigen(D.geaendert
+    ? "zuletzt gespeichert " + new Date(D.geaendert).toLocaleString("de-DE")
+    : "bereit — noch nichts erfasst");
+}
+
+/* Beim Verlassen warnen, solange etwas erfasst ist. In der installierten App
+   greift das selten — schadet aber nicht. */
+window.addEventListener("beforeunload", e => {
+  const hatDaten = Object.keys(D.punkte).length || D.baeume.length;
+  if(hatDaten && SEIT_SICHERUNG > 0){ e.preventDefault(); e.returnValue = ""; }
+});
+
+/* Vor dem Schließen bzw. beim Wegschalten sofort schreiben, nicht erst nach 250 ms. */
+document.addEventListener("visibilitychange", () => {
+  if(document.visibilityState === "hidden" && SPEICHER_TIMER) wirklichSpeichern();
+});
+window.addEventListener("online",  technikZeigen);
+window.addEventListener("offline", technikZeigen);
+</script>
+</body>
+</html>

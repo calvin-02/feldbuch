@@ -1,0 +1,293 @@
+
+/* =====================================================================
+   Anzeige, Navigation, Formularfelder
+   ===================================================================== */
+
+function statusZeigen(txt, fehler){
+  const el = document.getElementById("kopfStatus");
+  if(el) el.innerHTML = fehler ? "<b>"+txt+"</b>" : txt;
+}
+
+function balkenZeigen(txt){
+  const b = document.getElementById("balken");
+  if(!b) return;
+  if(!txt){ b.style.display = "none"; return; }
+  b.style.display = "block";
+  b.innerHTML = txt;
+}
+
+function speicherWarnungZeigen(){
+  if(document.getElementById("speicherWarnung")) return;
+  const div = document.createElement("div");
+  div.id = "speicherWarnung";
+  div.style.cssText = "position:sticky; top:0; z-index:60; background:var(--rot); color:#fff;"
+    + "padding:10px 12px; font-size:14px; font-weight:600; line-height:1.35;";
+  div.innerHTML = "⚠ <b>Dieses Gerät speichert nichts.</b> Die Daten sind weg, sobald die App "
+    + "geschlossen wird. <u>Nach jedem Punkt unter &bdquo;Daten&ldquo; sichern</u> — "
+    + "kopieren und in eine Notiz einfügen, oder als Datei speichern.";
+  document.body.insertBefore(div, document.body.firstChild);
+}
+
+function erinnerungPruefen(){
+  const el = document.getElementById("sicherungHinweis");
+  if(!el) return;
+  const punkte = Object.keys(D.punkte).length;
+  if(SEIT_SICHERUNG >= 6 && punkte >= 3){
+    el.style.display = "block";
+    el.textContent = "Seit der letzten Sicherung wurden " + SEIT_SICHERUNG
+      + " Änderungen erfasst. Jetzt wäre ein guter Moment zum Sichern.";
+    if(SEIT_SICHERUNG >= 25) balkenZeigen("Seit " + SEIT_SICHERUNG + " Änderungen nicht gesichert — unter „Daten“ kopieren.");
+  }else{
+    el.style.display = "none";
+    balkenZeigen("");
+  }
+}
+
+function punktFertig(pid){
+  const d = D.punkte[pid];
+  if(!d) return false;
+  const hatWerte = d.isf !== "" && d.isf != null && d.dsf !== "" && d.dsf != null;
+  const hatBeleg = !!(d.zeit && d.bild);     // Werte kommen später aus der Bildauswertung
+  return hatWerte || hatBeleg;
+}
+
+function kopfAktualisieren(){
+  const f = wertVon("kopf","f_flaeche") || "keine Fläche gewählt";
+  const el = document.getElementById("kopfFlaeche");
+  if(el) el.textContent = "Feldbuch — " + f;
+  const fertig = PUNKTE.filter(p => punktFertig(p.id)).length;
+  const ep = document.getElementById("kopfPunkte");
+  if(ep) ep.textContent = fertig + "/" + PUNKTE.length;
+  const fo = document.getElementById("kopfFortschritt");
+  if(fo) fo.innerHTML = PUNKTE.map(p => {
+    const wdh = (p.id === "W1" || p.id === "W2");
+    const kl = punktFertig(p.id) ? (wdh ? "wdh" : "voll") : "";
+    return '<span class="'+kl+'" title="'+p.name+'"></span>';
+  }).join("");
+}
+
+/* ---------- Navigation ---------- */
+document.querySelectorAll("nav button").forEach(b => {
+  b.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach(x => x.classList.remove("aktiv"));
+    document.querySelectorAll("section").forEach(x => x.classList.remove("aktiv"));
+    b.classList.add("aktiv");
+    document.getElementById(b.dataset.ziel).classList.add("aktiv");
+    window.scrollTo(0,0);
+    if(b.dataset.ziel === "daten"){ exporteAufbauen(); technikZeigen(); }
+    if(b.dataset.ziel === "gelaende") kontrolleAufbauen();
+    if(b.dataset.ziel === "skizze") skizzeZeichnen();
+    if(b.dataset.ziel === "tannen") wtaHerkunftZeigen();
+  });
+});
+
+/* ---------- Einfache Felder an ein Zielobjekt binden ---------- */
+function feldBinden(id, zielName){
+  const el = document.getElementById(id);
+  if(!el) return;
+  const ziel = zielObjekt(zielName);
+  const istHaken = el.type === "checkbox";
+  if(istHaken){ el.checked = !!ziel[id]; }
+  else{ el.value = (ziel[id] !== undefined && ziel[id] !== null) ? ziel[id] : ""; }
+  el.addEventListener("change", () => {
+    zielObjekt(zielName)[id] = istHaken ? el.checked : el.value;
+    speichern();
+  });
+  if(!istHaken) el.addEventListener("input", () => { zielObjekt(zielName)[id] = el.value; });
+}
+
+/* ---------- Auswahl mit Freitext ----------
+   Der Feldtag hat gezeigt, dass die Klassen im Bestand nicht immer passen
+   ("eher geschlossen, teilweise licht geschlossen"). Deshalb hat jede Liste eine
+   Zeile "eigene Angabe …", die ein Textfeld aufklappt. Der ausgewählte Listenwert
+   und der Freitext werden getrennt gespeichert; im Export ist erkennbar, was
+   Klasse und was Freitext ist. */
+const FREI = "__frei__";
+
+function listeHolen(name){
+  if(name === "PERSONEN") return personenListe();
+  return LISTEN[name] || [];
+}
+
+function personenListe(){
+  const roh = (D.kopf.f_team || "");
+  return roh.split(/[,;\/]+|\bund\b/).map(s => s.trim()).filter(s => s.length > 1);
+}
+
+function auswahlfelderAufbauen(){
+  document.querySelectorAll("[data-auswahl]").forEach(el => {
+    const id       = el.dataset.auswahl;
+    const zielName = el.dataset.ziel;
+    const listName = el.dataset.liste;
+    const label    = el.dataset.label || "";
+    const hint     = el.dataset.hint || "";
+    const pflicht  = el.dataset.pflicht ? " pflicht" : "";
+    el.innerHTML =
+      (label ? '<label class="'+pflicht.trim()+'">'+label+(hint?' <span class="hint">'+hint+'</span>':'')+'</label>' : '')
+      + '<select id="'+id+'" data-liste="'+listName+'"></select>'
+      + '<input class="freitext" id="'+id+'_frei" placeholder="eigene Angabe — frei formulieren" style="display:none">';
+    optionenFuellen(id, listName);
+    const sel = document.getElementById(id);
+    const txt = document.getElementById(id+"_frei");
+    const ziel = zielObjekt(zielName);
+    sel.value = ziel[id] || "";
+    txt.value = ziel[id+"_frei"] || "";
+    freitextZeigen(id);
+    sel.addEventListener("change", () => {
+      zielObjekt(zielName)[id] = sel.value;
+      freitextZeigen(id);
+      if(sel.value === FREI) txt.focus();
+      speichern();
+      nachAuswahl(id);
+    });
+    txt.addEventListener("change", () => { zielObjekt(zielName)[id+"_frei"] = txt.value; speichern(); });
+    txt.addEventListener("input",  () => { zielObjekt(zielName)[id+"_frei"] = txt.value; });
+  });
+}
+
+function optionenFuellen(id, listName){
+  const sel = document.getElementById(id);
+  if(!sel) return;
+  const alt = sel.value;
+  const liste = listeHolen(listName);
+  sel.innerHTML = '<option value="">— wählen —</option>'
+    + liste.map(t => '<option value="'+t.replace(/"/g,"&quot;")+'">'+t+'</option>').join("")
+    + '<option value="'+FREI+'">eigene Angabe …</option>';
+  if(alt) sel.value = alt;
+}
+
+function freitextZeigen(id){
+  const sel = document.getElementById(id), txt = document.getElementById(id+"_frei");
+  if(!sel || !txt) return;
+  txt.style.display = (sel.value === FREI) ? "block" : "none";
+}
+
+/* Effektiver Wert eines Auswahlfeldes: Freitext schlägt Liste. */
+function wertVon(zielName, id){
+  const ziel = zielObjekt(zielName);
+  const w = ziel[id];
+  if(w === FREI) return (ziel[id+"_frei"] || "").trim();
+  return (w === undefined || w === null) ? "" : String(w);
+}
+
+/* Reaktionen, die an einer bestimmten Auswahl hängen */
+function nachAuswahl(id){
+  if(id === "b_schlussgrad" || id === "b_schlussgrad2") schlussgradErklaeren();
+  if(id === "f_flaeche") herkunftVorschlagen();
+  if(id === "pa_lage" || id === "pb_lage") achseVorschlagen();
+  if(id === "s_form" || id === "s_eingang") skizzeZeichnen();
+  if(id === "k_nordbezug") kompassHinweis();
+}
+
+/* Personen-Listen neu füllen, wenn sich die Aufnahmegruppe ändert */
+function personenAktualisieren(){
+  document.querySelectorAll('select[data-liste="PERSONEN"]').forEach(sel => {
+    optionenFuellen(sel.id, "PERSONEN");
+  });
+  const dl = document.getElementById("personenliste");
+  if(dl) dl.innerHTML = personenListe().map(n => '<option value="'+n+'">').join("");
+}
+
+/* ---------- Eigener Bestätigungsdialog ----------
+   confirm() liefert in eingebetteten Ansichten ohne Nachfrage false. */
+function nachfragen(titel, text, knopfText, weiter, gefaehrlich){
+  const alt = document.getElementById("dialogGrund");
+  if(alt) alt.remove();
+  const grund = document.createElement("div");
+  grund.className = "dialogGrund";
+  grund.id = "dialogGrund";
+  grund.innerHTML =
+    '<div class="dialog" role="dialog" aria-modal="true">'+
+      '<h3>'+titel+'</h3><p>'+text+'</p>'+
+      '<div class="knopfreihe">'+
+        '<button class="knopf zweit" id="dlgAbbruch">Abbrechen</button>'+
+        '<button class="knopf'+(gefaehrlich?" warn":"")+'" id="dlgOk">'+knopfText+'</button>'+
+      '</div>'+
+    '</div>';
+  document.body.appendChild(grund);
+  const schliessen = () => grund.remove();
+  document.getElementById("dlgAbbruch").addEventListener("click", schliessen);
+  document.getElementById("dlgOk").addEventListener("click", () => { schliessen(); weiter(); });
+  grund.addEventListener("click", e => { if(e.target === grund) schliessen(); });
+  document.addEventListener("keydown", function esc(e){
+    if(e.key === "Escape"){ schliessen(); document.removeEventListener("keydown", esc); }
+  });
+  document.getElementById("dlgOk").focus();
+}
+
+/* Auswahl aus wenigen Möglichkeiten — für die Punktnummern in der Skizze */
+function wahlDialog(titel, text, moeglichkeiten, gewaehlt, weiter){
+  const alt = document.getElementById("dialogGrund");
+  if(alt) alt.remove();
+  const grund = document.createElement("div");
+  grund.className = "dialogGrund";
+  grund.id = "dialogGrund";
+  grund.innerHTML =
+    '<div class="dialog" role="dialog" aria-modal="true">'+
+      '<h3>'+titel+'</h3><p>'+text+'</p>'+
+      '<div class="wahlreihe">'+
+        moeglichkeiten.map(([w,t]) =>
+          '<button data-wert="'+w+'"'+(String(gewaehlt)===String(w)?' class="gewaehlt"':'')+'>'+t+'</button>').join("")+
+      '</div>'+
+      '<div class="knopfreihe"><button class="knopf zweit" id="dlgAbbruch">Schließen</button></div>'+
+    '</div>';
+  document.body.appendChild(grund);
+  const schliessen = () => grund.remove();
+  document.getElementById("dlgAbbruch").addEventListener("click", schliessen);
+  grund.addEventListener("click", e => { if(e.target === grund) schliessen(); });
+  grund.querySelectorAll(".wahlreihe button").forEach(b => {
+    b.addEventListener("click", () => { schliessen(); weiter(b.dataset.wert); });
+  });
+}
+
+/* ---------- Kleine Helfer ---------- */
+function zahl(v){
+  if(v === undefined || v === null || v === "") return NaN;
+  return parseFloat(String(v).replace(",", "."));
+}
+function rund(v, n){ return (Math.round(v * Math.pow(10,n)) / Math.pow(10,n)).toLocaleString("de-DE"); }
+function grad(rad){ let g = rad * 180 / Math.PI; while(g < 0) g += 360; while(g >= 360) g -= 360; return g; }
+function richtungsname(azimut){
+  const namen = ["N","NNO","NO","ONO","O","OSO","SO","SSO","S","SSW","SW","WSW","W","WNW","NW","NNW"];
+  return namen[Math.round(((azimut % 360) + 360) % 360 / 22.5) % 16];
+}
+function autoAus(wurzel){
+  (wurzel || document).querySelectorAll("input, select, textarea").forEach(el => {
+    if(!el.hasAttribute("autocomplete")) el.setAttribute("autocomplete", "off");
+  });
+}
+
+function schlussgradErklaeren(){
+  const w  = wertVon("bestand","b_schlussgrad");
+  const w2 = wertVon("bestand","b_schlussgrad2");
+  const box = document.getElementById("schlussgradInfo");
+  if(!box) return;
+  const teile = [];
+  if(SCHLUSSGRAD_ERKLAERUNG[w])  teile.push("<b>"+w+":</b> "+SCHLUSSGRAD_ERKLAERUNG[w]);
+  if(SCHLUSSGRAD_ERKLAERUNG[w2]) teile.push("<b>"+w2+":</b> "+SCHLUSSGRAD_ERKLAERUNG[w2]);
+  if(teile.length){ box.style.display = "block"; box.innerHTML = teile.join("<br>"); }
+  else box.style.display = "none";
+}
+
+function herkunftVorschlagen(){
+  const f = D.kopf.f_flaeche;
+  if(!f || f === FREI || !HERKUENFTE[f]) return;
+  const heimisch = HERKUENFTE[f];
+  const leer = o => !o.pa_code && !o.pa_herkunft && !o.pb_code && !o.pb_herkunft;
+  if(!leer(Object.assign({}, D.parzellen.A, D.parzellen.B))) return;
+  nachfragen("Herkünfte aus dem Abschlussbericht übernehmen?",
+    "Für <b>"+f+"</b> nennt der Bericht die heimische Herkunft <b>"+heimisch+"</b> "
+    + "und die rumänische <b>"+RUMAENISCH+"</b>. "
+    + "<b>Welche in A und welche in B steht, weiß der Bericht nicht</b> — das trägst du selbst ein. "
+    + "Die Nummern werden nur als Vorschlag in die Felder gesetzt.",
+    "Eintragen",
+    () => {
+      D.parzellen.A.pa_code = RUMAENISCH;
+      D.parzellen.B.pb_code = heimisch;
+      D.parzellen.A.pa_herkunft = D.parzellen.A.pa_herkunft || "rumänisch — im Feld prüfen";
+      D.parzellen.B.pb_herkunft = D.parzellen.B.pb_herkunft || "heimisch — im Feld prüfen";
+      ["pa_code","pa_herkunft"].forEach(id => { const e=document.getElementById(id); if(e) e.value = D.parzellen.A[id]||""; });
+      ["pb_code","pb_herkunft"].forEach(id => { const e=document.getElementById(id); if(e) e.value = D.parzellen.B[id]||""; });
+      speichern(true);
+    });
+}

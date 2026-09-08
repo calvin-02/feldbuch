@@ -1,0 +1,92 @@
+<!-- ================= LICHT ================= -->
+<section id="licht">
+  <h2>Lichtmessung</h2>
+  <div class="info">
+    Nur bei <b>gleichmäßig bedecktem Himmel</b>. Reißt die Decke auf: unterbrechen, Uhrzeit notieren.
+    Werte so eintragen, wie das Gerät sie anzeigt — nichts runden, nichts weglassen.
+  </div>
+  <div class="info warnung" style="font-size:13px">
+    <b>Nordausrichtung: mit einer Nordmarke arbeiten.</b> Stativ und Gerät sind aus Metall und verziehen
+    den Kompass. Deshalb zwei Schritte weggehen, Nordrichtung bestimmen, ein Ziel in dieser Richtung
+    merken — und das Gerät danach ausrichten. Anders als bei den Passpunktbäumen ist ein Fehler hier
+    <b>nicht</b> herausrechenbar: Er steckt direkt im Messwert.
+  </div>
+  <div class="info gut" style="font-size:13px">
+    <b>Die Zahlen dürfen später kommen.</b> Werden die sieben Schwellenwerte erst am Rechner
+    ausgewertet, bleiben ISF/DSF/TSF hier leer — trag dann nur <b>Uhrzeit, Höhe, Bild-Nummer und
+    Aufnehmer</b> ein. Das ist die Verbindung zwischen Bild und Punkt, und ohne sie ist das Bild
+    später nicht mehr zuzuordnen.
+  </div>
+  <div id="punktListe"></div>
+</section>
+
+<!-- ================= VEGETATION ================= -->
+<section id="vegetation">
+  <h2>Vegetation</h2>
+  <div class="info">
+    Erhebung um jeden Lichtmesspunkt. <b>Beide Verfahren werden erhoben</b> — die vereinfachte
+    Aufnahme, weil das Projekt sie 2021/22 benutzt hat und nur damit ein Vergleich möglich ist,
+    und Braun-Blanquet für die Artenzusammensetzung.
+  </div>
+
+  <h3>Bezugsradien</h3>
+  <div class="info" style="font-size:13px">
+    Der Projektstandard nennt <b>1 m</b> um den Messpunkt. Für die <b>Baumschichten</b> ist das
+    zu klein — ein Kronendach lässt sich auf 1 m Radius nicht schätzen. Deshalb je Schicht ein
+    eigener Radius, für die ganze Fläche einheitlich. <b>Was hier steht, gilt für alle Punkte
+    und gehört in die Methodik.</b>
+  </div>
+  <div id="radienFelder"></div>
+
+  <div id="vegListe"></div>
+</section>
+
+<!-- ================= TANNEN ================= -->
+<section id="tannen">
+  <h2>Weißtannen</h2>
+  <div class="info">
+    Wachstumsaufnahme je Pflanzplatz: Höhe, Vitalität, Schaden. <b>Erst nach der Vegetationsperiode</b>,
+    also ab Oktober. Reihe für Reihe durcharbeiten — die App springt nach jedem Eintrag weiter.
+  </div>
+
+  <div class="reihe">
+    <div><label>Parzelle</label>
+      <select id="w_parzelle" onchange="wtaAnsicht()">
+        <option value="A">A</option>
+        <option value="B">B</option>
+      </select></div>
+    <div><label>Reihe</label>
+      <select id="w_reihe" onchange="wtaAnsicht()"></select></div>
+  </div>
+  <div id="wtaHerkunft" class="info gut" style="font-size:13px"></div>
+
+  <div class="reihe">
+    <div><label>Reihen je Parzelle</label>
+      <input type="number" id="w_reihen_zahl" inputmode="numeric" min="1" max="40" value="10" onchange="wtaReihenSetzen()"></div>
+    <div><label>Plätze je Reihe</label>
+      <input type="number" id="w_plaetze_zahl" inputmode="numeric" min="1" max="60" value="32" onchange="wtaReihenSetzen()"></div>
+  </div>
+  <div class="info" style="font-size:13px">
+    Projektvorgabe: Verband 2,5 × 1,5 m. Die Stückzahl weicht je Fläche ab — auf <b>BY07</b> wurden
+    laut Abschlussbericht <b>248</b> rumänische und <b>244</b> heimische Pflanzen gesetzt.
+    Zahlen im Feld anpassen.
+  </div>
+
+  <div class="feld" data-auswahl="w_aufnehmer" data-ziel="wta" data-liste="PERSONEN"
+       data-label="Weißtannenaufnahme durch"></div>
+
+  <div id="wtaBereich"></div>
+</section>
+
+<!-- ================= OBERSTAND ================= -->
+<section id="oberstand">
+  <h2>Oberstand</h2>
+  <div class="info">
+    Vollaufnahme ab <b>BHD 7 cm</b>. Koordinaten nur, wenn vorhanden — sie sind im Projektblatt
+    ausdrücklich als „wenn möglich" gekennzeichnet.
+  </div>
+  <div class="feld" data-auswahl="o_aufnehmer" data-ziel="kopf" data-liste="PERSONEN"
+       data-label="Oberstandsaufnahme durch"></div>
+  <div id="obListe"></div>
+  <button class="knopf zweit" onclick="obAnlegen()">+ Baum aufnehmen</button>
+</section>

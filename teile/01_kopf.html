@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f4a34">
+<meta name="description" content="Feldaufnahme Weißtanne 2.0 — Lichtmessung, Vegetation, Ko-Registrierung. Funktioniert ohne Netz.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Feldbuch">
+<title>Feldbuch Weißtanne</title>
+<style>
+  /* Bewusst nur ein helles Thema: Die Seite wird bei Tageslicht im Bestand bedient,
+     ein dunkles Thema ist dort schlechter lesbar. Alle Farben sind deshalb explizit
+     gesetzt, damit die Seite unabhängig vom Gerätethema trägt. */
+  :root{
+    --gruen:#1f4a34; --gruen-hell:#2f6b4c; --gruen-blass:#eef4f0;
+    --rot:#8f2116; --rot-blass:#fdf2f0;
+    --ocker:#8a6516; --ocker-blass:#fdf8ec;
+    --blau:#1c4a6e; --blau-blass:#eef3f8;
+    --text:#141613; --text-zweit:#5c6058;
+    --rand:#c3c6be; --grund:#fbfaf7; --karte:#fff; --grau:#f1f1ec;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0;}
+  body{
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    font-size:17px; line-height:1.4; color:var(--text); background:var(--grund);
+    padding-bottom:80px;
+    font-variant-numeric:tabular-nums;
+  }
+  @media (prefers-reduced-motion:no-preference){
+    .karte,nav button,button.knopf{transition:background-color .12s ease, border-color .12s ease;}
+  }
+
+  header{
+    position:sticky; top:0; z-index:50; background:var(--gruen); color:#fff;
+    padding:10px 12px 10px 12px;
+    padding-top:calc(10px + env(safe-area-inset-top));
+  }
+  header .titel{font-size:15px; font-weight:700; display:flex; justify-content:space-between; align-items:center; gap:8px;}
+  header .status{font-size:12px; color:#cddbd3; margin-top:3px;}
+  header .status b{color:#ffd98a;}
+  /* Fortschritt: Zustand vor Detail — ein Strich je Punkt */
+  .fortschritt{display:flex; gap:3px; margin-top:7px;}
+  .fortschritt span{flex:1; height:5px; border-radius:2px; background:rgba(255,255,255,.25);}
+  .fortschritt span.voll{background:#a8d5bd;}
+  .fortschritt span.wdh{background:#ffd98a;}
+
+  nav{display:flex; background:var(--gruen-hell); position:sticky; top:0; z-index:49; overflow-x:auto;}
+  nav button{
+    flex:1 0 auto; min-width:74px; padding:12px 8px; border:0; background:transparent;
+    color:#dfe9e3; font-size:14px; font-weight:600; cursor:pointer; border-bottom:4px solid transparent;
+  }
+  nav button.aktiv{color:#fff; border-bottom-color:#ffe9a8; background:rgba(255,255,255,.1);}
+
+  main{padding:12px;}
+  section{display:none;}
+  section.aktiv{display:block;}
+
+  h2{font-size:19px; margin:4px 0 10px; padding-bottom:5px; border-bottom:2px solid var(--gruen);}
+  h3{font-size:16px; margin:18px 0 6px;}
+  h4{font-size:14px; margin:14px 0 4px; color:var(--text-zweit); text-transform:uppercase; letter-spacing:.5px;}
+
+  label{display:block; margin:11px 0 3px; font-size:13px; font-weight:700; color:var(--text-zweit); letter-spacing:.2px;}
+  .hint{font-weight:400; color:var(--text-zweit); font-size:13px;}
+  input,select,textarea{
+    width:100%; padding:12px 10px; font-size:17px; border:1.5px solid var(--rand);
+    border-radius:7px; background:#fff; color:var(--text); font-family:inherit;
+  }
+  input:focus,select:focus,textarea:focus{outline:3px solid #8fbfa5; outline-offset:1px; border-color:var(--gruen);}
+  button:focus-visible{outline:3px solid #8fbfa5; outline-offset:2px;}
+  input[type=number]{-moz-appearance:textfield;}
+  textarea{min-height:64px;}
+  /* Freitextfeld einer Auswahl: sichtbar als Fortsetzung derselben Eingabe */
+  .freitext{margin-top:6px; border-color:var(--gruen-hell); background:var(--gruen-blass);}
+
+  .reihe{display:flex; gap:8px;}
+  .reihe>div{flex:1; min-width:0;}
+
+  button.knopf{
+    width:100%; padding:14px; font-size:17px; font-weight:700; border:0; border-radius:8px;
+    background:var(--gruen); color:#fff; cursor:pointer; margin-top:12px;
+  }
+  button.knopf.zweit{background:var(--karte); color:var(--gruen); border:1.5px solid var(--gruen);}
+  button.knopf.warn{background:var(--rot);}
+  button.klein{padding:11px 10px; font-size:15px; margin-top:6px;}
+
+  .haken{display:flex; align-items:center; gap:10px; margin:12px 0; padding:11px;
+    border:1.5px solid var(--rand); border-radius:7px; background:var(--grau);}
+  .haken input{width:26px; height:26px; flex:0 0 26px;}
+  .haken label{margin:0; font-size:15px;}
+
+  .karte{border:1.5px solid var(--rand); border-radius:9px; padding:11px; margin-bottom:11px; background:#fff;}
+  .karte.fertig{border-color:var(--gruen); background:var(--gruen-blass);}
+  .karte .kopf{display:flex; justify-content:space-between; align-items:center; font-weight:700; font-size:16px; gap:8px;}
+  .karte .kopf .zust{font-size:12px; font-weight:700; padding:3px 9px; border-radius:3px; background:var(--grau); color:var(--text-zweit); letter-spacing:.4px; text-transform:uppercase; white-space:nowrap;}
+  .karte.fertig .kopf .zust{background:var(--gruen); color:#fff;}
+  .karte .werte{font-size:14px; color:#444; margin-top:5px;}
+  /* Zwei Zustände je Punkt (vereinfacht / Braun-Blanquet) nebeneinander */
+  .marken{display:flex; gap:5px; flex-wrap:wrap; margin-top:6px;}
+  .marke{font-size:11px; font-weight:700; padding:2px 7px; border-radius:3px; letter-spacing:.3px;
+         background:var(--grau); color:var(--text-zweit); text-transform:uppercase;}
+  .marke.an{background:var(--gruen); color:#fff;}
+  .marke.halb{background:var(--ocker); color:#fff;}
+
+  .info{border-left:4px solid var(--gruen); background:var(--grau); padding:9px 11px; margin:11px 0; font-size:14px;}
+  .achtung{border-left-color:var(--rot); background:var(--rot-blass);}
+  .achtung b{color:var(--rot);}
+  .gut{border-left-color:var(--gruen-hell); background:var(--gruen-blass);}
+  .warnung{border-left-color:var(--ocker); background:var(--ocker-blass);}
+  .warnung b{color:var(--ocker);}
+  .rechnung{border-left-color:var(--blau); background:var(--blau-blass); font-size:13px;}
+  .rechnung b{color:var(--blau);}
+
+  .p-anzeige{font-size:15px; padding:9px 11px; border-radius:7px; margin-top:10px; font-weight:600;}
+  .p-ok{background:var(--gruen-blass); color:var(--gruen);}
+  .p-warn{background:var(--ocker-blass); color:var(--ocker);}
+  .p-fehler{background:var(--rot-blass); color:var(--rot);}
+
+  table{width:100%; border-collapse:collapse; font-size:13px; margin-top:8px;}
+  th,td{border:1px solid var(--rand); padding:5px 6px; text-align:left;}
+  th{background:var(--grau); font-size:12px;}
+  .tabellenrahmen{overflow-x:auto;}
+
+  /* Eigener Bestätigungsdialog — die Systemabfrage confirm() wird in eingebetteten
+     Ansichten stillschweigend mit "false" beantwortet und ist deshalb unbrauchbar. */
+  .dialogGrund{
+    position:fixed; inset:0; z-index:100; background:rgba(20,22,19,.55);
+    display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .dialog{
+    background:var(--karte); border-radius:12px; padding:20px; max-width:420px; width:100%;
+    box-shadow:0 12px 40px rgba(0,0,0,.3); max-height:86vh; overflow-y:auto;
+  }
+  .dialog h3{margin:0 0 8px; font-size:18px;}
+  .dialog p{margin:0 0 16px; font-size:15px; color:var(--text);}
+  .dialog .knopfreihe{display:flex; gap:10px;}
+  .dialog .knopfreihe button{flex:1; margin:0;}
+  .wahlreihe{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;}
+  .wahlreihe button{
+    flex:1 0 60px; padding:14px 6px; font-size:18px; font-weight:700; border-radius:8px;
+    border:1.5px solid var(--gruen); background:#fff; color:var(--gruen); cursor:pointer;
+  }
+  .wahlreihe button.gewaehlt{background:var(--gruen); color:#fff;}
+
+  /* Aufklappbare Anleitung: im Feld zählt Kürze, deshalb standardmäßig zu —
+     aber greifbar, ohne im Papier zu blättern. */
+  details.klapp{border:1.5px solid var(--rand); border-radius:9px; background:#fff; margin:11px 0;}
+  details.klapp summary{
+    padding:12px 11px; font-weight:700; font-size:15px; color:var(--gruen); cursor:pointer;
+    list-style:none;
+  }
+  details.klapp summary::-webkit-details-marker{display:none;}
+  details.klapp summary::before{content:"\25B8 "; font-weight:400;}
+  details.klapp[open] summary::before{content:"\25BE ";}
+  details.klapp[open] summary{border-bottom:1px solid var(--rand);}
+  .klappinhalt{padding:4px 11px 11px;}
+  .klappinhalt p{margin:10px 0 0; font-size:14px; line-height:1.45;}
+  .klappinhalt table{margin:11px 0 2px;}
+  .klappinhalt td{font-size:13px;}
+  /* Prüfschritte abgesetzt: Sie sind das, was im Feld schiefgehen kann. */
+  .klappinhalt p.pruef{
+    background:var(--gruen-blass); border-left:4px solid var(--gruen-hell);
+    padding:8px 10px; border-radius:0 6px 6px 0;
+  }
+
+  /* Flächenskizze */
+  .skizzeRahmen{background:#fff; border:1.5px solid var(--rand); border-radius:9px; padding:8px; margin:11px 0;}
+  /* Das Gatter ist rund 90 x 32 m — eine massstabsgetreue Skizze wird dadurch sehr hoch.
+     Deshalb nicht auf die Breite zwingen, sondern auf die Bildschirmhoehe begrenzen. */
+  .skizzeRahmen svg{display:block; margin:0 auto; max-width:100%; max-height:60vh;
+                     width:auto; height:auto; touch-action:manipulation;}
+  .skizzeRahmen svg .punkt{cursor:pointer;}
+  .skizzeRahmen svg .punkt circle{fill:#fff; stroke:var(--gruen); stroke-width:2;}
+  .skizzeRahmen svg .punkt.belegt circle{fill:var(--gruen);}
+  .skizzeRahmen svg .punkt text{font-size:13px; font-weight:700; fill:var(--gruen); text-anchor:middle; dominant-baseline:central; pointer-events:none;}
+  .skizzeRahmen svg .punkt.belegt text{fill:#fff;}
+  .skizzeRahmen svg .parzflaeche{fill:var(--gruen-blass); stroke:var(--gruen); stroke-width:2;}
+  .skizzeRahmen svg .streifen{fill:#dbe6ef; stroke:#9fb4c6; stroke-width:1;}
+  .skizzeRahmen svg .beschriftung{font-size:13px; fill:var(--text-zweit); text-anchor:middle;}
+  .skizzeRahmen svg .parzname{font-size:17px; font-weight:700; fill:var(--gruen); text-anchor:middle; cursor:pointer;}
+  .skizzeRahmen svg .nordpfeil{stroke:var(--rot); stroke-width:2.5; fill:none;}
+  .skizzeRahmen svg .nordtext{font-size:14px; font-weight:700; fill:var(--rot); text-anchor:middle;}
+  .skizzeRahmen svg .eingang{stroke:var(--ocker); stroke-width:4; fill:none;}
+
+  .exportfeld{font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px; min-height:150px; white-space:pre;}
+  .fuss{margin-top:26px; padding-top:10px; border-top:1px solid var(--rand); font-size:12px; color:#777;}
+  .pflicht::after{content:" *"; color:var(--rot);}
+  .balken{position:sticky; bottom:0; z-index:48; background:var(--ocker); color:#fff;
+          padding:10px 12px; font-size:14px; font-weight:600; display:none;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="titel">
+    <span id="kopfFlaeche">Feldaufnahme — keine Fläche gewählt</span>
+    <span id="kopfPunkte" style="font-size:13px; white-space:nowrap;">0/12</span>
+  </div>
+  <div class="status" id="kopfStatus">Nicht gespeichert</div>
+  <div class="fortschritt" id="kopfFortschritt"></div>
+</header>
+
+<nav>
+  <button data-ziel="flaeche" class="aktiv">Fläche</button>
+  <button data-ziel="skizze">Skizze</button>
+  <button data-ziel="licht">Licht</button>
+  <button data-ziel="vegetation">Vegetation</button>
+  <button data-ziel="tannen">Tannen</button>
+  <button data-ziel="oberstand">Oberstand</button>
+  <button data-ziel="baeume">Passpunkte</button>
+  <button data-ziel="gelaende">Gelände</button>
+  <button data-ziel="daten">Daten</button>
+</nav>
+
+<main>

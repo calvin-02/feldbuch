@@ -1,0 +1,305 @@
+
+/* =====================================================================
+   Flächengeometrie und Skizze
+
+   Bezugsrahmen der Skizze: Die Y-Achse läuft entlang der Längsachse des Gatters,
+   von der Außenkante der Parzelle A (Y = 0) durch den Trennstreifen bis zur
+   Außenkante von B. X zeigt nach rechts. Die Skizze wird immer so gezeichnet,
+   A unten und B oben; wo Norden liegt, sagt der gedrehte Nordpfeil.
+   So bleibt die Zeichnung lesbar und ist trotzdem geografisch eindeutig.
+
+   Mittelpunkt = Schnittpunkt der Diagonalen. Beim Trapez liegt der nicht auf
+   halber Höhe, sondern bei  y = L · W_unten / (W_unten + W_oben).
+   Satellit = ¼ der Strecke vom Eckpunkt zum Mittelpunkt, also bei ¾ der
+   Strecke Mittelpunkt → Eckpunkt (Schema Prof. Schölch, Berichtsanhang).
+   ===================================================================== */
+
+const ECKEN = ["or","ur","ul","ol"];
+const ECKENNAME = {or:"oben rechts", ur:"unten rechts", ul:"unten links", ol:"oben links"};
+
+function masse(){
+  const g = {
+    La: zahl(D.parzellen.A.pa_laenge),  Wa_out: zahl(D.parzellen.A.pa_breite_a), Wa_in: zahl(D.parzellen.A.pa_breite_i),
+    Lb: zahl(D.parzellen.B.pb_laenge),  Wb_out: zahl(D.parzellen.B.pb_breite_a), Wb_in: zahl(D.parzellen.B.pb_breite_i),
+    T:  zahl(D.kopf.f_trenn),
+    achse: zahl(D.schema.s_achse),
+    gemessen: true
+  };
+  // Fehlende Breite innen: gleich der Breite außen setzen (Rechteck) — kenntlich gemacht.
+  if(isNaN(g.Wa_in) && !isNaN(g.Wa_out)){ g.Wa_in = g.Wa_out; g.gemessen = false; }
+  if(isNaN(g.Wb_in) && !isNaN(g.Wb_out)){ g.Wb_in = g.Wb_out; g.gemessen = false; }
+  if(isNaN(g.T)) { g.T = 3; g.gemessen = false; }   // Projektstandard: 3 m
+  // Gar nichts gemessen: Ersatzmaße nach der gewählten Grundform
+  const form = wertVon("schema","s_form");
+  if(isNaN(g.La) || isNaN(g.Wa_out)){
+    g.gemessen = false;
+    if(form.indexOf("Rechteck") === 0){ g.La = g.Lb = 48.5; g.Wa_out = g.Wa_in = g.Wb_out = g.Wb_in = 25; g.T = 3; }
+    else { g.La = g.Lb = 23.5; g.Wa_out = g.Wa_in = g.Wb_out = g.Wb_in = 50; g.T = 3; }
+  }
+  if(isNaN(g.Lb)) { g.Lb = g.La; g.gemessen = false; }
+  if(isNaN(g.Wb_out)){ g.Wb_out = g.Wa_out; g.Wb_in = g.Wa_in; g.gemessen = false; }
+  return g;
+}
+
+function geometrie(){
+  const g = masse();
+  const a = g.achse;
+  const bau = (yUnten, L, Wunten, Woben) => {
+    const yc = yUnten + L * Wunten / (Wunten + Woben);
+    const ecken = {
+      ur: { x:  Wunten/2, y: yUnten },
+      ul: { x: -Wunten/2, y: yUnten },
+      or: { x:  Woben/2,  y: yUnten + L },
+      ol: { x: -Woben/2,  y: yUnten + L }
+    };
+    const sat = {};
+    ECKEN.forEach(e => {
+      sat[e] = { x: 0 + 0.75*(ecken[e].x - 0), y: yc + 0.75*(ecken[e].y - yc) };
+      const dx = sat[e].x, dy = sat[e].y - yc;
+      sat[e].dist   = Math.hypot(dx, dy);
+      sat[e].azimut = isNaN(a) ? NaN : (grad(Math.atan2(dx, dy)) + a) % 360;
+    });
+    return { yc:yc, ecken:ecken, sat:sat, L:L, Wunten:Wunten, Woben:Woben,
+             flaeche: L * (Wunten + Woben) / 2 };
+  };
+  // A liegt unten: außen bei y = 0, innen (am Trennstreifen) bei y = La
+  const A = bau(0, g.La, g.Wa_out, g.Wa_in);
+  // B liegt oben: innen bei y = La + T, außen ganz oben
+  const B = bau(g.La + g.T, g.Lb, g.Wb_in, g.Wb_out);
+  const streifen = { y0: g.La, y1: g.La + g.T, W0: g.Wa_in, W1: g.Wb_in,
+                     flaeche: g.T * (g.Wa_in + g.Wb_in) / 2 };
+  return { g:g, A:A, B:B, streifen:streifen,
+           gesamtL: g.La + g.T + g.Lb,
+           abstandAB: B.yc - A.yc,
+           azimutAB: isNaN(g.achse) ? NaN : g.achse };
+}
+
+/* Fehlende Innenbreiten unter der Annahme gleichmäßiger Abnahme schätzen.
+   Das ist eine Annahme, keine Messung — sie wird im Export als solche geführt. */
+function breitenSchaetzen(){
+  const La = zahl(D.parzellen.A.pa_laenge), Lb = zahl(D.parzellen.B.pb_laenge), T = zahl(D.kopf.f_trenn);
+  const Wa = zahl(D.parzellen.A.pa_breite_a), Wb = zahl(D.parzellen.B.pb_breite_a);
+  if([La,Lb,T,Wa,Wb].some(isNaN)){
+    balkenZeigen("Zum Schätzen fehlen Maße: beide Längen, beide Außenbreiten und der Trennstreifen.");
+    setTimeout(() => balkenZeigen(""), 6000);
+    return;
+  }
+  const gesamt = La + T + Lb;
+  const beiY = y => Wa + (Wb - Wa) * (y / gesamt);   // linear von A-außen (y=0) nach B-außen
+  D.parzellen.A.pa_breite_i = (Math.round(beiY(La)*10)/10).toString().replace(".", ",");
+  D.parzellen.B.pb_breite_i = (Math.round(beiY(La+T)*10)/10).toString().replace(".", ",");
+  D.parzellen.A.pa_breite_i_geschaetzt = true;
+  D.parzellen.B.pb_breite_i_geschaetzt = true;
+  ["pa_breite_i"].forEach(id => { const e=document.getElementById(id); if(e) e.value = D.parzellen.A[id]; });
+  ["pb_breite_i"].forEach(id => { const e=document.getElementById(id); if(e) e.value = D.parzellen.B[id]; });
+  speichern(true);
+  geometrieAnzeigen();
+}
+
+function geometrieAnzeigen(){
+  const box = document.getElementById("geometrieAnzeige");
+  if(!box) return;
+  const La = zahl(D.parzellen.A.pa_laenge), Wa = zahl(D.parzellen.A.pa_breite_a);
+  if(isNaN(La) || isNaN(Wa)){
+    box.innerHTML = '<div class="info" style="font-size:13px">Sobald Länge und Breite von Parzelle A '
+      + 'eingetragen sind, rechnet die App hier Flächen, Satellitenabstände und den Sollabstand A→B aus.</div>';
+    return;
+  }
+  const q = geometrie();
+  const zeile = (p, name) => '<tr><td><b>'+name+'</b></td><td>'+rund(p.flaeche,0)+' m²</td>'
+    + '<td>'+rund(p.flaeche/10000,3)+' ha</td>'
+    + '<td>'+rund(p.sat.or.dist,1)+' / '+rund(p.sat.ur.dist,1)+' m</td></tr>';
+  box.innerHTML =
+    '<div class="info rechnung">'
+    + '<b>Aus den Maßen berechnet</b>'
+    + '<div class="tabellenrahmen"><table>'
+    + '<tr><th>Parzelle</th><th>Fläche</th><th></th><th>Satellitenabstand<br>innen / außen</th></tr>'
+    + zeile(q.A,"A") + zeile(q.B,"B")
+    + '<tr><td>Trennstreifen</td><td>'+rund(q.streifen.flaeche,0)+' m²</td><td></td><td></td></tr>'
+    + '<tr><td><b>Gatter gesamt</b></td><td><b>'+rund(q.A.flaeche+q.B.flaeche+q.streifen.flaeche,0)+' m²</b></td>'
+    + '<td><b>'+rund((q.A.flaeche+q.B.flaeche+q.streifen.flaeche)/10000,3)+' ha</b></td><td></td></tr>'
+    + '</table></div>'
+    + '<p style="margin:8px 0 0"><b>Sollabstand Mittelpunkt A → Mittelpunkt B: '+rund(q.abstandAB,1)+' m.</b> '
+    + 'Diese Zahl ist eine <b>Prüfung, die scheitern kann</b>: Sie muss zur gemessenen Klammer A→B passen '
+    + 'und später zu dem Abstand, den die Einpassung der Passpunktbäume liefert.</p>'
+    + (q.g.gemessen ? '' : '<p style="margin:6px 0 0"><b>Achtung:</b> Es fehlen Maße; die Rechnung benutzt '
+        + 'Ersatzwerte oder Schätzungen. Im Export sind sie gekennzeichnet.</p>')
+    + '</div>';
+}
+
+/* Achsrichtung aus der eingetragenen Lage vorschlagen (A → B). */
+const LAGE_AZIMUT = {"Nord":0,"Nordost":45,"Ost":90,"Südost":135,"Süd":180,"Südwest":225,"West":270,"Nordwest":315};
+function achseVorschlagen(){
+  if(D.schema.s_achse) return;
+  achseAusLage(true);
+}
+function achseAusLage(still){
+  const lageA = wertVon("parzA","pa_lage");
+  if(LAGE_AZIMUT[lageA] === undefined){
+    if(!still){ balkenZeigen("Dafür muss bei Parzelle A eine Lage eingetragen sein."); setTimeout(()=>balkenZeigen(""),5000); }
+    return;
+  }
+  // Liegt A im Süden, zeigt A→B nach Norden (0°). Allgemein: Gegenrichtung der Lage von A.
+  const az = (LAGE_AZIMUT[lageA] + 180) % 360;
+  D.schema.s_achse = String(az);
+  const el = document.getElementById("s_achse");
+  if(el) el.value = az;
+  speichern(true);
+  skizzeZeichnen();
+}
+
+/* ---------- Zeichnung ---------- */
+function skizzeZeichnen(){
+  const rahmen = document.getElementById("skizzeRahmen");
+  if(!rahmen) return;
+  const q = geometrie();
+  const maxW = Math.max(q.A.Wunten, q.A.Woben, q.B.Wunten, q.B.Woben);
+  const rand = {l:52, r:52, o:54, u:54};
+  const skala = Math.min(230 / maxW, 330 / q.gesamtL);
+  const bx = maxW * skala, by = q.gesamtL * skala;
+  const breite = bx + rand.l + rand.r, hoehe = by + rand.o + rand.u;
+  const cx = rand.l + bx/2, y0 = rand.o + by;          // y0 = Bildzeile von y = 0
+  const P = (x,y) => [cx + x*skala, y0 - y*skala];
+  const poly = pts => pts.map(([x,y]) => P(x,y).join(",")).join(" ");
+
+  const a = zahl(D.schema.s_achse);
+  const kanten = isNaN(a) ? null : {
+    oben:  a, rechts:(a+90)%360, unten:(a+180)%360, links:(a+270)%360
+  };
+
+  let s = '<svg viewBox="0 0 '+breite.toFixed(0)+' '+hoehe.toFixed(0)+'" width="'+breite.toFixed(0)+'" height="'+hoehe.toFixed(0)+'" role="img" aria-label="Skizze der Fläche">';
+
+  // Parzellenflächen und Trennstreifen
+  s += '<polygon class="parzflaeche" points="'+poly([
+        [q.A.ecken.ul.x,q.A.ecken.ul.y],[q.A.ecken.ur.x,q.A.ecken.ur.y],
+        [q.A.ecken.or.x,q.A.ecken.or.y],[q.A.ecken.ol.x,q.A.ecken.ol.y]])+'"/>';
+  s += '<polygon class="streifen" points="'+poly([
+        [-q.streifen.W0/2,q.streifen.y0],[q.streifen.W0/2,q.streifen.y0],
+        [q.streifen.W1/2,q.streifen.y1],[-q.streifen.W1/2,q.streifen.y1]])+'"/>';
+  s += '<polygon class="parzflaeche" points="'+poly([
+        [q.B.ecken.ul.x,q.B.ecken.ul.y],[q.B.ecken.ur.x,q.B.ecken.ur.y],
+        [q.B.ecken.or.x,q.B.ecken.or.y],[q.B.ecken.ol.x,q.B.ecken.ol.y]])+'"/>';
+
+  // Eingang auf der passenden Kante
+  const eingang = wertVon("schema","s_eingang");
+  if(kanten && eingang && LAGE_AZIMUT[eingang.replace("Süden","Süd").replace("Norden","Nord")
+        .replace("Osten","Ost").replace("Westen","West")] !== undefined){
+    const ez = LAGE_AZIMUT[eingang.replace("Süden","Süd").replace("Norden","Nord")
+                 .replace("Osten","Ost").replace("Westen","West")];
+    let beste = "unten", diff = 999;
+    Object.keys(kanten).forEach(k => {
+      const d = Math.abs(((kanten[k] - ez + 540) % 360) - 180);   // Winkelabstand zur Kantennormalen
+      if(d < diff){ diff = d; beste = k; }
+    });
+    const [x1,y1a] = P(-maxW/6, 0), [x2,y2a] = P(maxW/6, 0);
+    const [x3,y3a] = P(-maxW/6, q.gesamtL), [x4,y4a] = P(maxW/6, q.gesamtL);
+    if(beste === "unten") s += '<line class="eingang" x1="'+x1+'" y1="'+y1a+'" x2="'+x2+'" y2="'+y2a+'"/>';
+    else if(beste === "oben") s += '<line class="eingang" x1="'+x3+'" y1="'+y3a+'" x2="'+x4+'" y2="'+y4a+'"/>';
+    else{
+      const seite = (beste === "rechts") ? 1 : -1;
+      const [xa,ya] = P(seite*maxW/2, q.gesamtL*0.42), [xb,yb] = P(seite*maxW/2, q.gesamtL*0.58);
+      s += '<line class="eingang" x1="'+xa+'" y1="'+ya+'" x2="'+xb+'" y2="'+yb+'"/>';
+    }
+  }
+
+  // Messpunkte
+  ["A","B"].forEach(pz => {
+    const teil = q[pz];
+    const nummern = D.schema.nummern[pz] || {};
+    ECKEN.forEach(e => {
+      const [px,py] = P(teil.sat[e].x, teil.sat[e].y);
+      const n = nummern[e];
+      s += '<g class="punkt'+(n?" belegt":"")+'" onclick="nummerWaehlen(\''+pz+'\',\''+e+'\')">'
+         + '<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="13"/>'
+         + '<text x="'+px.toFixed(1)+'" y="'+py.toFixed(1)+'">'+(n||"?")+'</text></g>';
+    });
+    const [mx,my] = P(0, teil.yc);
+    const nm = nummern.M;
+    s += '<g class="punkt'+(nm?" belegt":"")+'" onclick="nummerWaehlen(\''+pz+'\',\'M\')">'
+       + '<circle cx="'+mx.toFixed(1)+'" cy="'+my.toFixed(1)+'" r="13"/>'
+       + '<text x="'+mx.toFixed(1)+'" y="'+my.toFixed(1)+'">'+(nm||"M")+'</text></g>';
+    const [lx,ly] = P(0, teil.yc + (pz==="A" ? -teil.L*0.28 : teil.L*0.28));
+    s += '<text class="parzname" x="'+lx.toFixed(1)+'" y="'+ly.toFixed(1)+'" onclick="parzellenTausch()">'+pz+'</text>';
+  });
+
+  // Kantenbeschriftung mit Himmelsrichtungen
+  if(kanten){
+    const [ox,oy] = P(0, q.gesamtL); s += '<text class="beschriftung" x="'+ox+'" y="'+(oy-14)+'">'+richtungsname(kanten.oben)+'</text>';
+    const [ux,uy] = P(0, 0);         s += '<text class="beschriftung" x="'+ux+'" y="'+(uy+26)+'">'+richtungsname(kanten.unten)+'</text>';
+    const [rx,ry] = P(maxW/2, q.gesamtL/2); s += '<text class="beschriftung" x="'+(rx+26)+'" y="'+ry+'">'+richtungsname(kanten.rechts)+'</text>';
+    const [lx2,ly2] = P(-maxW/2, q.gesamtL/2); s += '<text class="beschriftung" x="'+(lx2-26)+'" y="'+ly2+'">'+richtungsname(kanten.links)+'</text>';
+    // Nordpfeil: zeigt in der Skizze um −Achsazimut gedreht nach oben
+    s += '<g transform="translate(26,30) rotate('+(-a)+')">'
+       + '<line class="nordpfeil" x1="0" y1="16" x2="0" y2="-14"/>'
+       + '<polyline class="nordpfeil" points="-6,-6 0,-15 6,-6"/></g>'
+       + '<text class="nordtext" x="26" y="52">N</text>';
+  }else{
+    s += '<text class="beschriftung" x="'+(breite/2)+'" y="18">Azimut der Längsachse fehlt — '
+       + 'Himmelsrichtungen unbekannt</text>';
+  }
+  s += '</svg>';
+  rahmen.innerHTML = s;
+  sollTabelleAufbauen();
+}
+
+function parzellenTausch(){
+  nachfragen("Parzellen A und B tauschen?",
+    "Buchstaben, Herkünfte, Maße und Punktnummern werden zwischen A und B vertauscht. "
+    + "Nutze das, wenn sich herausstellt, dass die Zuordnung andersherum ist.",
+    "Tauschen",
+    () => {
+      const a = D.parzellen.A, b = D.parzellen.B, um = {};
+      Object.keys(a).forEach(k => { um[k.replace(/^pa_/,"pb_")] = a[k]; });
+      const neuA = {}; Object.keys(b).forEach(k => { neuA[k.replace(/^pb_/,"pa_")] = b[k]; });
+      D.parzellen.A = neuA; D.parzellen.B = um;
+      const n = D.schema.nummern; const h = n.A; n.A = n.B; n.B = h;
+      speichern(true); alles();
+      balkenZeigen("A und B sind getauscht. Herkünfte gegenlesen!");
+      setTimeout(() => balkenZeigen(""), 8000);
+    }, true);
+}
+
+function nummerWaehlen(pz, ecke){
+  const nummern = D.schema.nummern[pz] || (D.schema.nummern[pz] = {});
+  const belegt = Object.keys(nummern).filter(k => nummern[k]).map(k => nummern[k]);
+  const moeglich = [["","—"],["1","1"],["2","2"],["3","3"],["4","4"],["5","5"]];
+  const stelle = (ecke === "M") ? "Mittelpunkt (markierter Pfosten)" : "Satellit " + ECKENNAME[ecke];
+  wahlDialog("Parzelle " + pz + " — " + stelle,
+    "Welche Nummer trägt dieser Punkt in eurer Zählung?"
+    + (belegt.length ? " Schon vergeben: " + belegt.sort().join(", ") + "." : ""),
+    moeglich, nummern[ecke] || "",
+    wert => {
+      if(wert){
+        // Nummer schon woanders? Dann tauschen statt doppelt vergeben.
+        Object.keys(nummern).forEach(k => { if(nummern[k] === wert) nummern[k] = nummern[ecke] || ""; });
+      }
+      nummern[ecke] = wert;
+      Object.keys(nummern).forEach(k => { if(!nummern[k]) delete nummern[k]; });
+      speichern(true);
+      skizzeZeichnen();
+    });
+}
+
+function sollTabelleAufbauen(){
+  const box = document.getElementById("sollTabelle");
+  if(!box) return;
+  const q = geometrie();
+  const a = zahl(D.schema.s_achse);
+  let h = '<table><tr><th>Punkt</th><th>Lage in der Skizze</th><th>Abstand vom<br>Mittelpunkt</th><th>Azimut<br>(geografisch)</th></tr>';
+  ["A","B"].forEach(pz => {
+    const teil = q[pz], nummern = D.schema.nummern[pz] || {};
+    const reihen = [];
+    ECKEN.forEach(e => reihen.push([e, teil.sat[e]]));
+    reihen.forEach(([e, s]) => {
+      const n = nummern[e];
+      h += '<tr><td><b>'+pz+(n ? "-"+n : "-?")+'</b></td><td>'+ECKENNAME[e]+'</td>'
+         + '<td>'+rund(s.dist,1)+' m</td>'
+         + '<td>'+(isNaN(a) ? "—" : Math.round(s.azimut)+"° "+richtungsname(s.azimut))+'</td></tr>';
+    });
+    h += '<tr><td><b>'+pz+(nummern.M ? "-"+nummern.M : "-M")+'</b></td><td>Mittelpunkt</td><td>0 m</td><td>—</td></tr>';
+  });
+  h += '</table>';
+  if(!q.g.gemessen) h += '<div class="info warnung" style="font-size:13px"><b>Ersatzmaße im Spiel.</b> '
+    + 'Solange nicht alle Längen und Breiten gemessen sind, sind diese Sollwerte nur grob.</div>';
+  box.innerHTML = h;
+}

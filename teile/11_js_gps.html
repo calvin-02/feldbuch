@@ -1,0 +1,355 @@
+
+/* =====================================================================
+   Standpunktkoordinate
+   Drei Wege, weil der bequemste ausfallen kann:
+   (1) Ortung durch den Browser  (2) Text aus einer Karten-App einfügen
+   (3) die drei Felder von Hand füllen.
+   Gebraucht wird die Koordinate nur grob: die richtige Laserdaten-Kachel finden
+   und der Einpassung einen Startwert geben.
+   ===================================================================== */
+function gpsMelden(txt, art){
+  const m = document.getElementById("gpsMeldung");
+  if(!m) return;
+  m.className = art ? ("p-anzeige p-" + art) : "hint";
+  m.innerHTML = txt;
+}
+
+function gpsHolen(){
+  if(!navigator.geolocation){
+    gpsMelden("Dieses Gerät bietet keine Ortung an. Bitte Weg 2 benutzen.", "warn");
+    return;
+  }
+  if(!window.isSecureContext){
+    gpsMelden("<b>Ortung gesperrt.</b> Die Seite läuft nicht über eine gesicherte Verbindung "
+      + "(https). Als installierte App ist das erfüllt — als lose Datei nicht. Nimm Weg 2.", "warn");
+    return;
+  }
+  gpsMelden("Position wird bestimmt … unter dichtem Schirm dauert das oft 30–60 Sekunden. "
+    + "<b>Nicht wegtippen.</b>", null);
+  let fertig = false;
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      fertig = true;
+      const g = Math.round(pos.coords.accuracy);
+      gpsSetzen(pos.coords.latitude, pos.coords.longitude, g);
+      gpsMelden("Position übernommen, ± " + g + " m. "
+        + (g <= 30 ? "Das genügt für Kachel und Startwert."
+                   : "Auch das genügt — die Kachel ist einen Kilometer groß."), "ok");
+    },
+    err => {
+      fertig = true;
+      const eingebettet = (window.top !== window.self);
+      const grund = {
+        1: eingebettet
+           ? "Die Seite läuft in einer eingebetteten Ansicht, und die gibt die Ortung nicht "
+             + "frei — daran ändert auch die Standortfreigabe des Browsers nichts."
+           : "Die Ortung ist für diese App gesperrt: keine Standortfreigabe erteilt, "
+             + "oder der Standortdienst des Geräts ist aus.",
+        2: "Das Gerät bekommt gerade keine Position (kein Empfang, Ortung ausgeschaltet).",
+        3: "Zeitüberschreitung — unter dichtem Kronendach kann das Signal ausbleiben."
+      }[err.code] || "Unbekannter Fehler.";
+      gpsMelden("<b>Ortung nicht möglich.</b> " + grund
+        + "<br><span style='font-weight:400'>Meldung des Geräts: „" + (err.message || "—")
+        + "“ (Code " + err.code + ")</span>"
+        + "<br><b>Nimm Weg 2:</b> Koordinate in einer Karten- oder GPS-App ablesen, kopieren "
+        + "und unten einfügen. Für diese Arbeit ist das gleichwertig.", "warn");
+    },
+    {enableHighAccuracy:true, timeout:60000, maximumAge:0}
+  );
+  setTimeout(() => { if(!fertig) gpsMelden("Immer noch am Suchen … das ist unter Schirm normal. "
+    + "Wenn nach zwei Minuten nichts kommt: Weg 2.", null); }, 20000);
+}
+
+function gpsSetzen(lat, lon, genauigkeit){
+  const la = Number(lat).toFixed(6), lo = Number(lon).toFixed(6);
+  document.getElementById("f_gps_lat").value = la;
+  document.getElementById("f_gps_lon").value = lo;
+  D.kopf.f_gps_lat = la;
+  D.kopf.f_gps_lon = lo;
+  if(genauigkeit !== null && genauigkeit !== undefined){
+    document.getElementById("f_gps_acc").value = genauigkeit;
+    D.kopf.f_gps_acc = genauigkeit;
+  }
+  speichern(true);
+  utmZeigen();
+}
+
+function zahlenAus(text, kommaAls){
+  const roh = text.replace(/[^\d.,;+\-\s]/g, " ").replace(/,/g, kommaAls);
+  return (roh.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+}
+
+function alsGrad(a, b){
+  const drin = v => Math.abs(v) >= 45 && Math.abs(v) <= 56;
+  if(drin(a) && Math.abs(b) <= 20) return {lat:a, lon:b, art:"grad", gedreht:false};
+  if(drin(b) && Math.abs(a) <= 20) return {lat:b, lon:a, art:"grad", gedreht:true};
+  return null;
+}
+
+function alsUTM(a, b){
+  const ostOk  = v => v > 100000  && v < 900000;
+  const nordOk = v => v > 4000000 && v < 7000000;
+  let ost = null, nord = null;
+  if(ostOk(a) && nordOk(b)){ ost = a; nord = b; }
+  else if(ostOk(b) && nordOk(a)){ ost = b; nord = a; }
+  if(ost === null) return null;
+  const g = vonUTM32(ost, nord);
+  return {lat:g.lat, lon:g.lon, art:"utm", gedreht:(ost === b)};
+}
+
+function koordLesen(roh){
+  const t = (roh || "").trim();
+  if(!t) return null;
+  if(/[°'"´`′″]/.test(t)){
+    const treffer = [];
+    const re = /(-?\d+(?:[.,]\d+)?)\s*[°]\s*(?:(\d+(?:[.,]\d+)?)\s*['´`′]\s*(?:(\d+(?:[.,]\d+)?)\s*["″]?)?)?/g;
+    let m;
+    while((m = re.exec(t)) !== null){
+      const g = parseFloat(m[1].replace(",", "."));
+      const mi = m[2] ? parseFloat(m[2].replace(",", ".")) : 0;
+      const se = m[3] ? parseFloat(m[3].replace(",", ".")) : 0;
+      const vz = g < 0 ? -1 : 1;
+      treffer.push(vz * (Math.abs(g) + mi/60 + se/3600));
+    }
+    if(treffer.length >= 2) return alsGrad(treffer[0], treffer[1]);
+    return null;
+  }
+  const kandidaten = [];
+  [" ", "."].forEach(art => {
+    const z = zahlenAus(t, art);
+    if(z.length === 2) kandidaten.push(z);
+  });
+  for(const [a,b] of kandidaten){ const g = alsGrad(a,b); if(g) return g; }
+  for(const [a,b] of kandidaten){ const u = alsUTM(a,b);  if(u) return u; }
+  return null;
+}
+
+function koordUebernehmen(){
+  const feld = document.getElementById("f_gps_einfuegen");
+  const gelesen = koordLesen(feld.value);
+  if(!gelesen){
+    gpsMelden("<b>Daraus kann ich keine Koordinate lesen.</b> Erwartet werden zwei Zahlen, "
+      + "etwa <i>48.1769, 11.2554</i> oder <i>667412 5337588</i>. Notfalls die drei Felder "
+      + "unten direkt ausfüllen — das tut es auch.", "fehler");
+    return;
+  }
+  gpsSetzen(gelesen.lat, gelesen.lon, null);
+  const inDeutschland = gelesen.lat > 47 && gelesen.lat < 55.2
+                     && gelesen.lon > 5.5 && gelesen.lon < 15.5;
+  const txt = "Übernommen als " + gelesen.lat.toFixed(5) + " / " + gelesen.lon.toFixed(5)
+          + (gelesen.art === "utm" ? " (aus UTM 32 zurückgerechnet)" : "")
+          + (gelesen.gedreht ? " — die Reihenfolge war vertauscht und wurde gedreht" : "") + ".";
+  if(!inDeutschland){
+    gpsMelden(txt + " <b>Achtung: Dieser Punkt liegt nicht in Deutschland</b> — bitte nachsehen, "
+      + "ob die Zahlen stimmen.", "warn");
+  }else{
+    gpsMelden(txt + " Genauigkeit von Hand eintragen, falls die App sie anzeigt.", "ok");
+  }
+}
+
+/* ---------- UTM 32 (ETRS89 / WGS 84, EPSG 25832), Reihenentwicklung nach Snyder ---------- */
+const UTM = {a:6378137.0, e2:0.0066943799901413165, k0:0.9996, lon0:9*Math.PI/180, FE:500000};
+
+function nachUTM32(latGrad, lonGrad){
+  const {a,e2,k0,lon0,FE} = UTM, ep2 = e2/(1-e2);
+  const phi = latGrad*Math.PI/180, lam = lonGrad*Math.PI/180;
+  const s = Math.sin(phi), c = Math.cos(phi), t = Math.tan(phi);
+  const N = a/Math.sqrt(1-e2*s*s), T = t*t, C = ep2*c*c, A = (lam-lon0)*c;
+  const M = a*((1 - e2/4 - 3*e2*e2/64 - 5*e2*e2*e2/256)*phi
+             - (3*e2/8 + 3*e2*e2/32 + 45*e2*e2*e2/1024)*Math.sin(2*phi)
+             + (15*e2*e2/256 + 45*e2*e2*e2/1024)*Math.sin(4*phi)
+             - (35*e2*e2*e2/3072)*Math.sin(6*phi));
+  return {
+    ost:  FE + k0*N*(A + (1-T+C)*Math.pow(A,3)/6
+          + (5-18*T+T*T+72*C-58*ep2)*Math.pow(A,5)/120),
+    nord: k0*(M + N*t*(A*A/2 + (5-T+9*C+4*C*C)*Math.pow(A,4)/24
+          + (61-58*T+T*T+600*C-330*ep2)*Math.pow(A,6)/720))
+  };
+}
+
+function vonUTM32(ost, nord){
+  const {a,e2,k0,lon0,FE} = UTM, ep2 = e2/(1-e2);
+  const M = nord/k0;
+  const mu = M/(a*(1 - e2/4 - 3*e2*e2/64 - 5*e2*e2*e2/256));
+  const e1 = (1-Math.sqrt(1-e2))/(1+Math.sqrt(1-e2));
+  const phi1 = mu + (3*e1/2 - 27*Math.pow(e1,3)/32)*Math.sin(2*mu)
+             + (21*e1*e1/16 - 55*Math.pow(e1,4)/32)*Math.sin(4*mu)
+             + (151*Math.pow(e1,3)/96)*Math.sin(6*mu)
+             + (1097*Math.pow(e1,4)/512)*Math.sin(8*mu);
+  const s = Math.sin(phi1), c = Math.cos(phi1), t = Math.tan(phi1);
+  const C1 = ep2*c*c, T1 = t*t;
+  const N1 = a/Math.sqrt(1-e2*s*s);
+  const R1 = a*(1-e2)/Math.pow(1-e2*s*s, 1.5);
+  const Dd = (ost-FE)/(N1*k0);
+  const phi = phi1 - (N1*t/R1)*(Dd*Dd/2
+            - (5+3*T1+10*C1-4*C1*C1-9*ep2)*Math.pow(Dd,4)/24
+            + (61+90*T1+298*C1+45*T1*T1-252*ep2-3*C1*C1)*Math.pow(Dd,6)/720);
+  const lam = lon0 + (Dd - (1+2*T1+C1)*Math.pow(Dd,3)/6
+            + (5-2*C1+28*T1-3*C1*C1+8*ep2+24*T1*T1)*Math.pow(Dd,5)/120)/c;
+  return {lat: phi*180/Math.PI, lon: lam*180/Math.PI};
+}
+
+function tausenderPunkt(n){
+  return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
+function utmZeigen(){
+  const box = document.getElementById("utmAnzeige");
+  if(!box) return;
+  const lat = zahl(document.getElementById("f_gps_lat").value);
+  const lon = zahl(document.getElementById("f_gps_lon").value);
+  if(isNaN(lat) || isNaN(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180){
+    box.style.display = "none"; return;
+  }
+  const u = nachUTM32(lat, lon);
+  const kx = Math.floor(u.ost/1000), ky = Math.floor(u.nord/1000);
+  box.style.display = "block";
+  box.innerHTML = "<b>UTM 32 (ETRS89):</b> Rechtswert " + tausenderPunkt(u.ost)
+    + " · Hochwert " + tausenderPunkt(u.nord)
+    + "<br><b>Laserdaten-Kachel (1 km): " + kx + "_" + ky + "</b>"
+    + " <span class='hint'>— diese Kachel wird abends beim Landesamt geladen. "
+    + "Liegt der Standpunkt nahe am Rand, die Nachbarkachel gleich mitnehmen.</span>";
+}
+
+function kompassHinweis(){
+  const box = document.getElementById("k_geraetHinweis");
+  if(!box) return;
+  const geraet = wertVon("koreg","k_geraet") || "Handykompass";
+  const bezug  = D.koreg.k_nordbezug || "";
+  if(!bezug){
+    box.innerHTML = '<div class="p-anzeige p-warn">Nordbezug noch offen. '
+      + (geraet.indexOf("Handy") === 0
+         ? 'Beim Handy steht die Einstellung unter Kompass — „wahres Nord" oder magnetisch?'
+         : 'Auch bei der Bussole festhalten, worauf sie bezogen ist.')
+      + '</div>';
+  }else if(bezug === "magnetisch"){
+    box.innerHTML = '<div class="p-anzeige p-ok">Magnetisch gemessen — in Ordnung, '
+      + 'die Missweisung wird bei der Auswertung herausgerechnet.</div>';
+  }else if(bezug === "unbekannt"){
+    box.innerHTML = '<div class="p-anzeige p-fehler">Unbekannter Nordbezug: Die Azimute lassen sich '
+      + 'später nicht mehr korrigieren. Wenn möglich noch am Standpunkt klären.</div>';
+  }else{
+    box.innerHTML = '<div class="p-anzeige p-ok">Geografisch Nord — passt zur Rechnung des Modells.</div>';
+  }
+}
+
+/* ---------- Kleine laufende Prüfungen ---------- */
+function datumPruefen(){
+  const box = document.getElementById("datumHinweis");
+  if(!box) return;
+  const heute = new Date().toISOString().slice(0,10);
+  const d = D.kopf.f_datum;
+  if(d && d !== heute){
+    box.innerHTML = '<div class="p-anzeige p-warn">Das Aufnahmedatum steht auf <b>'
+      + d.split("-").reverse().join(".") + '</b>, heute ist der '
+      + heute.split("-").reverse().join(".") + '. '
+      + '<button class="knopf zweit klein" style="width:auto;padding:6px 12px" onclick="datumHeute()">auf heute setzen</button></div>';
+  }else box.innerHTML = "";
+}
+function datumHeute(){
+  D.kopf.f_datum = new Date().toISOString().slice(0,10);
+  const el = document.getElementById("f_datum");
+  if(el) el.value = D.kopf.f_datum;
+  speichern(true); datumPruefen();
+}
+
+/* Aus "60:40" den Direktanteil p ableiten — die Zahl, mit der das Modell rechnet. */
+function pFormelPruefen(){
+  const box = document.getElementById("pFormelHinweis");
+  if(!box) return;
+  const f = (D.kopf.f_tsf_formel || "").trim();
+  const m = f.match(/(\d+(?:[.,]\d+)?)\s*[:\/]\s*(\d+(?:[.,]\d+)?)/);
+  if(!m){ box.innerHTML = ""; return; }
+  const a = zahl(m[1]), b = zahl(m[2]);
+  if(isNaN(a) || isNaN(b) || a+b === 0){ box.innerHTML = ""; return; }
+  const p = a/(a+b);
+  const eingetragen = zahl(D.kopf.f_p_geraet);
+  let txt = "Aus der Formel <b>"+f+"</b> folgt <b>p = "+p.toFixed(2)+"</b> "
+          + "— der Anteil der Direktstrahlung an TSF. Das ist die Zahl, mit der das Modell rechnet.";
+  let art = "ok";
+  if(isNaN(eingetragen)){
+    txt += ' <button class="knopf zweit klein" style="width:auto;padding:6px 12px" onclick="pUebernehmen('
+         + p.toFixed(2) + ')">als p eintragen</button>';
+  }else if(Math.abs(eingetragen - p) > 0.02){
+    art = "warn";
+    txt += " Eingetragen ist aber <b>"+eingetragen.toFixed(2)+"</b> — eines von beiden stimmt nicht.";
+  }
+  box.innerHTML = '<div class="p-anzeige p-'+art+'">'+txt+'</div>';
+}
+function pUebernehmen(p){
+  D.kopf.f_p_geraet = String(p).replace(".", ",");
+  const el = document.getElementById("f_p_geraet");
+  if(el) el.value = D.kopf.f_p_geraet;
+  speichern(true); pFormelPruefen();
+}
+
+function dauerZeigen(){
+  const box = document.getElementById("dauerAnzeige");
+  if(!box) return;
+  const an = D.kopf.f_ankunft, ab = D.gelaende.g_abfahrt;
+  if(!an || !ab){ box.innerHTML = ""; return; }
+  const min = (h => Number(h.split(":")[0])*60 + Number(h.split(":")[1]));
+  let d = min(ab) - min(an);
+  if(d < 0) d += 24*60;
+  box.innerHTML = '<div class="info gut" style="font-size:13px">Aufenthalt auf der Fläche: <b>'
+    + Math.floor(d/60) + " h " + (d%60) + ' min.</b> Diese Zahl trägt die Planung der '
+    + 'restlichen Flächen — bitte nicht überschreiben.</div>';
+}
+
+/* ---------- Abschlusskontrolle ---------- */
+function kontrolleAufbauen(){
+  const gemessen = PUNKTE.filter(p => { const d = D.punkte[p.id]; return d && d.isf !== "" && d.isf != null; });
+  const belegt   = PUNKTE.filter(p => punktFertig(p.id));
+  const offen    = PUNKTE.filter(p => !punktFertig(p.id));
+  const q = geometrie();
+  const ohneMerkmal = D.baeume.filter(b => !b.merkmal).length;
+  const verbindung  = D.baeume.filter(b => b.standpunkt === "AB").length;
+  const nummernA = Object.keys(D.schema.nummern.A||{}).length;
+  const nummernB = Object.keys(D.schema.nummern.B||{}).length;
+
+  const pruefungen = [
+    [belegt.length === PUNKTE.length, belegt.length + " von " + PUNKTE.length + " Punkten belegt (Zeit und Bild-Nr.)" +
+      (offen.length ? " — offen: " + offen.map(p=>p.id).join(", ") : "")],
+    [gemessen.length === PUNKTE.length, gemessen.length + " Punkte mit ISF/DSF-Werten" +
+      (gemessen.length < PUNKTE.length ? " — der Rest kommt aus der Bildauswertung" : "")],
+    [!!(D.punkte["W1"] && D.punkte["W2"]), "Wiederholungsmessung W-1 und W-2 vorhanden"],
+    [!!D.kopf.f_fotos, "Geräteeinstellungen fotografiert"],
+    [!!(D.kopf.f_geraet && D.kopf.f_atm && D.kopf.f_tsf_formel && D.kopf.f_schwellen),
+      "Geräteeinstellungen abgetippt (Modell, Durchlässigkeit, TSF-Formel, Schwellenzahl)"],
+    [D.baeume.length >= 10, D.baeume.length + " Passpunktbäume erfasst (5 je Mittelpunkt = 10)"],
+    [ohneMerkmal === 0, "Alle Passpunktbäume haben ein Erkennungsmerkmal" +
+      (ohneMerkmal ? " — es fehlen " + ohneMerkmal : "")],
+    [verbindung >= 1, verbindung + " Verbindungsbaum/-bäume von beiden Mittelpunkten"],
+    [!!(D.koreg.k_azimut_ab && D.koreg.k_dist_ab) || verbindung >= 1, "Klammer A→B gemessen oder über Verbindungsbaum bestimmbar"],
+    [!!(D.koreg.k_nordbezug) && D.koreg.k_nordbezug !== "unbekannt",
+      "Nordbezug der Azimute festgehalten" + (D.koreg.k_nordbezug ? " (" + D.koreg.k_nordbezug + ")" : "")],
+    [!!D.kopf.f_gps_lat, "GPS-Wegpunkt gespeichert"],
+    [q.g.gemessen, "Alle Gattermaße gemessen (Längen, Breiten außen und innen, Trennstreifen)"],
+    [!isNaN(zahl(D.schema.s_achse)), "Azimut der Längsachse A→B eingetragen"],
+    [nummernA >= 5 && nummernB >= 5, "Punktnummern in der Skizze vergeben (A: "+nummernA+"/5, B: "+nummernB+"/5)"],
+    [!!(D.parzellen.A.pa_herkunft && D.parzellen.B.pb_herkunft), "Herkunft je Parzelle eingetragen"],
+    [!!(wertVon("parzA","pa_lage") && wertVon("parzB","pb_lage")), "Lage je Parzelle eingetragen"],
+    [!!D.kopf.f_vermarkung, "Vermarkungsbefund eingetragen"],
+    [!!(wertVon("bestand","b_typ") && wertVon("bestand","b_schlussgrad")), "Bestandesbeschreibung ausgefüllt"],
+    [VEG_PUNKTE.every(p => vegEinfachFertig(p.id)), "Vegetation vereinfacht an allen 10 Punkten (" +
+      VEG_PUNKTE.filter(p => vegEinfachFertig(p.id)).length + " von " + VEG_PUNKTE.length + ")"],
+    [VEG_PUNKTE.every(p => vegBBFertig(p.id)), "Vegetation Braun-Blanquet an allen 10 Punkten (" +
+      VEG_PUNKTE.filter(p => vegBBFertig(p.id)).length + " von " + VEG_PUNKTE.length + ")"],
+    [!!D.kopf.f_team, "Aufnahmegruppe eingetragen"]
+  ];
+  const box = document.getElementById("kontrolle");
+  box.innerHTML = pruefungen.map(([ok,txt]) =>
+    '<div class="info '+(ok?"gut":"achtung")+'" style="margin:6px 0">'+
+    (ok ? "&#10003; " : "<b>offen:</b> ") + txt + '</div>').join("");
+
+  const w1 = D.punkte["W1"], w2 = D.punkte["W2"];
+  if(w1 && w2 && w1.isf !== "" && w2.isf !== "" && w1.isf != null && w2.isf != null){
+    const d = Math.abs(Number(w1.isf) - Number(w2.isf));
+    box.innerHTML +=
+      '<div class="info '+(d <= 2 ? "gut" : "warnung")+'" style="margin:6px 0">'+
+      'Wiederholbarkeit ISF: <b>' + d.toFixed(1) + ' Prozentpunkte</b> Unterschied zwischen W-1 und W-2. ' +
+      (d <= 2 ? 'Im erwarteten Rahmen.' : 'Größer als erwartet — im Protokoll vermerken, das ist ein Ergebnis.') +
+      '</div>';
+  }
+  dauerZeigen();
+}
