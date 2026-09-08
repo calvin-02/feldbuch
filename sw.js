@@ -10,7 +10,7 @@
    alles neu geladen und der alte Speicher gelöscht.
    --------------------------------------------------------------------------- */
 
-const FASSUNG = "feldbuch-2.0.0";
+const FASSUNG = "feldbuch-2.0.1";
 const DATEIEN = [
   "./",
   "./index.html",

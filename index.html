@@ -785,7 +785,7 @@
      · Speichern entkoppelt — der Export wird nicht mehr bei jedem Tastendruck gebaut
    ===================================================================== */
 
-const FASSUNG = "2.0.0";
+const FASSUNG = "2.0.1";
 const STAND   = "08.09.2026";
 
 /* ---------- Auswahllisten ----------
@@ -3009,6 +3009,12 @@ function offlineEinrichten(){
   navigator.serviceWorker.register("sw.js").then(reg => {
     SW_REG = reg;
     offlineZustandZeigen();
+    // Beim allerersten Aufruf ist die Vorhaltung erst ein paar Sekunden spaeter fertig.
+    // Ohne diese beiden Zeilen bliebe die Anzeige auf "wird gerade gespeichert" stehen,
+    // obwohl laengst alles auf dem Geraet liegt -- und genau daran soll Calvin ablesen,
+    // ob er die App im Bestand oeffnen kann.
+    navigator.serviceWorker.ready.then(offlineZustandZeigen);
+    navigator.serviceWorker.addEventListener("controllerchange", offlineZustandZeigen);
     reg.addEventListener("updatefound", () => {
       const neu = reg.installing;
       if(!neu) return;
