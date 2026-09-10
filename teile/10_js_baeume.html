@@ -279,15 +279,139 @@ function wtaSetzen(schluessel, feld, wert){
 }
 
 /* =====================================================================
-   Oberstand
+   Oberstand — Vollaufnahme mit Richtung und Entfernung
+   Umgebaut am 10.09.2026 (SITZUNGSSTAND Kap. 1t): Diese Aufnahme
+   verortet die Fläche. Der Bogenschnitt entfällt dafür.
+
+   Zwei Dinge unterscheiden sie von der alten Fassung:
+   · Es sind 60 bis 80 Bäume je Fläche statt zehn. Deshalb eine
+     Schnellerfassung mit gemerkter Parzelle und Baumart, und eine
+     kompakte Liste statt einer Karte je Baum.
+   · Richtung und Entfernung je Baum sind neu und tragen die Verortung.
    ===================================================================== */
-function obAnlegen(){
-  if(!D.oberstand) D.oberstand = [];
-  D.oberstand.push({nr:D.oberstand.length+1, art:"", bhd:"", hoehe:"", x:"", y:"", ks:""});
-  speichern(true); obListeAufbauen();
-  window.scrollTo(0, document.body.scrollHeight);
+
+let OB_PARZELLE = "A";      // bleibt zwischen Bäumen stehen
+let OB_ART      = "311";    // desgleichen
+let OB_OFFEN    = -1;       // welcher Baum gerade bearbeitet wird
+
+function obSchnellAufbauen(){
+  const box = document.getElementById("obSchnell");
+  if(!box) return;
+  box.innerHTML =
+    '<div class="karte">'+
+      '<label>Parzelle</label>'+
+      '<div class="reihe">'+
+        '<div><button class="knopf'+(OB_PARZELLE==="A"?"":" zweit")+'" onclick="obParzelle(\'A\')">Mittelpunkt A</button></div>'+
+        '<div><button class="knopf'+(OB_PARZELLE==="B"?"":" zweit")+'" onclick="obParzelle(\'B\')">Mittelpunkt B</button></div>'+
+      '</div>'+
+      '<label>Baumart <span class="hint">bleibt stehen</span></label>'+
+      '<select id="obArt" onchange="OB_ART=this.value">'+
+        BAUMARTEN.map(([c,n]) => '<option value="'+c+'"'+(OB_ART===c?" selected":"")+'>'+n+'</option>').join("")+
+      '</select>'+
+      '<div class="reihe">'+
+        '<div><label class="pflicht">Azimut (°)</label>'+
+          '<input type="number" inputmode="numeric" id="obAz" onkeydown="obTaste(event)"></div>'+
+        '<div><label class="pflicht">Distanz (m)</label>'+
+          '<input type="number" step="0.1" inputmode="decimal" id="obDist" onkeydown="obTaste(event)"></div>'+
+      '</div>'+
+      '<div class="reihe">'+
+        '<div><label class="pflicht">BHD (cm)</label>'+
+          '<input type="number" inputmode="numeric" id="obBhd" onkeydown="obTaste(event)"></div>'+
+        '<div><label>Höhe (m) <span class="hint">optional</span></label>'+
+          '<input type="number" step="0.5" inputmode="decimal" id="obHoehe" onkeydown="obTaste(event)"></div>'+
+      '</div>'+
+      '<button class="knopf" onclick="obSpeichernNeu()">Baum speichern</button>'+
+      '<div id="obMeldung"></div>'+
+    '</div>';
+  autoAus(box);
 }
 
+function obParzelle(p){
+  OB_PARZELLE = p;
+  obSchnellAufbauen(); obFortschritt();
+  const f = document.getElementById("obAz"); if(f) f.focus();
+}
+
+/* Eingabetaste springt zum nächsten Feld, im letzten speichert sie.
+   Spart im Feld jedes Mal einen Fingertipp. */
+function obTaste(ev){
+  if(ev.key !== "Enter") return;
+  ev.preventDefault();
+  const folge = ["obAz","obDist","obBhd","obHoehe"];
+  const i = folge.indexOf(ev.target.id);
+  if(i === folge.length-1 || i === -1){ obSpeichernNeu(); return; }
+  const n = document.getElementById(folge[i+1]);
+  if(n) n.focus();
+}
+
+function obSpeichernNeu(){
+  const az = document.getElementById("obAz");
+  const di = document.getElementById("obDist");
+  const bh = document.getElementById("obBhd");
+  const ho = document.getElementById("obHoehe");
+  const meld = document.getElementById("obMeldung");
+
+  const a = zahl(az.value), d = zahl(di.value), b = zahl(bh.value);
+  const fehler = [];
+  if(isNaN(a) || a < 0 || a > 360) fehler.push("Azimut fehlt oder liegt außerhalb 0–360°.");
+  if(isNaN(d) || d <= 0)           fehler.push("Distanz fehlt.");
+  if(isNaN(b) || b < 7)            fehler.push("BHD fehlt oder liegt unter 7 cm — dann gehört der Baum nicht in die Aufnahme.");
+  if(fehler.length){
+    meld.innerHTML = '<div class="p-anzeige p-warn">' + fehler.join("<br>") + '</div>';
+    return;
+  }
+
+  if(!D.oberstand) D.oberstand = [];
+  D.oberstand.push({nr:D.oberstand.length+1, parzelle:OB_PARZELLE, art:OB_ART,
+                    azimut:az.value, dist:di.value, bhd:bh.value, hoehe:ho.value,
+                    kontrolle:false, k_dist2:"", k_azimut:"", bem:"",
+                    x:"", y:"", ks:""});
+  speichern(true);
+
+  az.value = ""; di.value = ""; bh.value = ""; ho.value = "";
+  meld.innerHTML = '<div class="p-anzeige p-ok">Baum '+D.oberstand.length+' gespeichert.</div>';
+  az.focus();
+  obListeAufbauen(); obFortschritt();
+  setTimeout(() => { if(meld) meld.innerHTML = ""; }, 2500);
+}
+
+/* ---------------------------------------------------------------------
+   Fortschritt — im Feld die wichtigste Anzeige: Bin ich fertig?
+   --------------------------------------------------------------------- */
+function obFortschritt(){
+  const box = document.getElementById("obFortschritt");
+  if(!box) return;
+  const l = D.oberstand || [];
+  const nA = l.filter(b => (b.parzelle||"A") === "A").length;
+  const nB = l.filter(b => b.parzelle === "B").length;
+  const nK = l.filter(b => b.kontrolle).length;
+
+  // Erwartungswert: bei rund 320 erkennbaren Bäumen je Hektar stehen im
+  // 15-m-Kreis etwa 20 bis 25 herrschende; mit Unterstand deutlich mehr.
+  const bm = (n) => n + (n === 1 ? " Baum" : " Bäume");
+  const bewerten = (n) => n === 0 ? ["", "noch nichts erfasst"]
+    : n < 15 ? ["p-warn", bm(n) + " — für die Verortung wahrscheinlich zu wenig"]
+    : n < 20 ? ["p-warn", bm(n) + " — geht, mehr ist deutlich sicherer"]
+    : ["p-ok", bm(n) + " — das trägt"];
+  const [kA, tA] = bewerten(nA);
+  const [kB, tB] = bewerten(nB);
+
+  box.innerHTML =
+    '<div class="karte">'+
+    '<div class="kopf"><span>Stand der Aufnahme</span><span>'+bm(l.length)+'</span></div>'+
+    '<div class="p-anzeige '+(kA||"p-warn")+'"><b>Mittelpunkt A:</b> '+tA+'</div>'+
+    '<div class="p-anzeige '+(kB||"p-warn")+'"><b>Mittelpunkt B:</b> '+tB+'</div>'+
+    (nK ? '<div class="p-anzeige p-ok"><b>Kontrollbäume:</b> '+nK+' von 10</div>'
+        : '<div class="p-anzeige p-warn"><b>Kontrollbäume:</b> noch keiner. '+
+          'Beim Pilotversuch sollen rund <b>zehn</b> Bäume zusätzlich vom <i>anderen</i> '+
+          'Mittelpunkt angemessen werden — daraus wird berechnet, wie genau die '+
+          'Kompassmessung wirklich ist.</div>')+
+    '</div>';
+}
+
+/* ---------------------------------------------------------------------
+   Liste — kompakt, weil es viele sind. Antippen öffnet einen Baum.
+   --------------------------------------------------------------------- */
 function obListeAufbauen(){
   const box = document.getElementById("obListe");
   if(!box) return;
@@ -296,11 +420,47 @@ function obListeAufbauen(){
     box.innerHTML = '<div class="info">Noch kein Baum aufgenommen.</div>';
     return;
   }
-  box.innerHTML = D.oberstand.map((b,i) =>
-    '<div class="karte'+(b.art&&b.bhd?" fertig":"")+'">'+
-    '<div class="kopf"><span>Baum '+b.nr+'</span>'+
+  const name = {}; BAUMARTEN.forEach(([c,n]) => name[c] = n);
+
+  let h = '<table><tr><th>Nr</th><th>P</th><th>Az</th><th>Dist</th><th>Art</th><th>BHD</th><th></th></tr>';
+  for(let i = D.oberstand.length - 1; i >= 0; i--){
+    const b = D.oberstand[i];
+    if(i === OB_OFFEN) continue;
+    h += '<tr onclick="obOeffnen('+i+')" style="cursor:pointer">'
+      +  '<td>'+b.nr+'</td>'
+      +  '<td>'+(b.parzelle||"A")+'</td>'
+      +  '<td>'+(b.azimut||"—")+'°</td>'
+      +  '<td>'+(b.dist||"—")+' m</td>'
+      +  '<td>'+((name[b.art]||b.art||"—").slice(0,10))+'</td>'
+      +  '<td>'+(b.bhd||"—")+(b.kontrolle?' <b>K</b>':'')+'</td>'
+      +  '<td class="hint">ändern</td></tr>';
+  }
+  h += '</table>';
+
+  if(OB_OFFEN >= 0 && D.oberstand[OB_OFFEN]) h = obKarte(OB_OFFEN) + h;
+  box.innerHTML = h;
+  autoAus(box);
+}
+
+function obOeffnen(i){ OB_OFFEN = (OB_OFFEN === i ? -1 : i); obListeAufbauen(); }
+
+function obKarte(i){
+  const b = D.oberstand[i];
+  const andere = (b.parzelle||"A") === "A" ? "B" : "A";
+  return '<div class="karte fertig">'+
+    '<div class="kopf"><span>Baum '+b.nr+' ändern</span>'+
       '<button class="knopf zweit" style="width:auto;margin:0;padding:6px 12px;font-size:14px" '+
-      'onclick="obLoeschen('+i+')">löschen</button></div>'+
+      'onclick="obOeffnen('+i+')">schließen</button></div>'+
+    '<label>Parzelle</label>'+
+    '<select onchange="obSetzen('+i+',\'parzelle\',this.value)">'+
+      ["A","B"].map(p => '<option value="'+p+'"'+((b.parzelle||"A")===p?" selected":"")+'>Mittelpunkt '+p+'</option>').join("")+
+    '</select>'+
+    '<div class="reihe">'+
+      '<div><label>Azimut (°)</label><input type="number" inputmode="numeric" value="'+(b.azimut||"")+'" '+
+        'onchange="obSetzen('+i+',\'azimut\',this.value)"></div>'+
+      '<div><label>Distanz (m)</label><input type="number" step="0.1" inputmode="decimal" value="'+(b.dist||"")+'" '+
+        'onchange="obSetzen('+i+',\'dist\',this.value)"></div>'+
+    '</div>'+
     '<label>Baumart</label>'+
     '<select onchange="obSetzen('+i+',\'art\',this.value)"><option value="">—</option>'+
       BAUMARTEN.map(([c,n]) => '<option value="'+c+'"'+(b.art===c?" selected":"")+'>'+n+'</option>').join("")+
@@ -311,25 +471,71 @@ function obListeAufbauen(){
       '<div><label>Höhe (m)</label><input type="number" step="0.5" inputmode="decimal" value="'+(b.hoehe||"")+'" '+
         'onchange="obSetzen('+i+',\'hoehe\',this.value)"></div>'+
     '</div>'+
-    '<div class="reihe">'+
-      '<div><label>X</label><input value="'+(b.x||"")+'" onchange="obSetzen('+i+',\'x\',this.value)"></div>'+
-      '<div><label>Y</label><input value="'+(b.y||"")+'" onchange="obSetzen('+i+',\'y\',this.value)"></div>'+
-    '</div>'+
-    '<label>Koordinatensystem <span class="hint">nur falls Koordinaten erfasst</span></label>'+
-    '<input value="'+(b.ks||"")+'" placeholder="z. B. UTM32N / ETRS89" onchange="obSetzen('+i+',\'ks\',this.value)">'+
-    '</div>').join("");
-  autoAus(box);
+    '<div class="haken"><input type="checkbox" id="obK'+i+'"'+(b.kontrolle?" checked":"")+' '+
+      'onchange="obSetzen('+i+',\'kontrolle\',this.checked)">'+
+      '<label for="obK'+i+'">Kontrollbaum — auch vom Mittelpunkt '+andere+' gemessen</label></div>'+
+    (b.kontrolle
+      ? '<div class="info" style="font-size:13px">Aus beiden Entfernungen lässt sich die Lage des '+
+        'Baumes rein über Kreisbögen bestimmen — ohne Kompass. Der Vergleich mit der oben '+
+        'eingetragenen Richtung sagt uns, <b>wie genau die Kompassmessung wirklich ist</b>. '+
+        'Das ist die einzige Annahme der Simulation, die wir im Feld nachprüfen können.</div>'+
+        '<div class="reihe">'+
+          '<div><label class="pflicht">Distanz von '+andere+' (m)</label>'+
+            '<input type="number" step="0.1" inputmode="decimal" value="'+(b.k_dist2||"")+'" '+
+            'onchange="obSetzen('+i+',\'k_dist2\',this.value)"></div>'+
+          '<div><label>Azimut sorgfältig (°) <span class="hint">optional, Bussole</span></label>'+
+            '<input type="number" inputmode="numeric" value="'+(b.k_azimut||"")+'" '+
+            'onchange="obSetzen('+i+',\'k_azimut\',this.value)"></div>'+
+        '</div>'
+      : '')+
+    '<label>Bemerkung <span class="hint">optional</span></label>'+
+    '<input value="'+(b.bem||"").replace(/"/g,"&quot;")+'" placeholder="Zwiesel, Totast, schräg …" '+
+      'onchange="obSetzen('+i+',\'bem\',this.value)">'+
+    '<div id="obHinweis'+i+'"></div>'+
+    '<button class="knopf warn" onclick="obLoeschen('+i+')">Diesen Baum löschen</button>'+
+    '</div>';
 }
 
-function obSetzen(i, feld, wert){ D.oberstand[i][feld] = wert; speichern(); }
+function obSetzen(i, feld, wert){
+  D.oberstand[i][feld] = wert;
+  speichern();
+  if(feld === "kontrolle" || feld === "parzelle"){ obListeAufbauen(); obFortschritt(); return; }
+  obPruefen(i);
+  if(feld === "azimut" || feld === "dist" || feld === "bhd") obListeAufbauen();
+}
+
+/* Drei Prüfungen, alle können scheitern und sollen es auch dürfen. */
+function obPruefen(i){
+  const b = D.oberstand[i];
+  const box = document.getElementById("obHinweis"+i);
+  if(!box) return;
+  const m = [];
+  const d = zahl(b.dist), h = zahl(b.hoehe), bh = zahl(b.bhd), a = zahl(b.azimut);
+
+  if(!isNaN(d) && d > 15) m.push(["warn",
+    "Über 15 m vom Mittelpunkt: Für die Verortung wird ohnehin nur der 15-m-Kreis "+
+    "ausgewertet. Aufnehmen schadet nicht, ist aber zusätzliche Arbeit."]);
+  if(!isNaN(a) && (a < 0 || a > 360)) m.push(["warn",
+    "Azimut außerhalb 0–360°."]);
+  if(!isNaN(h) && !isNaN(d) && Math.abs(h-d) < 0.05 && h > 3) m.push(["warn",
+    "Höhe und Distanz sind <b>dieselbe Zahl</b> ("+rund(h,1)+"). Beim Vertex ein häufiger "+
+    "Übertragungsfehler — bitte gegenlesen."]);
+  if(!isNaN(bh) && !isNaN(h) && h > 0 && bh/h > 3) m.push(["warn",
+    "BHD "+bh+" cm bei "+rund(h,1)+" m Höhe — ungewöhnlich dick für die Höhe. Zahlendreher?"]);
+
+  box.innerHTML = m.map(([art,txt]) => '<div class="p-anzeige p-'+art+'">'+txt+'</div>').join("");
+}
+
 function obLoeschen(i){
   const b = D.oberstand[i];
   nachfragen("Baum " + b.nr + " löschen?",
-    "Die folgenden Bäume werden neu durchnummeriert.",
+    "Azimut " + (b.azimut||"—") + "°, Distanz " + (b.dist||"—") + " m. "
+    + "Die folgenden Bäume werden neu durchnummeriert.",
     "Löschen",
     () => {
       D.oberstand.splice(i,1);
       D.oberstand.forEach((x,j) => x.nr = j+1);
-      speichern(true); obListeAufbauen();
+      OB_OFFEN = -1;
+      speichern(true); obListeAufbauen(); obFortschritt();
     }, true);
 }

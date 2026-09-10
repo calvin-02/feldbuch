@@ -81,12 +81,58 @@
 <!-- ================= OBERSTAND ================= -->
 <section id="oberstand">
   <h2>Oberstand</h2>
-  <div class="info">
-    Vollaufnahme ab <b>BHD 7 cm</b>. Koordinaten nur, wenn vorhanden — sie sind im Projektblatt
-    ausdrücklich als „wenn möglich" gekennzeichnet.
+  <div class="info gut">
+    <b>Diese Aufnahme verortet die Fläche.</b> Sie ist fürs Projekt ohnehin nötig (Art und BHD
+    ab 7 cm) — mit <b>Richtung und Entfernung</b> je Baum wird aus derselben Arbeit gleichzeitig
+    die Lage der Messpunkte im Laserdatensatz bestimmt. <b>Der Bogenschnitt entfällt dadurch.</b>
   </div>
+  <div class="info">
+    <b>Vom markierten Parzellenmittelpunkt aus, alle Bäume bis 15 m, keinen auslassen.</b>
+    Im Uhrzeigersinn arbeiten, damit keiner doppelt und keiner gar nicht erfasst wird.
+    <b>Auch unterständige Bäume aufnehmen</b> — sie gehören zum Projekt und stören die
+    Verortung nicht; die Auswertung wählt selbst aus.
+  </div>
+
+  <details class="klapp">
+    <summary>Warum viele grobe Messungen besser sind als wenige genaue</summary>
+    <div class="klappinhalt">
+      <p>Am 10.09.2026 in 1200 simulierten Durchgängen geprüft, an zwanzig Waldorten in zwei
+      verschiedenen Beständen:</p>
+      <table>
+        <tr><th>Aufnahme</th><th>Lage trifft auf 2 m</th><th>schlechter Fall</th></tr>
+        <tr><td>8 Bäume, Bogenschnitt</td><td>78 %</td><td>7,1 m</td></tr>
+        <tr><td>16 Bäume, Bogenschnitt</td><td>99 %</td><td>1,1 m</td></tr>
+        <tr><td><b>Vollaufnahme, grob gemessen</b></td><td><b>96 %</b></td><td><b>1,1 m</b></td></tr>
+        <tr><td>16 Bäume, grob gemessen</td><td>88 %</td><td>2,5 m</td></tr>
+      </table>
+      <p><b>Der Grund ist derselbe wie bei der Inventur:</b> Der zufällige Fehler jeder einzelnen
+      Messung mittelt sich heraus, sobald genug Messungen da sind. Bei wenigen Bäumen kostet
+      grobes Messen elf Prozentpunkte, bei der Vollaufnahme nur einen.</p>
+      <p class="pruef"><b>Was daraus folgt:</b> Lieber zügig alle Bäume als sorgfältig ein paar.
+      Ein Baum, der fehlt, ist schlimmer als ein Baum, der zwei Grad danebenliegt.</p>
+      <p class="hint">Grundlage: <i>SITZUNGSSTAND.md</i> Kap. 1t. Die Zahlen stammen aus einer
+      Simulation mit gesetzten Annahmen (3° Kompass, 0,5 m Entfernung) — genau die prüfen die
+      Kontrollbäume unten nach.</p>
+    </div>
+  </details>
+
   <div class="feld" data-auswahl="o_aufnehmer" data-ziel="kopf" data-liste="PERSONEN"
        data-label="Oberstandsaufnahme durch"></div>
+
+  <div class="info achtung" style="font-size:13px">
+    <b>Nordbezug und Geräte</b> stehen im Abschnitt <i>Ko-Registrierung</i> und gelten auch hier.
+    Alle Azimute mit demselben Gerät, in einem Durchgang, ohne zwischendurch neu zu kalibrieren.
+  </div>
+
+  <h3>Schnellerfassung</h3>
+  <div class="info" style="font-size:13px">
+    Parzelle und Baumart bleiben stehen, nur die drei Zahlen wechseln. Nach dem Speichern
+    springt der Zeiger von selbst zurück auf <b>Azimut</b>.
+  </div>
+  <div id="obSchnell"></div>
+
+  <div id="obFortschritt"></div>
+
+  <h3>Erfasste Bäume</h3>
   <div id="obListe"></div>
-  <button class="knopf zweit" onclick="obAnlegen()">+ Baum aufnehmen</button>
 </section>

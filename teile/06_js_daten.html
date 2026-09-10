@@ -13,7 +13,7 @@
      · Speichern entkoppelt — der Export wird nicht mehr bei jedem Tastendruck gebaut
    ===================================================================== */
 
-const FASSUNG = "2.0.2";
+const FASSUNG = "2.1.0";
 const STAND   = "08.09.2026";
 
 /* ---------- Auswahllisten ----------
@@ -292,6 +292,20 @@ function ergaenzen(){
   if(!D.wta) D.wta = {};
   if(!Array.isArray(D.baeume)) D.baeume = [];
   if(!Array.isArray(D.oberstand)) D.oberstand = [];
+
+  /* Seit Fassung 2.1 trägt der Oberstand Richtung und Entfernung — er
+     verortet die Fläche (SITZUNGSSTAND Kap. 1t). Ältere Aufnahmen haben
+     diese Felder nicht; sie werden hier leer ergänzt, damit nichts
+     verlorengeht und keine Anzeige über undefinierte Werte stolpert. */
+  D.oberstand.forEach(b => {
+    if(b.parzelle  === undefined) b.parzelle  = "A";
+    if(b.azimut    === undefined) b.azimut    = "";
+    if(b.dist      === undefined) b.dist      = "";
+    if(b.kontrolle === undefined) b.kontrolle = false;
+    if(b.k_dist2   === undefined) b.k_dist2   = "";
+    if(b.k_azimut  === undefined) b.k_azimut  = "";
+    if(b.bem       === undefined) b.bem       = "";
+  });
 }
 
 /* ---------- Übernahme einer Sicherung der Fassung 1 ----------

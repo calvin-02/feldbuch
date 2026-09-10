@@ -138,9 +138,18 @@ function textFassung(){
     z.push("");
   }
   if((D.oberstand||[]).length){
+    const ob = D.oberstand;
+    const nA = ob.filter(b => (b.parzelle||"A") === "A").length;
+    const nB = ob.filter(b => b.parzelle === "B").length;
+    const nK = ob.filter(b => b.kontrolle).length;
     z.push("OBERSTAND — aufgenommen von " + w("kopf","o_aufnehmer"));
-    z.push("Nr\tBaumart\tBHD_cm\tHöhe_m\tX\tY\tKoordinatensystem");
-    D.oberstand.forEach(b => z.push([b.nr,b.art,b.bhd,b.hoehe,b.x,b.y,b.ks].join("\t")));
+    z.push("  " + ob.length + " Bäume (Mittelpunkt A: " + nA + ", B: " + nB
+           + "), davon " + nK + (nK === 1 ? " Kontrollbaum" : " Kontrollbäume"));
+    z.push("  Richtung und Entfernung vom jeweiligen Parzellenmittelpunkt.");
+    z.push("Nr\tParzelle\tAzimut\tDistanz_m\tBaumart\tBHD_cm\tHöhe_m\tKontrollbaum\tDist_anderer_MP\tAzimut_sorgfältig\tBemerkung\tX\tY\tKoordinatensystem");
+    ob.forEach(b => z.push([b.nr, b.parzelle||"A", b.azimut||"", b.dist||"", b.art, b.bhd,
+      b.hoehe, b.kontrolle ? "ja" : "", b.k_dist2||"", b.k_azimut||"",
+      (b.bem||"").replace(/\s+/g," "), b.x||"", b.y||"", b.ks||""].join("\t")));
     z.push("");
   }
   z.push("GELÄNDE");

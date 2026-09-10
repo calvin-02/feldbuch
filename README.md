@@ -62,4 +62,29 @@ Prüfungen, die **scheitern können** — das ist ihr Zweck:
 
 ## Stand
 
-Fassung 2.0.0 (08.09.2026). Gebaut nach dem ersten Feldtag auf **BY07** am 07.09.2026.
+**Fassung 2.1.0 (10.09.2026) — die Verortung läuft jetzt über den Oberstand.**
+
+Grundlage: `SITZUNGSSTAND.md` Kap. 1t. In 1200 simulierten Durchgängen an zwanzig Waldorten
+in zwei Beständen zeigte sich, dass **viele grob gemessene Bäume besser sind als wenige genau
+gemessene**: Bei einer Vollaufnahme kostet grobes Messen nur 1 Prozentpunkt, bei sechzehn
+Einzelbäumen 11. Die Vollaufnahme mit Kompass und Entfernungsmesser trifft die Lage in 96 %
+der Fälle auf 2 m — so gut wie sechzehn Bäume mit Bogenschnitt, aber ohne dessen Aufwand.
+
+Geändert gegenüber 2.0.2:
+
+- **Oberstand** trägt jetzt **Parzelle, Azimut und Distanz** je Baum und verortet damit die
+  Fläche. **Schnellerfassung** (Parzelle und Baumart bleiben stehen, Eingabetaste springt
+  weiter), kompakte Liste statt einer Karte je Baum — es sind 60 bis 80 Bäume je Fläche.
+- **Fortschrittsanzeige** je Mittelpunkt mit Schwellen (unter 15 Bäume zu wenig, ab 20 trägt es).
+- **Kontrollbäume**: Haken plus Entfernung vom *anderen* Mittelpunkt. Daraus wird die Lage rein
+  über Kreisbögen bestimmt — die einzige Möglichkeit, die angenommene Kompassgenauigkeit (3°)
+  im Feld nachzuprüfen. Ziel im Pilotversuch: rund zehn Stück.
+- **Ko-Registrierung** (Bogenschnitt, Passpunktbäume) bleibt als Rückfallebene erhalten, ist
+  aber als überholt gekennzeichnet. Gerät, **Nordbezug**, Gegenkurs-Test und die Klammer A→B
+  gelten weiterhin und werden dort erfasst.
+- Der Export führt die neuen Spalten mit.
+
+Ältere Sicherungen werden beim Laden ergänzt (fehlende Felder werden leer angelegt), es geht
+nichts verloren.
+
+Fassung 2.0.0 (08.09.2026): gebaut nach dem ersten Feldtag auf **BY07** am 07.09.2026.
