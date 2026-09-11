@@ -13,7 +13,7 @@
      · Speichern entkoppelt — der Export wird nicht mehr bei jedem Tastendruck gebaut
    ===================================================================== */
 
-const FASSUNG = "2.1.1";
+const FASSUNG = "2.1.2";
 const STAND   = "08.09.2026";
 
 /* ---------- Auswahllisten ----------
@@ -167,16 +167,35 @@ const PFLANZEN = [
   "Schönes Frauenhaar","Etagenmoos","Schlafmoos","Gabelzahnmoos"
 ];
 
+/* ---------------------------------------------------------------------
+   Codelisten des Projekts — WÖRTLICH aus den Aufnahmemasken übernommen
+   (Blatt SKIZZE_WTa_Aufnahme, in BY07 Fuchstal und BY02 Bischberg identisch;
+   zulässige Codes zusätzlich gegen Blatt LISTEN geprüft, Spalten O und R).
+   Abgeglichen am 11.09.2026 — davor waren beide Listen geraten und wichen ab.
+
+   NICHT eigenmächtig ergänzen. Was hier nicht steht, lässt sich später nicht
+   in die Projektmaske übertragen.
+   --------------------------------------------------------------------- */
+
+/* "Vitalität" ist in Wahrheit der ZUSTAND DER PFLANZSTELLE: Die Codes 2 bis 7
+   sind die Gründe, warum dort keine Weißtanne (mehr) steht. Deshalb ist die
+   Unterscheidung 0 / 9 wesentlich — noch auffindbar oder spurlos verschwunden. */
 const VITALITAET = [
-  ["",  "—"], ["0","tot"], ["1","vital / lebend"], ["2","Baum"], ["3","Stubben"],
-  ["4","Reisig"], ["5","Fels / Stein"], ["6","Erdloch / Graben"],
-  ["7","Naturverjüngung"], ["8","sonstiges"]
+  ["",  "Zustand —"], ["0","tot (Baum noch auffindbar)"], ["1","vital / lebend"],
+  ["2","Baum"], ["3","Stubben"], ["4","Reisig"], ["5","Fels / Stein"],
+  ["6","Erdloch / Graben"], ["7","Naturverjüngung"],
+  ["9","tot — Baum nicht mehr auffindbar"]
 ];
+/* Code 8 zugelassen, aber im Projekt unbeschriftet → bewusst nicht angeboten. */
+
 const SCHAEDEN = [
-  ["",  "—"], ["0","ohne Schäden"], ["1","Verbiss"], ["2","nadelfressende Insekten"],
+  ["",  "Schaden —"], ["0","ohne Schäden"], ["1","Verbiss"], ["2","nadelfressende Insekten"],
   ["3","rindenfressende Insekten"], ["4","Mäuse"], ["5","Frost"], ["6","Trockenheit"],
-  ["7","Pilze"], ["8","Nadelvergilbung"], ["9","unspezifischer Schaden"]
+  ["7","Pilze"], ["9","unspezifischer Schaden"],
+  ["14","Schütte / Nadelverlust (unspezifisch)"]
 ];
+/* Codes 8 und 10–13 zugelassen, aber im Projekt unbeschriftet → nicht angeboten.
+   Unbekannter Schaden gehört nach Projektlogik ohnehin auf 9. Frage an Martens. */
 
 /* Namensregister der Auswahllisten — für die Felder mit data-liste */
 const LISTEN = {
