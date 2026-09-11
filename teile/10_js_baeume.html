@@ -386,12 +386,16 @@ function obFortschritt(){
   const nB = l.filter(b => b.parzelle === "B").length;
   const nK = l.filter(b => b.kontrolle).length;
 
-  // Erwartungswert: bei rund 320 erkennbaren Bäumen je Hektar stehen im
-  // 15-m-Kreis etwa 20 bis 25 herrschende; mit Unterstand deutlich mehr.
+  // Schwellen aus Skript 40 (1200 Läufe, grobe Messung: Kompass 3°, Distanz 0,5 m):
+  // 16 Bäume → 88 % Treffer unter 2 m, Vollaufnahme (rund 32) → 96 %.
+  // ACHTUNG, die Anzeige hat seit dem 11.09. eine andere Bedeutung: Aufgenommen
+  // wird ohnehin das ganze Gatter — die Zahl ist also KEINE Aufforderung, mehr zu
+  // messen, sondern eine Eigenschaft des Bestandes. Ein niedriger Wert heißt:
+  // hier ist die Verortung wahrscheinlich schwach, das ist beim Auswerten zu wissen.
   const bm = (n) => n + (n === 1 ? " Baum" : " Bäume");
   const bewerten = (n) => n === 0 ? ["", "noch nichts erfasst"]
-    : n < 15 ? ["p-warn", bm(n) + " — für die Verortung wahrscheinlich zu wenig"]
-    : n < 20 ? ["p-warn", bm(n) + " — geht, mehr ist deutlich sicherer"]
+    : n < 16 ? ["p-warn", bm(n) + " — zu wenig für eine sichere Verortung"]
+    : n < 30 ? ["p-warn", bm(n) + " — brauchbar, aber nicht auf der sicheren Seite"]
     : ["p-ok", bm(n) + " — das trägt"];
   const [kA, tA] = bewerten(nA);
   const [kB, tB] = bewerten(nB);
@@ -504,7 +508,44 @@ function obSetzen(i, feld, wert){
   if(feld === "azimut" || feld === "dist" || feld === "bhd") obListeAufbauen();
 }
 
-/* Drei Prüfungen, alle können scheitern und sollen es auch dürfen. */
+/* Größte Entfernung, die ein Baum des Gatters vom Mittelpunkt seiner Parzelle
+   überhaupt haben kann: der weiteste Eckpunkt der Parzelle, plus die HALBE Breite
+   des Trennstreifens (Bäume dort gehören zum näheren Mittelpunkt, kommen also
+   höchstens bis zu dessen Mitte), plus 2 m Toleranz. Das ist eine sichere obere
+   Schranke — der Eckabstand deckt die Diagonale schon ab, der Zuschlag kommt
+   quer dazu (Dreiecksungleichung), die Grenze liegt also stets über dem echten
+   Größtwert. Auf BY07: 34 m Grenze gegen 31 m tatsächlich möglich.
+   Sind noch keine Maße erfasst, greifen die Ersatzmaße aus masse() — die Grenze
+   steht also immer.
+
+   ZWECK: NICHT die Aufnahme begrenzen. Aufgenommen wird das ganze Gatter, alle
+   Bäume ab 7 cm BHD, so schreibt es das Projekt vor. Die Grenze fängt nur
+   Zahlendreher ab (42 statt 24). */
+function obMaxDistanz(pz){
+  try{
+    // KEINE Grenze aus Normmaßen. masse() setzt Ersatzmaße (48,5 × 25 bzw. 23,5 × 50),
+    // wenn Länge und Außenbreite fehlen — aber KEINE Fläche hält sich an die Norm:
+    // BY07 hatte 37,3 × 28,5 und 17 m Trennstreifen statt der vorgeschriebenen 3–4 m.
+    // Wird der Oberstand vor den Flächenmaßen aufgenommen, prüfte die Grenze sonst
+    // gegen eine erfundene Fläche. Dann lieber grob: 60 m fängt grobe Zahlendreher
+    // (99 statt 9), ohne je auf einen echten Baum anzuschlagen. Sobald die Maße
+    // erfasst sind, zieht sich die Grenze von allein zusammen.
+    const P0 = (pz === "B") ? D.parzellen.B : D.parzellen.A;
+    const eigenL = zahl(pz === "B" ? P0.pb_laenge   : P0.pa_laenge);
+    const eigenW = zahl(pz === "B" ? P0.pb_breite_a : P0.pa_breite_a);
+    const andere = (pz === "B") ? D.parzellen.A : D.parzellen.B;
+    const ersatzL = zahl(pz === "B" ? andere.pa_laenge   : andere.pb_laenge);
+    const ersatzW = zahl(pz === "B" ? andere.pa_breite_a : andere.pb_breite_a);
+    if((isNaN(eigenL) || isNaN(eigenW)) && (isNaN(ersatzL) || isNaN(ersatzW))) return 60;
+    const G = geometrie();
+    const P = (pz === "B") ? G.B : G.A;
+    let max = 0;
+    ECKEN.forEach(e => { max = Math.max(max, Math.hypot(P.ecken[e].x, P.ecken[e].y - P.yc)); });
+    return max + G.g.T/2 + 2;
+  }catch(e){ return 40; }
+}
+
+/* Prüfungen, alle können scheitern und sollen es auch dürfen. */
 function obPruefen(i){
   const b = D.oberstand[i];
   const box = document.getElementById("obHinweis"+i);
@@ -512,9 +553,11 @@ function obPruefen(i){
   const m = [];
   const d = zahl(b.dist), h = zahl(b.hoehe), bh = zahl(b.bhd), a = zahl(b.azimut);
 
-  if(!isNaN(d) && d > 15) m.push(["warn",
-    "Über 15 m vom Mittelpunkt: Für die Verortung wird ohnehin nur der 15-m-Kreis "+
-    "ausgewertet. Aufnehmen schadet nicht, ist aber zusätzliche Arbeit."]);
+  const grenze = obMaxDistanz(b.parzelle || "A");
+  if(!isNaN(d) && d > grenze) m.push(["warn",
+    "<b>"+rund(d,1)+" m</b> vom Mittelpunkt — weiter, als das Gatter nach den erfassten "+
+    "Maßen reicht (höchstens rund "+rund(grenze,0)+" m). <b>Zahlendreher?</b> Eine "+
+    "Obergrenze für die Aufnahme gibt es nicht, aber diese Zahl passt nicht zur Fläche."]);
   if(!isNaN(a) && (a < 0 || a > 360)) m.push(["warn",
     "Azimut außerhalb 0–360°."]);
   if(!isNaN(h) && !isNaN(d) && Math.abs(h-d) < 0.05 && h > 3) m.push(["warn",
