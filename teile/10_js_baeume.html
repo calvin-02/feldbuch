@@ -1,175 +1,18 @@
 
 /* =====================================================================
-   Passpunktbäume und Ko-Registrierung
+   WEISSTANNEN UND OBERSTAND — Fassung 3
+
+   Was hier NICHT mehr steht: Passpunktbäume, Verbindungsbäume und die
+   Klammerprobe. Die Ko-Registrierung über einzeln eingemessene Bäume ist
+   am 09.09.2026 gescheitert (0 von 30 Treffern) und am 10.09. durch die
+   Vollaufnahme des Oberstands ersetzt worden — dieselbe Arbeit, die das
+   Projekt ohnehin verlangt, nur mit Azimut und Entfernung je Baum.
+
+   Der Grund in einem Satz: Der zufällige Fehler jeder einzelnen Messung
+   mittelt sich heraus, sobald genug Messungen da sind. Bei sechzehn Bäumen
+   kostet grobes Messen elf Prozentpunkte Treffergenauigkeit, bei der
+   Vollaufnahme einen.
    ===================================================================== */
-const STANDPUNKTE = ["A","B","AB","and"];
-const STANDPUNKT_NAME = {A:"Mittelpunkt A", B:"Mittelpunkt B",
-                         AB:"beide — Verbindungsbaum", and:"anderer (Bemerkung)"};
-
-function baumAnlegen(){
-  const letzte = D.baeume.length ? D.baeume[D.baeume.length-1].standpunkt : "A";
-  D.baeume.push({nr:D.baeume.length+1, azimut:"", dist:"", azimut_b:"", dist_b:"",
-                 art:"311", hoehe:"", bhd:"", merkmal:"", standpunkt:letzte});
-  speichern(true); baumListeAufbauen();
-  window.scrollTo(0, document.body.scrollHeight);
-}
-
-function baumListeAufbauen(){
-  const box = document.getElementById("baumListe");
-  if(!box) return;
-  box.innerHTML = "";
-  if(!D.baeume.length){
-    box.innerHTML = '<div class="info">Noch kein Baum erfasst. <b>5 je Mittelpunkt</b> sind das Ziel, '
-      + '6–7 sind besser — und 1–2 davon als <b>Verbindungsbaum</b> von beiden Mittelpunkten anmessen.</div>';
-    klammerPruefen();
-    return;
-  }
-  D.baeume.forEach((b,i) => {
-    const k = document.createElement("div");
-    const vollstaendig = b.azimut && b.dist && b.hoehe && b.merkmal;
-    k.className = "karte" + (vollstaendig ? " fertig" : "");
-    k.innerHTML =
-      '<div class="kopf"><span>Baum '+b.nr+'</span>'+
-      '<button class="knopf zweit" style="width:auto;margin:0;padding:6px 12px;font-size:14px" onclick="baumLoeschen('+i+')">löschen</button></div>'+
-      '<label>Standpunkt</label>'+
-      '<select onchange="baumSetzen('+i+',\'standpunkt\',this.value)">'+
-        STANDPUNKTE.map(s => '<option value="'+s+'"'+((b.standpunkt||"A")===s?" selected":"")+'>'+STANDPUNKT_NAME[s]+'</option>').join("")+
-      '</select>'+
-      '<div class="reihe">'+
-        '<div><label>Azimut'+(b.standpunkt==="AB"?" von A":"")+' (°)</label><input type="number" inputmode="numeric" value="'+(b.azimut||"")+'" onchange="baumSetzen('+i+',\'azimut\',this.value)"></div>'+
-        '<div><label>Distanz'+(b.standpunkt==="AB"?" von A":"")+' (m)</label><input type="number" step="0.1" inputmode="decimal" value="'+(b.dist||"")+'" onchange="baumSetzen('+i+',\'dist\',this.value)"></div>'+
-      '</div>'+
-      (b.standpunkt === "AB"
-        ? '<div class="reihe">'+
-            '<div><label>Azimut von B (°)</label><input type="number" inputmode="numeric" value="'+(b.azimut_b||"")+'" onchange="baumSetzen('+i+',\'azimut_b\',this.value)"></div>'+
-            '<div><label>Distanz von B (m)</label><input type="number" step="0.1" inputmode="decimal" value="'+(b.dist_b||"")+'" onchange="baumSetzen('+i+',\'dist_b\',this.value)"></div>'+
-          '</div>'
-        : '')+
-      '<label>Baumart</label>'+
-      '<select onchange="baumSetzen('+i+',\'art\',this.value)">'+
-        '<option value="">—</option>'+
-        BAUMARTEN.map(([c,n]) => '<option value="'+c+'"'+(b.art===c?" selected":"")+'>'+n+'</option>').join("")+
-      '</select>'+
-      '<div class="reihe">'+
-        '<div><label class="pflicht">Höhe (m)</label><input type="number" step="0.1" inputmode="decimal" value="'+(b.hoehe||"")+'" onchange="baumSetzen('+i+',\'hoehe\',this.value)"></div>'+
-        '<div><label>BHD (cm)</label><input type="number" inputmode="numeric" value="'+(b.bhd||"")+'" onchange="baumSetzen('+i+',\'bhd\',this.value)"></div>'+
-      '</div>'+
-      '<label class="pflicht">Erkennungsmerkmal</label>'+
-      '<input value="'+(b.merkmal||"").replace(/"/g,"&quot;")+'" placeholder="Zwiesel, Schiefstand, Totast, Sprühmarke …" onchange="baumSetzen('+i+',\'merkmal\',this.value)">'+
-      '<div id="baumHinweis'+i+'"></div>';
-    box.appendChild(k);
-    baumPruefen(i);
-  });
-  autoAus(box);
-  klammerPruefen();
-}
-
-/* Zwei Prüfungen je Baum, beide können scheitern:
-   · Höhe deutlich unter dem Bestand → im Kronenhöhenmodell nicht auffindbar
-   · Distanz gleich der Höhe → typischer Übertragungsfehler (beim Vertex leicht passiert) */
-function baumPruefen(i){
-  const b = D.baeume[i];
-  const box = document.getElementById("baumHinweis"+i);
-  if(!box) return;
-  const meldungen = [];
-  const h = zahl(b.hoehe), d = zahl(b.dist);
-  const hoehen = D.baeume.map(x => zahl(x.hoehe)).filter(x => !isNaN(x));
-  if(!isNaN(h) && hoehen.length >= 3){
-    const sortiert = hoehen.slice().sort((x,y) => x-y);
-    const median = sortiert[Math.floor(sortiert.length/2)];
-    if(h < median - 5) meldungen.push(["warn",
-      "Höhe "+rund(h,1)+" m liegt "+rund(median-h,1)+" m unter dem Median der anderen Bäume ("
-      +rund(median,1)+" m). Ein <b>unterständiger</b> Baum ist im Kronenhöhenmodell nicht sicher "
-      +"wiederzufinden — für die Einpassung nur herrschende Bäume nehmen."]);
-  }
-  if(!isNaN(h) && !isNaN(d) && Math.abs(h-d) < 0.05 && h > 3) meldungen.push(["warn",
-    "Höhe und Distanz sind <b>dieselbe Zahl</b> ("+rund(h,1)+"). Das ist meist ein Übertragungsfehler — bitte gegenlesen."]);
-  if(!isNaN(d) && d < 3) meldungen.push(["warn",
-    "Nur "+rund(d,1)+" m Abstand: geometrisch bringt so ein Baum wenig, und Stammfuß und Kronenspitze "
-    +"liegen hier leicht mehrere Meter auseinander. Lieber einen weiter entfernten mitnehmen."]);
-  box.innerHTML = meldungen.map(([art,txt]) => '<div class="p-anzeige p-'+art+'">'+txt+'</div>').join("");
-}
-
-function baumSetzen(i, feld, wert){
-  D.baeume[i][feld] = wert;
-  speichern();
-  if(feld === "standpunkt"){ baumListeAufbauen(); return; }
-  baumPruefen(i);
-  klammerPruefen();
-}
-
-function baumLoeschen(i){
-  const b = D.baeume[i];
-  nachfragen("Baum " + b.nr + " löschen?",
-    "Azimut " + (b.azimut||"—") + "°, Distanz " + (b.dist||"—") + " m. "
-    + "Die folgenden Bäume werden neu durchnummeriert.",
-    "Löschen",
-    () => {
-      D.baeume.splice(i,1);
-      D.baeume.forEach((x,j) => x.nr = j+1);
-      speichern(true); baumListeAufbauen();
-    }, true);
-}
-
-/* ---------- Die Klammer A→B ----------
-   Aus jedem Verbindungsbaum lässt sich der Vektor A→B ausrechnen:
-        A→B  =  A→Baum  −  B→Baum
-   Damit prüfen sich die beiden Teilnetze gegenseitig, und zusammen mit dem
-   Sollabstand aus den Gattermaßen gibt es drei unabhängige Wege zur selben Zahl. */
-function vektor(azimut, dist){
-  const a = zahl(azimut) * Math.PI/180, d = zahl(dist);
-  if(isNaN(a) || isNaN(d)) return null;
-  return { x: d*Math.sin(a), y: d*Math.cos(a) };
-}
-
-function klammerAusBaeumen(){
-  const werte = [];
-  D.baeume.forEach(b => {
-    if(b.standpunkt !== "AB") return;
-    const vA = vektor(b.azimut, b.dist), vB = vektor(b.azimut_b, b.dist_b);
-    if(!vA || !vB) return;
-    const dx = vA.x - vB.x, dy = vA.y - vB.y;      // A→B = A→Baum − B→Baum
-    werte.push({ nr:b.nr, dist: Math.hypot(dx,dy), azimut: grad(Math.atan2(dx,dy)) });
-  });
-  return werte;
-}
-
-function klammerPruefen(){
-  const box = document.getElementById("klammerPruefung");
-  if(!box) return;
-  const teile = [];
-  const gemessenD = zahl(D.koreg.k_dist_ab), gemessenA = zahl(D.koreg.k_azimut_ab);
-  const q = geometrie();
-  const sollD = q.abstandAB;
-
-  const ausBaum = klammerAusBaeumen();
-  const zeilen = [];
-  if(!isNaN(gemessenD)) zeilen.push(["direkt gemessen", gemessenD, gemessenA]);
-  ausBaum.forEach(w => zeilen.push(["über Verbindungsbaum "+w.nr, w.dist, w.azimut]));
-  if(!isNaN(sollD) && sollD > 0) zeilen.push(["aus den Gattermaßen", sollD, zahl(D.schema.s_achse)]);
-
-  if(zeilen.length < 2){
-    box.innerHTML = '<div class="info" style="font-size:13px"><b>Die Klammer A→B ist der einzige Faden '
-      + 'zwischen beiden Parzellen.</b> Es gibt drei Wege dorthin: direkt messen, über einen '
-      + '<b>Verbindungsbaum</b> (Standpunkt „beide“), oder rechnerisch aus den Gattermaßen. '
-      + '<b>Mindestens zwei davon</b> sollten übereinstimmen — dann ist die Einpassung abgesichert.</div>';
-    return;
-  }
-  let h = '<div class="info rechnung"><b>Klammer A→B — Vergleich der Wege</b>'
-        + '<div class="tabellenrahmen"><table><tr><th>Weg</th><th>Distanz</th><th>Azimut</th></tr>';
-  zeilen.forEach(([n,dd,aa]) => {
-    h += '<tr><td>'+n+'</td><td>'+rund(dd,1)+' m</td><td>'+(isNaN(aa)?"—":Math.round(aa)+"°")+'</td></tr>';
-  });
-  h += '</table></div>';
-  const dists = zeilen.map(z => z[1]).filter(x => !isNaN(x));
-  const spanne = Math.max.apply(null,dists) - Math.min.apply(null,dists);
-  h += '<p style="margin:8px 0 0"><b>Spannweite '+rund(spanne,1)+' m.</b> '
-     + (spanne <= 2 ? 'Das passt zusammen — die beiden Teilnetze hängen sauber aneinander.'
-        : 'Das ist mehr, als die Messgenauigkeit hergibt. Nachrechnen: Wurde derselbe Baum gemeint? '
-        + 'Stimmen die Gattermaße? Wurde ein Azimut aus der Gegenrichtung notiert?')+'</p></div>';
-  box.innerHTML = h;
-}
-
 /* =====================================================================
    Weißtannen
    ===================================================================== */
@@ -204,9 +47,10 @@ function wtaHerkunftZeigen(){
 }
 
 function wtaReihenSetzen(){
-  D.wta.reihen  = Math.max(1, Number(document.getElementById("w_reihen_zahl").value)||10);
-  D.wta.plaetze = Math.max(1, Number(document.getElementById("w_plaetze_zahl").value)||32);
-  speichern(true); wtaReihenListe(); wtaAnsicht();
+  setzenMehrere({
+    "wta.reihen":  Math.max(1, Number(document.getElementById("w_reihen_zahl").value)||10),
+    "wta.plaetze": Math.max(1, Number(document.getElementById("w_plaetze_zahl").value)||32)
+  }, true); wtaReihenListe(); wtaAnsicht();
 }
 
 function wtaReihenListe(){
@@ -272,9 +116,12 @@ function wtaAnsicht(){
 
 function wtaSetzen(schluessel, feld, wert){
   if(!D.wta.werte[schluessel]) D.wta.werte[schluessel] = {};
-  D.wta.werte[schluessel][feld] = wert;
-  if(feld === "h" && wert && !D.wta.werte[schluessel].v) D.wta.werte[schluessel].v = "1";
-  speichern();
+  const paare = {};
+  paare["wta.werte." + schluessel + "." + feld] = wert;
+  /* Eine eingetragene Höhe heißt: hier steht eine lebende Tanne. Der Zustand
+     wird deshalb vorbelegt, solange noch keiner gewählt wurde. */
+  if(feld === "h" && wert && !D.wta.werte[schluessel].v) paare["wta.werte." + schluessel + ".v"] = "1";
+  setzenMehrere(paare);
   wtaReihenListe();
 }
 
@@ -362,10 +209,9 @@ function obSpeichernNeu(){
   }
 
   if(!D.oberstand) D.oberstand = [];
-  D.oberstand.push({nr:D.oberstand.length+1, parzelle:OB_PARZELLE, art:OB_ART,
+  D.oberstand.push(neuerEintrag({nr:D.oberstand.length+1, parzelle:OB_PARZELLE, art:OB_ART,
                     azimut:az.value, dist:di.value, bhd:bh.value, hoehe:ho.value,
-                    kontrolle:false, k_dist2:"", k_azimut:"", bem:"",
-                    x:"", y:"", ks:""});
+                    bem:"", x:"", y:"", ks:""}));
   speichern(true);
 
   az.value = ""; di.value = ""; bh.value = ""; ho.value = "";
@@ -501,7 +347,8 @@ function obKarte(i){
 }
 
 function obSetzen(i, feld, wert){
-  D.oberstand[i][feld] = wert;
+  const aenderung = {}; aenderung[feld] = wert;
+  eintragAendern(D.oberstand[i], aenderung);
   speichern();
   if(feld === "kontrolle" || feld === "parzelle"){ obListeAufbauen(); obFortschritt(); return; }
   obPruefen(i);
@@ -581,4 +428,30 @@ function obLoeschen(i){
       OB_OFFEN = -1;
       speichern(true); obListeAufbauen(); obFortschritt();
     }, true);
+}
+
+/* Hinweis zum Nordbezug — steht seit Fassung 3 beim Oberstand, weil dort
+   die Azimute gemessen werden. Die Missweisung (in Südbayern rund 4°)
+   lässt sich herausrechnen, SOLANGE BEKANNT IST, worauf sich die Messung
+   bezog. Unbekannt ist der einzige Fall, der später nicht mehr zu heilen ist. */
+function kompassHinweis(){
+  const box = document.getElementById("k_geraetHinweis");
+  if(!box) return;
+  const geraet = wertVon("kopf","k_geraet") || "Handykompass";
+  const bezug  = D.kopf.k_nordbezug || "";
+  if(!bezug){
+    box.innerHTML = '<div class="p-anzeige p-warn">Nordbezug noch offen. '
+      + (geraet.indexOf("Handy") === 0
+         ? 'Beim Handy steht die Einstellung unter Kompass — „wahres Nord" oder magnetisch?'
+         : 'Auch bei der Bussole festhalten, worauf sie bezogen ist.')
+      + '</div>';
+  }else if(bezug === "magnetisch"){
+    box.innerHTML = '<div class="p-anzeige p-ok">Magnetisch gemessen — in Ordnung, '
+      + 'die Missweisung wird bei der Auswertung herausgerechnet.</div>';
+  }else if(bezug === "unbekannt"){
+    box.innerHTML = '<div class="p-anzeige p-fehler">Unbekannter Nordbezug: Die Azimute lassen sich '
+      + 'später nicht mehr korrigieren. <b>Wenn möglich noch auf der Fläche klären.</b></div>';
+  }else{
+    box.innerHTML = '<div class="p-anzeige p-ok">Geografisch Nord — passt zur Rechnung des Modells.</div>';
+  }
 }

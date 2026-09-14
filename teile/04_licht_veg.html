@@ -3,20 +3,14 @@
   <h2>Lichtmessung</h2>
   <div class="info">
     Nur bei <b>gleichmäßig bedecktem Himmel</b>. Reißt die Decke auf: unterbrechen, Uhrzeit notieren.
-    Werte so eintragen, wie das Gerät sie anzeigt — nichts runden, nichts weglassen.
   </div>
   <div class="info warnung" style="font-size:13px">
-    <b>Nordausrichtung: mit einer Nordmarke arbeiten.</b> Stativ und Gerät sind aus Metall und verziehen
-    den Kompass. Deshalb zwei Schritte weggehen, Nordrichtung bestimmen, ein Ziel in dieser Richtung
-    merken — und das Gerät danach ausrichten. Anders als bei den Passpunktbäumen ist ein Fehler hier
-    <b>nicht</b> herausrechenbar: Er steckt direkt im Messwert.
+    <b>Nordausrichtung: mit einer Nordmarke arbeiten.</b> Stativ und Gerät sind aus Metall und
+    verziehen den Kompass. Zwei Schritte weggehen, Nordrichtung bestimmen, ein <b>weit entferntes</b>
+    Ziel merken — und das Gerät danach ausrichten. <b>Ein Fehler hier ist nicht herausrechenbar:</b>
+    Er steckt direkt im Messwert.
   </div>
-  <div class="info gut" style="font-size:13px">
-    <b>Die Zahlen dürfen später kommen.</b> Werden die sieben Schwellenwerte erst am Rechner
-    ausgewertet, bleiben ISF/DSF/TSF hier leer — trag dann nur <b>Uhrzeit, Höhe, Bild-Nummer und
-    Aufnehmer</b> ein. Das ist die Verbindung zwischen Bild und Punkt, und ohne sie ist das Bild
-    später nicht mehr zuzuordnen.
-  </div>
+  <div id="gpsStand"></div>
   <div id="punktListe"></div>
 </section>
 
@@ -124,10 +118,27 @@
   <div class="feld" data-auswahl="o_aufnehmer" data-ziel="kopf" data-liste="PERSONEN"
        data-label="Oberstandsaufnahme durch"></div>
 
+  <h3>Womit gemessen wird</h3>
   <div class="info achtung" style="font-size:13px">
-    <b>Nordbezug und Geräte</b> stehen im Abschnitt <i>Ko-Registrierung</i> und gelten auch hier.
-    Alle Azimute mit demselben Gerät, in einem Durchgang, ohne zwischendurch neu zu kalibrieren.
+    <b>Alle Azimute mit demselben Gerät, in einem Durchgang</b>, ohne zwischendurch neu zu
+    kalibrieren. Ein Fehler, der alle Bäume gleich betrifft, wird bei der Einpassung
+    herausgerechnet — schädlich ist nur die Streuung von Baum zu Baum. <b>Der Stahlzaun
+    verzieht jede magnetische Messung</b>, ebenso Magnethüllen am Handy.
   </div>
+  <div class="reihe">
+    <div><div class="feld" data-auswahl="k_geraet" data-ziel="kopf" data-liste="AZIMUTGERAET"
+         data-label="Azimut gemessen mit"></div></div>
+    <div><div class="feld" data-auswahl="k_dist_geraet" data-ziel="kopf" data-liste="DISTANZGERAET"
+         data-label="Entfernung gemessen mit"></div></div>
+  </div>
+  <label>Nordbezug des Kompasses</label>
+  <select id="k_nordbezug">
+    <option value="">— wählen —</option>
+    <option value="geografisch">geografisch Nord (wahres Nord)</option>
+    <option value="magnetisch">magnetisch Nord</option>
+    <option value="unbekannt">unbekannt</option>
+  </select>
+  <div id="k_geraetHinweis"></div>
 
   <h3>Schnellerfassung</h3>
   <div class="info" style="font-size:13px">

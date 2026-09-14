@@ -1,17 +1,31 @@
 
 /* =====================================================================
-   Flächengeometrie und Skizze
+   FLÄCHENGEOMETRIE UND SKIZZE — Fassung 3
 
-   Bezugsrahmen der Skizze: Die Y-Achse läuft entlang der Längsachse des Gatters,
-   von der Außenkante der Parzelle A (Y = 0) durch den Trennstreifen bis zur
-   Außenkante von B. X zeigt nach rechts. Die Skizze wird immer so gezeichnet,
-   A unten und B oben; wo Norden liegt, sagt der gedrehte Nordpfeil.
-   So bleibt die Zeichnung lesbar und ist trotzdem geografisch eindeutig.
+   WAS SICH GEGENÜBER FASSUNG 2 GEÄNDERT HAT UND WARUM.
 
-   Mittelpunkt = Schnittpunkt der Diagonalen. Beim Trapez liegt der nicht auf
-   halber Höhe, sondern bei  y = L · W_unten / (W_unten + W_oben).
-   Satellit = ¼ der Strecke vom Eckpunkt zum Mittelpunkt, also bei ¾ der
-   Strecke Mittelpunkt → Eckpunkt (Schema Prof. Schölch, Berichtsanhang).
+   Fassung 2 verlangte je Parzelle eine Breite AUSSEN und eine INNEN und
+   rechnete daraus ein Trapez. Im Feld wird das nicht so gemessen: Calvins
+   BY07-Aufnahme nennt "Parzelle B L35,5m, B32m" und "Parzelle A L37,3
+   B28,5m" — je eine Länge und EINE Breite. Die Innenbreiten mussten
+   hinterher geschätzt werden.
+
+   Fassung 3 rechnet deshalb mit Rechtecken. Was dabei verloren geht, ist
+   klein und benennbar: Beim Trapez liegt der Mittelpunkt nicht auf halber
+   Länge, sondern bei L·W_unten/(W_unten+W_oben). Mit den BY07-Maßen (28,5
+   gegen 32 m, hier als Unterschied ZWISCHEN den Parzellen, nicht innerhalb
+   einer) macht das wenige Dezimeter aus — gegen eine Verortungsgenauigkeit
+   von 2 bis 3 m ist das ohne Belang.
+
+   NEU ist außerdem die Trennstreifen-BREITE (quer). Fassung 2 kannte nur
+   ein Maß und ließ offen, in welcher Richtung es liegt. Jetzt sind es zwei,
+   und ihr Verhältnis zu den Parzellenbreiten ist eine Prüfung, die im Feld
+   scheitern kann — also etwas wert ist.
+
+   Bezugsrahmen: Y läuft entlang der Längsachse von der Außenkante A (Y=0)
+   durch den Trennstreifen zur Außenkante B. X zeigt nach rechts. Wie die
+   Zeichnung auf dem Bildschirm liegt, bestimmt die ANSICHTSDREHUNG — sie
+   ändert nur das Bild, nie die Geometrie.
    ===================================================================== */
 
 const ECKEN = ["or","ur","ul","ol"];
@@ -19,87 +33,67 @@ const ECKENNAME = {or:"oben rechts", ur:"unten rechts", ul:"unten links", ol:"ob
 
 function masse(){
   const g = {
-    La: zahl(D.parzellen.A.pa_laenge),  Wa_out: zahl(D.parzellen.A.pa_breite_a), Wa_in: zahl(D.parzellen.A.pa_breite_i),
-    Lb: zahl(D.parzellen.B.pb_laenge),  Wb_out: zahl(D.parzellen.B.pb_breite_a), Wb_in: zahl(D.parzellen.B.pb_breite_i),
-    T:  zahl(D.kopf.f_trenn),
+    La: zahl(D.parzellen.A.pa_laenge),  Wa: zahl(D.parzellen.A.pa_breite),
+    Lb: zahl(D.parzellen.B.pb_laenge),  Wb: zahl(D.parzellen.B.pb_breite),
+    T:  zahl(D.kopf.f_trenn_l),         Tb: zahl(D.kopf.f_trenn_b),
     achse: zahl(D.schema.s_achse),
     gemessen: true
   };
-  // Fehlende Breite innen: gleich der Breite außen setzen (Rechteck) — kenntlich gemacht.
-  if(isNaN(g.Wa_in) && !isNaN(g.Wa_out)){ g.Wa_in = g.Wa_out; g.gemessen = false; }
-  if(isNaN(g.Wb_in) && !isNaN(g.Wb_out)){ g.Wb_in = g.Wb_out; g.gemessen = false; }
-  if(isNaN(g.T)) { g.T = 3; g.gemessen = false; }   // Projektstandard: 3 m
+  // Trennstreifen: ohne Angabe der Projektstandard, aber kenntlich gemacht
+  if(isNaN(g.T)){ g.T = 3; g.gemessen = false; }
   // Gar nichts gemessen: Ersatzmaße nach der gewählten Grundform
   const form = wertVon("schema","s_form");
-  if(isNaN(g.La) || isNaN(g.Wa_out)){
+  if(isNaN(g.La) || isNaN(g.Wa)){
     g.gemessen = false;
-    if(form.indexOf("Rechteck") === 0){ g.La = g.Lb = 48.5; g.Wa_out = g.Wa_in = g.Wb_out = g.Wb_in = 25; g.T = 3; }
-    else { g.La = g.Lb = 23.5; g.Wa_out = g.Wa_in = g.Wb_out = g.Wb_in = 50; g.T = 3; }
+    if(form.indexOf("Rechteck") === 0){ g.La = g.Lb = 48.5; g.Wa = g.Wb = 25; }
+    else { g.La = g.Lb = 23.5; g.Wa = g.Wb = 50; }
   }
-  if(isNaN(g.Lb)) { g.Lb = g.La; g.gemessen = false; }
-  if(isNaN(g.Wb_out)){ g.Wb_out = g.Wa_out; g.Wb_in = g.Wa_in; g.gemessen = false; }
+  if(isNaN(g.Lb)){ g.Lb = g.La; g.gemessen = false; }
+  if(isNaN(g.Wb)){ g.Wb = g.Wa; g.gemessen = false; }
+  if(isNaN(g.Tb)){ g.Tb = (g.Wa + g.Wb) / 2; g.tbGeschaetzt = true; }
   return g;
 }
 
 function geometrie(){
   const g = masse();
   const a = g.achse;
-  const bau = (yUnten, L, Wunten, Woben) => {
-    const yc = yUnten + L * Wunten / (Wunten + Woben);
+  const bau = (yUnten, L, W) => {
+    const yc = yUnten + L/2;                       // Rechteck: Mitte ist Mitte
     const ecken = {
-      ur: { x:  Wunten/2, y: yUnten },
-      ul: { x: -Wunten/2, y: yUnten },
-      or: { x:  Woben/2,  y: yUnten + L },
-      ol: { x: -Woben/2,  y: yUnten + L }
+      ur: { x:  W/2, y: yUnten },
+      ul: { x: -W/2, y: yUnten },
+      or: { x:  W/2, y: yUnten + L },
+      ol: { x: -W/2, y: yUnten + L }
     };
     const sat = {};
     ECKEN.forEach(e => {
-      sat[e] = { x: 0 + 0.75*(ecken[e].x - 0), y: yc + 0.75*(ecken[e].y - yc) };
+      // Satellit = 3/4 der Strecke Mittelpunkt -> Ecke
+      // (Projektregel: 1/4 der Strecke von der Ecke zum Mittelpunkt)
+      sat[e] = { x: 0.75 * ecken[e].x, y: yc + 0.75 * (ecken[e].y - yc) };
       const dx = sat[e].x, dy = sat[e].y - yc;
       sat[e].dist   = Math.hypot(dx, dy);
       sat[e].azimut = isNaN(a) ? NaN : (grad(Math.atan2(dx, dy)) + a) % 360;
     });
-    return { yc:yc, ecken:ecken, sat:sat, L:L, Wunten:Wunten, Woben:Woben,
-             flaeche: L * (Wunten + Woben) / 2 };
+    return { yc:yc, ecken:ecken, sat:sat, L:L, W:W, flaeche: L * W };
   };
-  // A liegt unten: außen bei y = 0, innen (am Trennstreifen) bei y = La
-  const A = bau(0, g.La, g.Wa_out, g.Wa_in);
-  // B liegt oben: innen bei y = La + T, außen ganz oben
-  const B = bau(g.La + g.T, g.Lb, g.Wb_in, g.Wb_out);
-  const streifen = { y0: g.La, y1: g.La + g.T, W0: g.Wa_in, W1: g.Wb_in,
-                     flaeche: g.T * (g.Wa_in + g.Wb_in) / 2 };
+  const A = bau(0, g.La, g.Wa);
+  const B = bau(g.La + g.T, g.Lb, g.Wb);
+  const streifen = { y0: g.La, y1: g.La + g.T, W: g.Tb,
+                     flaeche: g.T * g.Tb };
   return { g:g, A:A, B:B, streifen:streifen,
            gesamtL: g.La + g.T + g.Lb,
+           maxW: Math.max(g.Wa, g.Wb, g.Tb),
            abstandAB: B.yc - A.yc,
            azimutAB: isNaN(g.achse) ? NaN : g.achse };
 }
 
-/* Fehlende Innenbreiten unter der Annahme gleichmäßiger Abnahme schätzen.
-   Das ist eine Annahme, keine Messung — sie wird im Export als solche geführt. */
-function breitenSchaetzen(){
-  const La = zahl(D.parzellen.A.pa_laenge), Lb = zahl(D.parzellen.B.pb_laenge), T = zahl(D.kopf.f_trenn);
-  const Wa = zahl(D.parzellen.A.pa_breite_a), Wb = zahl(D.parzellen.B.pb_breite_a);
-  if([La,Lb,T,Wa,Wb].some(isNaN)){
-    balkenZeigen("Zum Schätzen fehlen Maße: beide Längen, beide Außenbreiten und der Trennstreifen.");
-    setTimeout(() => balkenZeigen(""), 6000);
-    return;
-  }
-  const gesamt = La + T + Lb;
-  const beiY = y => Wa + (Wb - Wa) * (y / gesamt);   // linear von A-außen (y=0) nach B-außen
-  D.parzellen.A.pa_breite_i = (Math.round(beiY(La)*10)/10).toString().replace(".", ",");
-  D.parzellen.B.pb_breite_i = (Math.round(beiY(La+T)*10)/10).toString().replace(".", ",");
-  D.parzellen.A.pa_breite_i_geschaetzt = true;
-  D.parzellen.B.pb_breite_i_geschaetzt = true;
-  ["pa_breite_i"].forEach(id => { const e=document.getElementById(id); if(e) e.value = D.parzellen.A[id]; });
-  ["pb_breite_i"].forEach(id => { const e=document.getElementById(id); if(e) e.value = D.parzellen.B[id]; });
-  speichern(true);
-  geometrieAnzeigen();
-}
-
+/* =====================================================================
+   Anzeige der berechneten Maße — mit der Prüfung, die scheitern kann
+   ===================================================================== */
 function geometrieAnzeigen(){
   const box = document.getElementById("geometrieAnzeige");
   if(!box) return;
-  const La = zahl(D.parzellen.A.pa_laenge), Wa = zahl(D.parzellen.A.pa_breite_a);
+  const La = zahl(D.parzellen.A.pa_laenge), Wa = zahl(D.parzellen.A.pa_breite);
   if(isNaN(La) || isNaN(Wa)){
     box.innerHTML = '<div class="info" style="font-size:13px">Sobald Länge und Breite von Parzelle A '
       + 'eingetragen sind, rechnet die App hier Flächen, Satellitenabstände und den Sollabstand A→B aus.</div>';
@@ -108,23 +102,42 @@ function geometrieAnzeigen(){
   const q = geometrie();
   const zeile = (p, name) => '<tr><td><b>'+name+'</b></td><td>'+rund(p.flaeche,0)+' m²</td>'
     + '<td>'+rund(p.flaeche/10000,3)+' ha</td>'
-    + '<td>'+rund(p.sat.or.dist,1)+' / '+rund(p.sat.ur.dist,1)+' m</td></tr>';
-  box.innerHTML =
-    '<div class="info rechnung">'
+    + '<td>'+rund(p.sat.or.dist,1)+' m</td></tr>';
+
+  let h = '<div class="info rechnung">'
     + '<b>Aus den Maßen berechnet</b>'
     + '<div class="tabellenrahmen"><table>'
-    + '<tr><th>Parzelle</th><th>Fläche</th><th></th><th>Satellitenabstand<br>innen / außen</th></tr>'
+    + '<tr><th>Parzelle</th><th>Fläche</th><th></th><th>Abstand<br>Satelliten</th></tr>'
     + zeile(q.A,"A") + zeile(q.B,"B")
     + '<tr><td>Trennstreifen</td><td>'+rund(q.streifen.flaeche,0)+' m²</td><td></td><td></td></tr>'
     + '<tr><td><b>Gatter gesamt</b></td><td><b>'+rund(q.A.flaeche+q.B.flaeche+q.streifen.flaeche,0)+' m²</b></td>'
     + '<td><b>'+rund((q.A.flaeche+q.B.flaeche+q.streifen.flaeche)/10000,3)+' ha</b></td><td></td></tr>'
     + '</table></div>'
     + '<p style="margin:8px 0 0"><b>Sollabstand Mittelpunkt A → Mittelpunkt B: '+rund(q.abstandAB,1)+' m.</b> '
-    + 'Diese Zahl ist eine <b>Prüfung, die scheitern kann</b>: Sie muss zur gemessenen Klammer A→B passen '
-    + 'und später zu dem Abstand, den die Einpassung der Passpunktbäume liefert.</p>'
-    + (q.g.gemessen ? '' : '<p style="margin:6px 0 0"><b>Achtung:</b> Es fehlen Maße; die Rechnung benutzt '
-        + 'Ersatzwerte oder Schätzungen. Im Export sind sie gekennzeichnet.</p>')
-    + '</div>';
+    + 'Diese Zahl geht in die Verortung ein und lässt sich im Feld nachmessen.</p>';
+
+  // Prüfung: Passt die Trennstreifenbreite zu den Parzellenbreiten?
+  const Tb = zahl(D.kopf.f_trenn_b);
+  if(!isNaN(Tb)){
+    const erwartet = (q.g.Wa + q.g.Wb) / 2;
+    const abw = Math.abs(Tb - erwartet);
+    const groesser = Math.max(q.g.Wa, q.g.Wb);
+    if(abw > 0.15 * erwartet || Tb > groesser * 1.15){
+      h += '<div class="p-anzeige p-warn" style="margin-top:8px"><b>Die Breite des Trennstreifens '
+        + 'passt nicht zu den Parzellen.</b> Gemessen ' + rund(Tb,1) + ' m, aus den Parzellenbreiten '
+        + 'erwartet etwa ' + rund(erwartet,1) + ' m (A ' + rund(q.g.Wa,1) + ' · B ' + rund(q.g.Wb,1) + '). '
+        + '<b>Solange du noch auf der Fläche stehst: eines der drei Maße nachmessen.</b> '
+        + 'Später ist nicht mehr zu klären, welches stimmt.</div>';
+    }else{
+      h += '<div class="p-anzeige p-ok" style="margin-top:8px">Trennstreifenbreite passt zu den '
+        + 'Parzellenbreiten (' + rund(Tb,1) + ' m gegen erwartete ' + rund(erwartet,1) + ' m).</div>';
+    }
+  }
+
+  if(!q.g.gemessen) h += '<p style="margin:6px 0 0"><b>Achtung:</b> Es fehlen Maße; die Rechnung '
+    + 'benutzt Ersatzwerte. Im Export sind sie gekennzeichnet.</p>';
+  h += '</div>';
+  box.innerHTML = h;
 }
 
 /* Achsrichtung aus der eingetragenen Lage vorschlagen (A → B). */
@@ -141,11 +154,64 @@ function achseAusLage(still){
   }
   // Liegt A im Süden, zeigt A→B nach Norden (0°). Allgemein: Gegenrichtung der Lage von A.
   const az = (LAGE_AZIMUT[lageA] + 180) % 360;
-  D.schema.s_achse = String(az);
+  setzen("schema.s_achse", String(az), true);
   const el = document.getElementById("s_achse");
   if(el) el.value = az;
-  speichern(true);
   skizzeZeichnen();
+}
+
+/* =====================================================================
+   ANSICHTSDREHUNG
+
+   Die Geometrie bleibt, wie sie ist — gedreht wird nur das Bild. Zweck:
+   Die Skizze soll so liegen, wie man die Fläche vor sich sieht. Steht man
+   am Tor, gehören die Parzellen dorthin, wo die Augen sie sehen; sonst muss
+   der Anwender beim Nummerieren im Kopf drehen, und genau dabei entstehen
+   Verwechslungen.
+
+   "Eingang unten" setzt die Drehung so, dass die Torkante am unteren
+   Bildrand liegt — die Blickrichtung beim Betreten der Fläche.
+   ===================================================================== */
+function drehung(){
+  const d = zahl(D.schema.s_dreh);
+  return isNaN(d) ? 0 : ((d % 360) + 360) % 360;
+}
+
+function drehen(x, y, gradWinkel){
+  const r = gradWinkel * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
+  return [x*c - y*s, x*s + y*c];
+}
+
+function skizzeDrehen(um){
+  const neu = (drehung() + um + 360) % 360;
+  setzen("schema.s_dreh", String(neu), true);
+  skizzeZeichnen();
+}
+
+/* Drehung so wählen, dass der Eingang unten liegt. */
+function drehungAusEingang(){
+  const a = zahl(D.schema.s_achse);
+  const eingang = wertVon("schema","s_eingang");
+  const ez = LAGE_AZIMUT[normLage(eingang)];
+  if(isNaN(a) || ez === undefined){
+    balkenZeigen("Dafür müssen Achsrichtung und Eingang eingetragen sein.");
+    setTimeout(()=>balkenZeigen(""), 5000);
+    return;
+  }
+  /* In der ungedrehten Skizze zeigt "oben" in Richtung des Achsazimuts a.
+     Der Eingang liegt in Richtung ez. Damit er unten erscheint, muss die
+     Zeichnung um den Winkel zwischen (a+180) und ez gedreht werden. */
+  const soll = ((ez - (a + 180)) % 360 + 360) % 360;
+  const gerastert = Math.round(soll / 90) * 90 % 360;
+  setzen("schema.s_dreh", String(gerastert), true);
+  skizzeZeichnen();
+  balkenZeigen("Ansicht gedreht: Eingang liegt jetzt unten.");
+  setTimeout(()=>balkenZeigen(""), 4000);
+}
+
+function normLage(t){
+  return (t||"").replace("Süden","Süd").replace("Norden","Nord")
+                .replace("Osten","Ost").replace("Westen","West");
 }
 
 /* ---------- Zeichnung ---------- */
@@ -153,53 +219,88 @@ function skizzeZeichnen(){
   const rahmen = document.getElementById("skizzeRahmen");
   if(!rahmen) return;
   const q = geometrie();
-  const maxW = Math.max(q.A.Wunten, q.A.Woben, q.B.Wunten, q.B.Woben);
-  const rand = {l:52, r:52, o:54, u:54};
-  const skala = Math.min(230 / maxW, 330 / q.gesamtL);
-  const bx = maxW * skala, by = q.gesamtL * skala;
+  const dreh = drehung();
+
+  /* Alle Punkte der Zeichnung erst im Flächensystem sammeln, dann drehen.
+     Dadurch braucht die Drehung nur an einer einzigen Stelle zu stimmen. */
+  const dr = (x,y) => drehen(x, y, dreh);
+
+  // Bildausschnitt aus den gedrehten Eckpunkten bestimmen
+  const alle = [];
+  ["A","B"].forEach(pz => ECKEN.forEach(e => alle.push([q[pz].ecken[e].x, q[pz].ecken[e].y])));
+  alle.push([-q.streifen.W/2, q.streifen.y0], [q.streifen.W/2, q.streifen.y0],
+            [-q.streifen.W/2, q.streifen.y1], [q.streifen.W/2, q.streifen.y1]);
+  const gedreht = alle.map(([x,y]) => dr(x,y));
+  const xs = gedreht.map(p => p[0]), ys = gedreht.map(p => p[1]);
+  const xmin = Math.min.apply(null,xs), xmax = Math.max.apply(null,xs);
+  const ymin = Math.min.apply(null,ys), ymax = Math.max.apply(null,ys);
+  const spanX = Math.max(1, xmax - xmin), spanY = Math.max(1, ymax - ymin);
+
+  const rand = {l:54, r:54, o:56, u:56};
+  const skala = Math.min(232 / spanX, 330 / spanY);
+  const bx = spanX * skala, by = spanY * skala;
   const breite = bx + rand.l + rand.r, hoehe = by + rand.o + rand.u;
-  const cx = rand.l + bx/2, y0 = rand.o + by;          // y0 = Bildzeile von y = 0
-  const P = (x,y) => [cx + x*skala, y0 - y*skala];
+
+  // Projektion: Flächenkoordinate -> Bildkoordinate
+  const P = (x,y) => {
+    const [gx,gy] = dr(x,y);
+    return [rand.l + (gx - xmin) * skala, rand.o + (ymax - gy) * skala];
+  };
   const poly = pts => pts.map(([x,y]) => P(x,y).join(",")).join(" ");
 
   const a = zahl(D.schema.s_achse);
+  /* Welche Himmelsrichtung liegt in der gedrehten Ansicht oben?
+
+     Ungedreht zeigt die Bildoberkante in Richtung der Achse a (die Y-Achse
+     der Fläche läuft von A nach B und wird nach oben projiziert).
+     Die Drehung bildet (x,y) auf (x·cos−y·sin, x·sin+y·cos) ab; bei 90°
+     also (x,y) → (−y,x). Oben im Bild liegt danach der Punkt, der vorher
+     RECHTS lag — und rechts entspricht a+90.
+     Allgemein: oben = a + dreh.
+
+     (Erst ein Test hat das gezeigt: Die erste Fassung rechnete a − dreh und
+     meldete bei 90° Westen statt Osten. Im Feld hätte das die Punktnummern
+     spiegelverkehrt zugeordnet.) */
   const kanten = isNaN(a) ? null : {
-    oben:  a, rechts:(a+90)%360, unten:(a+180)%360, links:(a+270)%360
+    oben:   (a + dreh) % 360,
+    rechts: (a + dreh + 90) % 360,
+    unten:  (a + dreh + 180) % 360,
+    links:  (a + dreh + 270) % 360
   };
 
-  let s = '<svg viewBox="0 0 '+breite.toFixed(0)+' '+hoehe.toFixed(0)+'" width="'+breite.toFixed(0)+'" height="'+hoehe.toFixed(0)+'" role="img" aria-label="Skizze der Fläche">';
+  let s = '<svg viewBox="0 0 '+breite.toFixed(0)+' '+hoehe.toFixed(0)+'" width="'+breite.toFixed(0)
+        + '" height="'+hoehe.toFixed(0)+'" role="img" aria-label="Skizze der Fläche">';
 
-  // Parzellenflächen und Trennstreifen
+  // Flächen
   s += '<polygon class="parzflaeche" points="'+poly([
         [q.A.ecken.ul.x,q.A.ecken.ul.y],[q.A.ecken.ur.x,q.A.ecken.ur.y],
         [q.A.ecken.or.x,q.A.ecken.or.y],[q.A.ecken.ol.x,q.A.ecken.ol.y]])+'"/>';
   s += '<polygon class="streifen" points="'+poly([
-        [-q.streifen.W0/2,q.streifen.y0],[q.streifen.W0/2,q.streifen.y0],
-        [q.streifen.W1/2,q.streifen.y1],[-q.streifen.W1/2,q.streifen.y1]])+'"/>';
+        [-q.streifen.W/2,q.streifen.y0],[q.streifen.W/2,q.streifen.y0],
+        [q.streifen.W/2,q.streifen.y1],[-q.streifen.W/2,q.streifen.y1]])+'"/>';
   s += '<polygon class="parzflaeche" points="'+poly([
         [q.B.ecken.ul.x,q.B.ecken.ul.y],[q.B.ecken.ur.x,q.B.ecken.ur.y],
         [q.B.ecken.or.x,q.B.ecken.or.y],[q.B.ecken.ol.x,q.B.ecken.ol.y]])+'"/>';
 
-  // Eingang auf der passenden Kante
-  const eingang = wertVon("schema","s_eingang");
-  if(kanten && eingang && LAGE_AZIMUT[eingang.replace("Süden","Süd").replace("Norden","Nord")
-        .replace("Osten","Ost").replace("Westen","West")] !== undefined){
-    const ez = LAGE_AZIMUT[eingang.replace("Süden","Süd").replace("Norden","Nord")
-                 .replace("Osten","Ost").replace("Westen","West")];
+  // Eingang auf der passenden Kante der FLÄCHE (dreht automatisch mit)
+  const eingang = normLage(wertVon("schema","s_eingang"));
+  if(!isNaN(a) && LAGE_AZIMUT[eingang] !== undefined){
+    const ez = LAGE_AZIMUT[eingang];
+    const kandidaten = {
+      unten:  {az: (a+180)%360, pts: [[-q.maxW/6, 0],[q.maxW/6, 0]]},
+      oben:   {az: a,           pts: [[-q.maxW/6, q.gesamtL],[q.maxW/6, q.gesamtL]]},
+      rechts: {az: (a+90)%360,  pts: [[q.maxW/2, q.gesamtL*0.42],[q.maxW/2, q.gesamtL*0.58]]},
+      links:  {az: (a+270)%360, pts: [[-q.maxW/2, q.gesamtL*0.42],[-q.maxW/2, q.gesamtL*0.58]]}
+    };
     let beste = "unten", diff = 999;
-    Object.keys(kanten).forEach(k => {
-      const d = Math.abs(((kanten[k] - ez + 540) % 360) - 180);   // Winkelabstand zur Kantennormalen
+    Object.keys(kandidaten).forEach(k => {
+      const d = Math.abs(((kandidaten[k].az - ez + 540) % 360) - 180);
       if(d < diff){ diff = d; beste = k; }
     });
-    const [x1,y1a] = P(-maxW/6, 0), [x2,y2a] = P(maxW/6, 0);
-    const [x3,y3a] = P(-maxW/6, q.gesamtL), [x4,y4a] = P(maxW/6, q.gesamtL);
-    if(beste === "unten") s += '<line class="eingang" x1="'+x1+'" y1="'+y1a+'" x2="'+x2+'" y2="'+y2a+'"/>';
-    else if(beste === "oben") s += '<line class="eingang" x1="'+x3+'" y1="'+y3a+'" x2="'+x4+'" y2="'+y4a+'"/>';
-    else{
-      const seite = (beste === "rechts") ? 1 : -1;
-      const [xa,ya] = P(seite*maxW/2, q.gesamtL*0.42), [xb,yb] = P(seite*maxW/2, q.gesamtL*0.58);
-      s += '<line class="eingang" x1="'+xa+'" y1="'+ya+'" x2="'+xb+'" y2="'+yb+'"/>';
-    }
+    const [p1,p2] = kandidaten[beste].pts;
+    const [x1,y1] = P(p1[0],p1[1]), [x2,y2] = P(p2[0],p2[1]);
+    s += '<line class="eingang" x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)
+       + '" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+'"/>';
   }
 
   // Messpunkte
@@ -218,27 +319,34 @@ function skizzeZeichnen(){
     s += '<g class="punkt'+(nm?" belegt":"")+'" onclick="nummerWaehlen(\''+pz+'\',\'M\')">'
        + '<circle cx="'+mx.toFixed(1)+'" cy="'+my.toFixed(1)+'" r="13"/>'
        + '<text x="'+mx.toFixed(1)+'" y="'+my.toFixed(1)+'">'+(nm||"M")+'</text></g>';
-    const [lx,ly] = P(0, teil.yc + (pz==="A" ? -teil.L*0.28 : teil.L*0.28));
-    s += '<text class="parzname" x="'+lx.toFixed(1)+'" y="'+ly.toFixed(1)+'" onclick="parzellenTausch()">'+pz+'</text>';
+    // Buchstabe etwas neben dem Mittelpunkt, Richtung Außenkante
+    const versatz = (pz === "A") ? -teil.L*0.3 : teil.L*0.3;
+    const [lx,ly] = P(0, teil.yc + versatz);
+    s += '<text class="parzname" x="'+lx.toFixed(1)+'" y="'+ly.toFixed(1)
+       + '" onclick="parzellenTausch()">'+pz+'</text>';
   });
 
-  // Kantenbeschriftung mit Himmelsrichtungen
+  // Himmelsrichtungen an den Bildkanten + Nordpfeil
   if(kanten){
-    const [ox,oy] = P(0, q.gesamtL); s += '<text class="beschriftung" x="'+ox+'" y="'+(oy-14)+'">'+richtungsname(kanten.oben)+'</text>';
-    const [ux,uy] = P(0, 0);         s += '<text class="beschriftung" x="'+ux+'" y="'+(uy+26)+'">'+richtungsname(kanten.unten)+'</text>';
-    const [rx,ry] = P(maxW/2, q.gesamtL/2); s += '<text class="beschriftung" x="'+(rx+26)+'" y="'+ry+'">'+richtungsname(kanten.rechts)+'</text>';
-    const [lx2,ly2] = P(-maxW/2, q.gesamtL/2); s += '<text class="beschriftung" x="'+(lx2-26)+'" y="'+ly2+'">'+richtungsname(kanten.links)+'</text>';
-    // Nordpfeil: zeigt in der Skizze um −Achsazimut gedreht nach oben
-    s += '<g transform="translate(26,30) rotate('+(-a)+')">'
+    s += '<text class="beschriftung" x="'+(breite/2)+'" y="20">'+richtungsname(kanten.oben)+'</text>';
+    s += '<text class="beschriftung" x="'+(breite/2)+'" y="'+(hoehe-8)+'">'+richtungsname(kanten.unten)+'</text>';
+    s += '<text class="beschriftung" x="'+(breite-16)+'" y="'+(hoehe/2)+'">'+richtungsname(kanten.rechts)+'</text>';
+    s += '<text class="beschriftung" x="16" y="'+(hoehe/2)+'">'+richtungsname(kanten.links)+'</text>';
+    /* Der Nordpfeil zeigt ungedreht nach oben, und oben ist (a+dreh).
+       Norden liegt also um −(a+dreh) davon entfernt. */
+    s += '<g transform="translate(26,34) rotate('+(-(a + dreh))+')">'
        + '<line class="nordpfeil" x1="0" y1="16" x2="0" y2="-14"/>'
        + '<polyline class="nordpfeil" points="-6,-6 0,-15 6,-6"/></g>'
-       + '<text class="nordtext" x="26" y="52">N</text>';
+       + '<text class="nordtext" x="26" y="56">N</text>';
   }else{
     s += '<text class="beschriftung" x="'+(breite/2)+'" y="18">Azimut der Längsachse fehlt — '
        + 'Himmelsrichtungen unbekannt</text>';
   }
   s += '</svg>';
   rahmen.innerHTML = s;
+
+  const dz = document.getElementById("drehAnzeige");
+  if(dz) dz.textContent = dreh + "°";
   sollTabelleAufbauen();
 }
 
@@ -248,11 +356,15 @@ function parzellenTausch(){
     + "Nutze das, wenn sich herausstellt, dass die Zuordnung andersherum ist.",
     "Tauschen",
     () => {
-      const a = D.parzellen.A, b = D.parzellen.B, um = {};
-      Object.keys(a).forEach(k => { um[k.replace(/^pa_/,"pb_")] = a[k]; });
+      const a = D.parzellen.A, b = D.parzellen.B;
+      const neuB = {}; Object.keys(a).forEach(k => { neuB[k.replace(/^pa_/,"pb_")] = a[k]; });
       const neuA = {}; Object.keys(b).forEach(k => { neuA[k.replace(/^pb_/,"pa_")] = b[k]; });
-      D.parzellen.A = neuA; D.parzellen.B = um;
+      const jetzt = Date.now();
+      D.parzellen.A = neuA; D.parzellen.B = neuB;
+      Object.keys(neuA).forEach(k => D.t["parzellen.A."+k] = jetzt);
+      Object.keys(neuB).forEach(k => D.t["parzellen.B."+k] = jetzt);
       const n = D.schema.nummern; const h = n.A; n.A = n.B; n.B = h;
+      D.t["schema.nummern"] = jetzt;
       speichern(true); alles();
       balkenZeigen("A und B sind getauscht. Herkünfte gegenlesen!");
       setTimeout(() => balkenZeigen(""), 8000);
@@ -270,11 +382,11 @@ function nummerWaehlen(pz, ecke){
     moeglich, nummern[ecke] || "",
     wert => {
       if(wert){
-        // Nummer schon woanders? Dann tauschen statt doppelt vergeben.
         Object.keys(nummern).forEach(k => { if(nummern[k] === wert) nummern[k] = nummern[ecke] || ""; });
       }
       nummern[ecke] = wert;
       Object.keys(nummern).forEach(k => { if(!nummern[k]) delete nummern[k]; });
+      D.t["schema.nummern." + pz] = Date.now();
       speichern(true);
       skizzeZeichnen();
     });
@@ -288,10 +400,8 @@ function sollTabelleAufbauen(){
   let h = '<table><tr><th>Punkt</th><th>Lage in der Skizze</th><th>Abstand vom<br>Mittelpunkt</th><th>Azimut<br>(geografisch)</th></tr>';
   ["A","B"].forEach(pz => {
     const teil = q[pz], nummern = D.schema.nummern[pz] || {};
-    const reihen = [];
-    ECKEN.forEach(e => reihen.push([e, teil.sat[e]]));
-    reihen.forEach(([e, s]) => {
-      const n = nummern[e];
+    ECKEN.forEach(e => {
+      const s = teil.sat[e], n = nummern[e];
       h += '<tr><td><b>'+pz+(n ? "-"+n : "-?")+'</b></td><td>'+ECKENNAME[e]+'</td>'
          + '<td>'+rund(s.dist,1)+' m</td>'
          + '<td>'+(isNaN(a) ? "—" : Math.round(s.azimut)+"° "+richtungsname(s.azimut))+'</td></tr>';

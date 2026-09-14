@@ -67,32 +67,119 @@ function kopfAktualisieren(){
 }
 
 /* ---------- Navigation ---------- */
+function zeigeAbschnitt(ziel){
+  document.querySelectorAll("nav button").forEach(x =>
+    x.classList.toggle("aktiv", x.dataset.ziel === ziel));
+  document.querySelectorAll("section").forEach(x =>
+    x.classList.toggle("aktiv", x.id === ziel));
+  window.scrollTo(0,0);
+  if(ziel === "uebersicht") flaechenListeZeigen();
+  if(ziel === "daten"){ exporteAufbauen(); technikZeigen(); syncZustandZeigen(); }
+  if(ziel === "abschluss") kontrolleAufbauen();
+  if(ziel === "skizze") skizzeZeichnen();
+  if(ziel === "licht") punktListeAufbauen();
+  if(ziel === "tannen") wtaHerkunftZeigen();
+  if(ziel === "oberstand") kompassHinweis();
+}
+
 document.querySelectorAll("nav button").forEach(b => {
-  b.addEventListener("click", () => {
-    document.querySelectorAll("nav button").forEach(x => x.classList.remove("aktiv"));
-    document.querySelectorAll("section").forEach(x => x.classList.remove("aktiv"));
-    b.classList.add("aktiv");
-    document.getElementById(b.dataset.ziel).classList.add("aktiv");
-    window.scrollTo(0,0);
-    if(b.dataset.ziel === "daten"){ exporteAufbauen(); technikZeigen(); }
-    if(b.dataset.ziel === "gelaende") kontrolleAufbauen();
-    if(b.dataset.ziel === "skizze") skizzeZeichnen();
-    if(b.dataset.ziel === "tannen") wtaHerkunftZeigen();
-  });
+  b.addEventListener("click", () => zeigeAbschnitt(b.dataset.ziel));
 });
 
-/* ---------- Einfache Felder an ein Zielobjekt binden ---------- */
+/* ---------- Flächenliste ----------
+   Der Startbildschirm der Fassung 3. Vorher öffnete die App immer dieselbe
+   einzige Aufnahme; jetzt wird gewählt, und die übrigen bleiben unberührt. */
+function flaechenListeZeigen(){
+  const box = document.getElementById("flaechenListe");
+  if(!box) return;
+  const l = flaechenListe().slice().sort((a,b) =>
+    String(b.geaendert||"").localeCompare(String(a.geaendert||"")));
+  if(!l.length){
+    box.innerHTML = '<div class="info">Noch keine Fläche angelegt. '
+      + 'Unten anlegen — oder unter <i>Daten</i> eine Sicherung einlesen.</div>';
+    return;
+  }
+  box.innerHTML = l.map(e => {
+    const offen = (e.id === D.id);
+    const wann = e.geaendert ? new Date(e.geaendert).toLocaleString("de-DE",
+                   {day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) : "—";
+    return '<div class="karte'+(offen?" fertig":"")+'" onclick="flaecheWechseln(\''+e.id+'\')">'
+      + '<div class="kopf"><span>'+(e.flaeche||"ohne Namen")+'</span>'
+      + '<span class="zust">'+(offen ? "offen" : "wählen")+'</span></div>'
+      + '<div class="marken">'
+      + '<span class="marke'+(e.punkte ? " an":"")+'">'+(e.punkte||0)+'/12 Punkte</span>'
+      + (e.baeume ? '<span class="marke an">'+e.baeume+' Bäume</span>' : '')
+      + '<span class="marke">'+(e.datum ? e.datum.split("-").reverse().join(".") : "ohne Datum")+'</span>'
+      + '<span class="marke">zuletzt '+wann+'</span>'
+      + '</div></div>';
+  }).join("");
+}
+
+function flaecheWechseln(id){
+  if(D.id === id){ zeigeAbschnitt("flaeche"); return; }
+  if(SPEICHER_TIMER) wirklichSpeichern();
+  if(flaecheOeffnen(id)){
+    alles();
+    zeigeAbschnitt("flaeche");
+    balkenZeigen("Fläche gewechselt: " + (wertVon("kopf","f_flaeche") || "ohne Namen"));
+    setTimeout(() => balkenZeigen(""), 4000);
+  }
+}
+
+function flaecheNeuDialog(){
+  const moeglich = FLAECHEN.map(f => [f, f]);
+  wahlDialog("Neue Fläche anlegen",
+    "Welche Fläche wird aufgenommen? Die Auswahl lässt sich später ändern.",
+    moeglich, "",
+    wert => {
+      if(SPEICHER_TIMER) wirklichSpeichern();
+      flaecheAnlegen(wert);
+      alles();
+      zeigeAbschnitt("flaeche");
+      balkenZeigen("Fläche angelegt. Jetzt Datum, Gruppe und Maße eintragen.");
+      setTimeout(() => balkenZeigen(""), 6000);
+    });
+}
+
+function flaecheLoeschenFrage(){
+  if(!D.id){ return; }
+  const name = wertVon("kopf","f_flaeche") || "diese Fläche";
+  const punkte = Object.keys(D.punkte||{}).length;
+  nachfragen("Fläche „" + name + "“ löschen?",
+    "Gelöscht werden <b>" + punkte + " Messpunkte</b>, " + (D.oberstand||[]).length
+    + " Bäume und alle übrigen Eingaben <b>dieser einen Fläche</b>. Die anderen Flächen "
+    + "bleiben. <b>Das lässt sich nicht rückgängig machen.</b> Hast du vorher gesichert "
+    + "oder synchronisiert?",
+    "Endgültig löschen",
+    () => {
+      const weg = D.id;
+      flaecheLoeschen(weg);
+      const rest = flaechenListe();
+      if(rest.length) flaecheOeffnen(rest[0].id);
+      alles();
+      zeigeAbschnitt("uebersicht");
+    }, true);
+}
+
+/* ---------- Einfache Felder an ein Zielobjekt binden ----------
+   Seit Fassung 3 läuft das Schreiben über setzen(), damit jedes Feld seinen
+   Zeitstempel bekommt. Ohne Stempel ließe sich beim Zusammenführen nicht
+   entscheiden, welcher von zwei Ständen der jüngere ist — und dann bliebe
+   nur das Überschreiben, das Fassung 3 gerade abschaffen soll. */
 function feldBinden(id, zielName){
   const el = document.getElementById(id);
   if(!el) return;
   const ziel = zielObjekt(zielName);
+  const pfad = zielPfad(zielName) + "." + id;
   const istHaken = el.type === "checkbox";
   if(istHaken){ el.checked = !!ziel[id]; }
   else{ el.value = (ziel[id] !== undefined && ziel[id] !== null) ? ziel[id] : ""; }
   el.addEventListener("change", () => {
-    zielObjekt(zielName)[id] = istHaken ? el.checked : el.value;
-    speichern();
+    setzen(pfad, istHaken ? el.checked : el.value);
   });
+  /* Beim Tippen nur zwischenspeichern, ohne Stempel — der kommt beim
+     Verlassen des Feldes. Sonst stünde nach jedem Buchstaben ein neuer
+     Stempel, und die Synchronisation liefe heiß. */
   if(!istHaken) el.addEventListener("input", () => { zielObjekt(zielName)[id] = el.value; });
 }
 
@@ -134,13 +221,12 @@ function auswahlfelderAufbauen(){
     txt.value = ziel[id+"_frei"] || "";
     freitextZeigen(id);
     sel.addEventListener("change", () => {
-      zielObjekt(zielName)[id] = sel.value;
+      setzen(zielPfad(zielName) + "." + id, sel.value);
       freitextZeigen(id);
       if(sel.value === FREI) txt.focus();
-      speichern();
       nachAuswahl(id);
     });
-    txt.addEventListener("change", () => { zielObjekt(zielName)[id+"_frei"] = txt.value; speichern(); });
+    txt.addEventListener("change", () => { setzen(zielPfad(zielName) + "." + id + "_frei", txt.value); });
     txt.addEventListener("input",  () => { zielObjekt(zielName)[id+"_frei"] = txt.value; });
   });
 }
@@ -173,10 +259,10 @@ function wertVon(zielName, id){
 /* Reaktionen, die an einer bestimmten Auswahl hängen */
 function nachAuswahl(id){
   if(id === "b_schlussgrad" || id === "b_schlussgrad2") schlussgradErklaeren();
-  if(id === "f_flaeche") herkunftVorschlagen();
+  if(id === "f_flaeche"){ herkunftVorschlagen(); listeAuffrischen(); }
   if(id === "pa_lage" || id === "pb_lage") achseVorschlagen();
-  if(id === "s_form" || id === "s_eingang") skizzeZeichnen();
-  if(id === "k_nordbezug") kompassHinweis();
+  if(id === "s_eingang") skizzeZeichnen();
+  if(id === "k_geraet") kompassHinweis();
 }
 
 /* Personen-Listen neu füllen, wenn sich die Aufnahmegruppe ändert */

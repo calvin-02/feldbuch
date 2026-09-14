@@ -8,9 +8,6 @@
     Nummerierung zuordnen. Deshalb wird hier festgehalten, <b>wo</b> die Punkte 1 bis 5 liegen.
   </div>
 
-  <div class="feld" data-auswahl="s_form" data-ziel="schema" data-liste="FORMEN"
-       data-label="Grundform der Skizze"></div>
-
   <div class="reihe">
     <div><label>Azimut der Längsachse A → B (°)</label>
       <input type="number" step="1" id="s_achse" inputmode="numeric" placeholder="0 = A im Süden"></div>
@@ -18,20 +15,36 @@
       <button class="knopf zweit" style="margin:0" onclick="achseAusLage()">aus der Lage</button></div>
   </div>
   <div class="info" style="font-size:13px">
-    Das ist die Richtung, in die du blickst, wenn du <b>vom Mittelpunkt A zum Mittelpunkt B</b>
-    schaust. Liegt A im Süden und B im Norden, sind das <b>0°</b>.
-    Aus dieser einen Zahl leitet die App alle Himmelsrichtungen und alle Soll-Azimute ab.
+    Die Richtung, in die du blickst, wenn du <b>vom Mittelpunkt A zum Mittelpunkt B</b> schaust.
+    Liegt A im Süden und B im Norden, sind das <b>0°</b>. Aus dieser einen Zahl leitet die App
+    alle Himmelsrichtungen und Soll-Azimute ab. <b>Sie beschreibt das Gelände, nicht das Bild.</b>
   </div>
 
   <div class="feld" data-auswahl="s_eingang" data-ziel="schema" data-liste="EINGANG"
        data-label="Eingang / Tor liegt im"></div>
+
+  <h3>Ansicht</h3>
+  <div class="info gut" style="font-size:13px">
+    <b>Die Zeichnung lässt sich drehen, ohne dass sich an den Daten etwas ändert.</b>
+    Sinn: Die Skizze soll so liegen, wie du die Fläche vor dir siehst — sonst musst du beim
+    Nummerieren im Kopf drehen, und genau dabei passieren Verwechslungen. Ob die Parzellen
+    <b>über- oder nebeneinander</b> erscheinen, ist reine Ansichtssache; die Himmelsrichtungen
+    an den Kanten drehen mit und bleiben richtig.
+  </div>
+  <div class="reihe">
+    <div><button class="knopf zweit" style="margin:0" onclick="skizzeDrehen(-90)">&#8634; 90° links</button></div>
+    <div style="flex:0 0 74px; text-align:center">
+      <label>&nbsp;</label><div id="drehAnzeige" style="font-weight:700; padding-top:6px">0°</div></div>
+    <div><button class="knopf zweit" style="margin:0" onclick="skizzeDrehen(90)">90° rechts &#8635;</button></div>
+  </div>
+  <button class="knopf zweit klein" onclick="drehungAusEingang()">Eingang nach unten drehen</button>
 
   <div class="skizzeRahmen" id="skizzeRahmen"></div>
 
   <div class="info gut" style="font-size:13px">
     <b>Antippen zum Nummerieren.</b> Tipp einen Kreis an und wähle die Nummer 1 bis 5.
     Der Kreis in der Mitte ist der Parzellenmittelpunkt (der markierte Pfosten) — er ist selbst
-    ein Messpunkt. Die Buchstaben A und B lassen sich ebenfalls antippen und tauschen.
+    ein Messpunkt. Die Buchstaben A und B lassen sich antippen und tauschen.
   </div>
 
   <label>Wie die Punkte im Feld gezählt wurden</label>
@@ -44,9 +57,6 @@
     <b>Weichen deine gemessenen Werte deutlich ab, stimmt etwas nicht</b> — das ist der Sinn der Tabelle.
   </div>
   <div class="tabellenrahmen"><div id="sollTabelle"></div></div>
-
-  <label>Aufgenommen / abgesteckt von</label>
-  <div class="feld" data-auswahl="s_aufnehmer" data-ziel="schema" data-liste="PERSONEN" data-label=""></div>
 
   <label>Bemerkung zur Skizze</label>
   <textarea id="s_bem" placeholder="Abweichungen, Besonderheiten, Zaunverlauf …"></textarea>

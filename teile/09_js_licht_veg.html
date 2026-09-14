@@ -1,7 +1,28 @@
 
 /* =====================================================================
-   Lichtmesspunkte
+   LICHTMESSPUNKTE — Fassung 3
+
+   WAS SICH GEÄNDERT HAT.
+
+   1. GPS AN JEDEM PUNKT. Bis Fassung 2 gab es eine Koordinate für die ganze
+      Fläche, und der Hilfetext sagte, das genüge — "die Lage der Punkte
+      kommt aus den Passpunktbäumen". Dieser Satz ist seit dem 09.09.2026
+      falsch: Die Ko-Registrierung über Passpunktbäume ist gescheitert
+      (0 von 30 Treffern), und die Lage der Fläche hängt seither an der
+      Einpassung der bekannten Sollfigur an ALLE ZEHN GPS-Punkte. Fehlen sie,
+      ist die Fläche nicht verortbar — und das fällt erst im Winter auf,
+      wenn niemand mehr hinfahren kann.
+
+   2. DIE MASKE IST AUSGERÄUMT. Sichtbar sind der Knopf "gemessen", die
+      Bild-Nummer und das GPS. Alles andere steckt hinter Klappen. Grund:
+      Die sieben Schwellenwerte werden ohnehin erst am Rechner ausgewertet;
+      im Feld ist die Bild-Nummer die einzige Verbindung zwischen Datei und
+      Punkt — und die ist damit das Wichtigste auf dem ganzen Bildschirm.
+
+   3. DIE WERTE SIND NICHT WEG, nur eingeklappt. Für W-1 und W-2 lohnt das
+      Eintragen: Nur mit ISF-Werten fällt eine Gerätedrift noch im Feld auf.
    ===================================================================== */
+
 function punktListeAufbauen(){
   const box = document.getElementById("punktListe");
   if(!box) return;
@@ -10,86 +31,187 @@ function punktListeAufbauen(){
     const d = D.punkte[p.id] || {};
     const fertig = punktFertig(p.id);
     const hatWerte = d.isf !== "" && d.isf != null;
+    const g1 = !!(d.gps1 && d.gps1.lat), g2 = !!(d.gps2 && d.gps2.lat);
+    const brauchtGps = (p.id !== "W1" && p.id !== "W2");
+
     const k = document.createElement("div");
     k.className = "karte" + (fertig ? " fertig" : "");
-    k.innerHTML =
-      '<div class="kopf"><span>'+p.name+'</span>'+
-      '<span class="zust">'+(hatWerte ? "Werte da" : fertig ? "Bild belegt" : "offen")+'</span></div>'+
-      (hatWerte
-        ? '<div class="werte">ISF '+d.isf+' · DSF '+d.dsf+' · TSF '+(d.tsf!==undefined?d.tsf:"–")+
-          (d.zeit ? ' · '+d.zeit : '')+(d.bild ? ' · Bild '+d.bild : '')+'</div>'
-        : (fertig
-            ? '<div class="werte">'+(d.zeit||"")+(d.bild?' · Bild '+d.bild:'')
-              +(d.winkel?' · '+d.winkel+'°':'')+(d.aufnehmer?' · '+d.aufnehmer:'')+'</div>'
-            : (p.info ? '<div class="werte">'+p.info+'</div>' : '')));
+    let zeile = '<div class="marken">'
+      + '<span class="marke '+(fertig?"an":"")+'">'+(d.zeit || "Zeit")+'</span>'
+      + '<span class="marke '+(d.bild?"an":"")+'">'+(d.bild ? "Bild "+d.bild : "Bild-Nr.")+'</span>';
+    if(brauchtGps){
+      zeile += '<span class="marke '+(g1?"an":"")+'">GPS 1'+(g1?" ±"+d.gps1.acc+"m":"")+'</span>'
+             + '<span class="marke '+(g2?"an":"")+'">GPS 2</span>';
+    }
+    if(hatWerte) zeile += '<span class="marke an">ISF '+d.isf+'</span>';
+    zeile += '</div>';
+
+    k.innerHTML = '<div class="kopf"><span>'+p.name+'</span>'
+      + '<span class="zust">'+(fertig ? (brauchtGps && !g1 ? "GPS fehlt" : "belegt") : "offen")+'</span></div>'
+      + zeile;
     k.addEventListener("click", () => punktOeffnen(p.id));
     box.appendChild(k);
   });
+
+  // Sammelstand des GPS — die Zahl, an der die Verortung hängt
+  const soll = PUNKTE.filter(p => p.id !== "W1" && p.id !== "W2");
+  const da1 = soll.filter(p => { const d = D.punkte[p.id]; return d && d.gps1 && d.gps1.lat; }).length;
+  const da2 = soll.filter(p => { const d = D.punkte[p.id]; return d && d.gps2 && d.gps2.lat; }).length;
+  const kopf = document.getElementById("gpsStand");
+  if(kopf){
+    const voll = (da1 === soll.length);
+    kopf.innerHTML = '<div class="info '+(voll?"gut":"achtung")+'">'
+      + '<b>GPS: '+da1+' von '+soll.length+' Punkten in Serie 1</b>'
+      + (da2 ? ' · '+da2+' in Serie 2' : '')
+      + (voll ? '. Die Fläche ist verortbar.'
+              : '. <b>Ohne diese Koordinaten lässt sich die Fläche später nicht im '
+                + 'Laserdatensatz finden.</b> Sie sind der einzige Weg, seit die '
+                + 'Passpunktbäume verworfen wurden.')
+      + '</div>';
+  }
 }
 
 function punktOeffnen(pid){
   const p = PUNKTE.find(x => x.id === pid);
   const d = D.punkte[pid] || {};
   const box = document.getElementById("punktListe");
+  const brauchtGps = (pid !== "W1" && pid !== "W2");
   const optionen = (liste, gewaehlt) => liste.map(t =>
     '<option'+((gewaehlt||"")===t?" selected":"")+'>'+t+'</option>').join("");
-  box.innerHTML =
-    '<button class="knopf zweit klein" onclick="punktListeAufbauen()">&larr; zurück zur Übersicht</button>'+
-    '<h3>'+p.name+'</h3>'+
-    (p.info ? '<div class="info" style="font-size:13px">'+p.info+'</div>' : '')+
 
-    '<div class="reihe">'+
-      '<div><label>Uhrzeit</label><input type="time" id="p_zeit" value="'+(d.zeit||"")+'"></div>'+
-      '<div><label>&nbsp;</label><button class="knopf zweit" style="margin:0" onclick="jetzt()">jetzt</button></div>'+
-      '<div><label>Aufstellhöhe (cm)</label><input type="number" id="p_hoehe" inputmode="numeric" value="'+(d.hoehe!==undefined&&d.hoehe!==""?d.hoehe:130)+'"></div>'+
-    '</div>'+
+  let h = '<button class="knopf zweit klein" onclick="punktListeAufbauen()">&larr; zurück zur Übersicht</button>'
+    + '<h3>'+p.name+'</h3>'
+    + (p.info ? '<div class="info" style="font-size:13px">'+p.info+'</div>' : '');
 
-    '<div class="reihe">'+
-      '<div><label>Bild-Nr. / Datei</label><input id="p_bild" value="'+(d.bild||"")+'" placeholder="Nummer am Gerät"></div>'+
-      '<div><label>Bildwinkel (°)</label><input type="number" id="p_winkel" inputmode="numeric" value="'+(d.winkel||"")+'" placeholder="60"></div>'+
-      '<div><label>Schwellenwert</label><input id="p_schwelle" value="'+(d.schwelle||"")+'" placeholder="1–7"></div>'+
-    '</div>'+
-    '<div class="info" style="font-size:13px">Der <b>Schwellenwert</b> wird erst bei der gemeinsamen '+
-      'Bildauswertung festgelegt — hier bleibt das Feld im Feld leer. Wichtig ist die <b>Bild-Nummer</b>: '+
-      'Sie ist die einzige Verbindung zwischen Datei und Punkt.</div>'+
+  /* --- Das Nötige: Zeit und Bild-Nummer --- */
+  h += '<div class="karte"><div class="kopf"><span>Messung</span>'
+    +  '<span class="zust">'+(d.zeit || "offen")+'</span></div>'
+    +  '<button class="knopf" onclick="punktGemessen(\''+pid+'\')">'
+    +  (d.zeit ? 'Zeit erneuern ('+d.zeit+')' : 'gemessen — Uhrzeit eintragen')+'</button>'
+    +  '<label>Bild-Nr. am Gerät <span class="hint">— die einzige Verbindung zwischen Bild und Punkt</span></label>'
+    +  '<input id="p_bild" value="'+(d.bild||"")+'" placeholder="Nummer ablesen" inputmode="numeric">'
+    +  '</div>';
 
-    '<div class="reihe">'+
-      '<div><label>ISF (%)</label><input type="number" id="p_isf" inputmode="numeric" value="'+(d.isf!==undefined?d.isf:"")+'"></div>'+
-      '<div><label>DSF (%)</label><input type="number" id="p_dsf" inputmode="numeric" value="'+(d.dsf!==undefined?d.dsf:"")+'"></div>'+
-      '<div><label>TSF (%)</label><input type="number" id="p_tsf" inputmode="numeric" value="'+(d.tsf!==undefined?d.tsf:"")+'"></div>'+
-    '</div>'+
-    '<div id="pPruefung"></div>'+
+  /* --- GPS: zwei Serien --- */
+  if(brauchtGps){
+    h += '<div class="karte"><div class="kopf"><span>Standort (GPS)</span>'
+      +  '<span class="zust">'+((d.gps1&&d.gps1.lat)?"Serie 1 da":"offen")+'</span></div>'
+      +  '<div class="info" style="font-size:13px">'
+      +  '<b>Hier hängt die Verortung der ganzen Fläche dran.</b> Beim Messen still stehen; '
+      +  'die App sammelt 45 Sekunden lang und nimmt den besten Mittelwert. '
+      +  '<b>Serie 2 kommt beim zweiten Termin im Winter</b> — mit Monaten Abstand, weil sich '
+      +  'die Satellitenfehler dann nicht mehr ähneln.</div>'
+      +  gpsSerieBlock(pid, 1, d.gps1)
+      +  gpsSerieBlock(pid, 2, d.gps2)
+      +  '<div id="gpsPunktMeldung" class="hint" style="margin-top:8px"></div>'
+      +  '</div>';
+  }
 
-    '<div class="reihe">'+
-      '<div><label>LAI</label><input type="number" step="0.01" id="p_lai" inputmode="decimal" value="'+(d.lai!==undefined?d.lai:"")+'"></div>'+
-      '<div><label>ELAD</label><input type="number" step="0.01" id="p_elad" inputmode="decimal" value="'+(d.elad!==undefined?d.elad:"")+'"></div>'+
-      '<div><label>Openness</label><input type="number" step="0.01" id="p_open" inputmode="decimal" value="'+(d.open!==undefined?d.open:"")+'"></div>'+
-    '</div>'+
+  /* --- Eingeklappt: die Zahlen --- */
+  h += '<details class="klapp"><summary>Werte eintragen '
+    +  (pid==="W1"||pid==="W2" ? '<b>— bei den Wiederholungen lohnt es sich</b>' : '(optional)')
+    +  '</summary><div class="klappinhalt">'
+    +  (pid==="W1"||pid==="W2"
+        ? '<div class="info gut" style="font-size:13px">W-1 und W-2 sind derselbe Punkt, morgens '
+          + 'und abends gemessen. <b>Nur mit ISF-Werten fällt eine Gerätedrift noch im Feld auf</b> '
+          + '— später ist sie nicht mehr von echten Unterschieden zu trennen.</div>'
+        : '<div class="info" style="font-size:13px">Im Regelfall bleibt das hier leer: Die sieben '
+          + 'Schwellenwerte werden gemeinsam am Rechner ausgewertet.</div>')
+    +  '<div class="reihe">'
+    +    '<div><label>ISF (%)</label><input type="number" id="p_isf" inputmode="numeric" value="'+(d.isf!==undefined?d.isf:"")+'"></div>'
+    +    '<div><label>DSF (%)</label><input type="number" id="p_dsf" inputmode="numeric" value="'+(d.dsf!==undefined?d.dsf:"")+'"></div>'
+    +    '<div><label>TSF (%)</label><input type="number" id="p_tsf" inputmode="numeric" value="'+(d.tsf!==undefined?d.tsf:"")+'"></div>'
+    +  '</div>'
+    +  '<div id="pPruefung"></div>'
+    +  '<div class="reihe">'
+    +    '<div><label>LAI</label><input type="number" step="0.01" id="p_lai" inputmode="decimal" value="'+(d.lai!==undefined?d.lai:"")+'"></div>'
+    +    '<div><label>ELAD</label><input type="number" step="0.01" id="p_elad" inputmode="decimal" value="'+(d.elad!==undefined?d.elad:"")+'"></div>'
+    +    '<div><label>Openness</label><input type="number" step="0.01" id="p_open" inputmode="decimal" value="'+(d.open!==undefined?d.open:"")+'"></div>'
+    +  '</div>'
+    +  '<div class="reihe">'
+    +    '<div><label>Bildwinkel (°)</label><input type="number" id="p_winkel" inputmode="numeric" value="'+(d.winkel||"")+'" placeholder="60"></div>'
+    +    '<div><label>Schwellenwert</label><input id="p_schwelle" value="'+(d.schwelle||"")+'" placeholder="1–7"></div>'
+    +  '</div>'
+    +  '</div></details>';
 
-    '<label>Himmelszustand</label>'+
-    '<select id="p_himmel"><option value="">—</option>'+optionen(HIMMEL, d.himmel)+'</select>'+
+  /* --- Eingeklappt: der Rest --- */
+  h += '<details class="klapp"><summary>Weitere Angaben</summary><div class="klappinhalt">'
+    +  '<div class="reihe">'
+    +    '<div><label>Uhrzeit von Hand</label><input type="time" id="p_zeit" value="'+(d.zeit||"")+'"></div>'
+    +    '<div><label>Aufstellhöhe (cm)</label><input type="number" id="p_hoehe" inputmode="numeric" value="'
+         + (d.hoehe!==undefined&&d.hoehe!==""?d.hoehe:130)+'"></div>'
+    +  '</div>'
+    +  '<label>Himmelszustand</label>'
+    +  '<select id="p_himmel"><option value="">—</option>'+optionen(HIMMEL, d.himmel)+'</select>'
+    +  '<label>Gemessen von</label>'
+    +  '<input list="personenliste" id="p_aufnehmer" value="'+(d.aufnehmer||"")+'" placeholder="Name">'
+    +  '<div class="haken"><input type="checkbox" id="p_nord"'+(d.nord?" checked":"")+'>'
+    +  '<label for="p_nord">nach Norden ausgerichtet</label></div>'
+    +  '<div class="haken"><input type="checkbox" id="p_horiz"'+(d.horiz?" checked":"")+'>'
+    +  '<label for="p_horiz">horizontiert (Gerät meldet keine Überneigung)</label></div>'
+    +  '</div></details>';
 
-    '<label>Gemessen von</label>'+
-    '<input list="personenliste" id="p_aufnehmer" value="'+(d.aufnehmer||"")+'" placeholder="Name">'+
+  h += '<label>Bemerkung</label><textarea id="p_bem">'+(d.bem||"")+'</textarea>'
+    +  '<button class="knopf" onclick="punktSpeichern(\''+pid+'\')">Speichern und zurück</button>';
 
-    '<div class="haken"><input type="checkbox" id="p_nord"'+(d.nord?" checked":"")+'><label for="p_nord">nach Norden ausgerichtet</label></div>'+
-    '<div class="haken"><input type="checkbox" id="p_horiz"'+(d.horiz?" checked":"")+'><label for="p_horiz">horizontiert (Gerät meldet keine Übernneigung)</label></div>'+
-
-    '<label>Bemerkung</label><textarea id="p_bem">'+(d.bem||"")+'</textarea>'+
-
-    '<button class="knopf" onclick="punktSpeichern(\''+pid+'\')">Speichern und zurück</button>';
-
+  box.innerHTML = h;
   autoAus(box);
-  ["p_isf","p_dsf","p_tsf"].forEach(id =>
-    document.getElementById(id).addEventListener("input", pruefungZeigen));
+  ["p_isf","p_dsf","p_tsf"].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.addEventListener("input", pruefungZeigen);
+  });
   pruefungZeigen();
   window.scrollTo(0,0);
 }
 
-function jetzt(){
+/* Anzeige einer GPS-Serie im Punkt */
+function gpsSerieBlock(pid, nr, g){
+  const da = !!(g && g.lat);
+  return '<div style="border-top:1px solid var(--rand); padding-top:10px; margin-top:10px">'
+    + '<b>Serie '+nr+'</b>'+(nr===2 ? ' <span class="hint">— Wintertermin</span>' : '')
+    + (da
+        ? '<div class="werte">'+Number(g.lat).toFixed(6)+' / '+Number(g.lon).toFixed(6)
+          + ' · ± '+g.acc+' m · '+(g.zeit||"")+(g.datum ? ' · '+g.datum.split("-").reverse().join(".") : '')
+          + (g.n ? ' · aus '+g.n+' Messungen' : '')+'</div>'
+        : '<div class="werte">noch nicht gemessen</div>')
+    + '<button class="knopf '+(da?"zweit":"")+'" onclick="gpsPunktMessen(\''+pid+'\','+nr+')">'
+    + (da ? 'Serie '+nr+' neu messen' : 'Position messen (45 s)')+'</button>'
+    + '</div>';
+}
+
+function punktGemessen(pid){
   const n = new Date();
-  document.getElementById("p_zeit").value =
-    String(n.getHours()).padStart(2,"0")+":"+String(n.getMinutes()).padStart(2,"0");
+  const zeit = String(n.getHours()).padStart(2,"0")+":"+String(n.getMinutes()).padStart(2,"0");
+  setzen("punkte."+pid+".zeit", zeit, true);
+  const el = document.getElementById("p_zeit");
+  if(el) el.value = zeit;
+  punktOeffnen(pid);
+}
+
+function punktSpeichern(pid){
+  const g = id => { const e = document.getElementById(id); return e ? e.value : undefined; };
+  const h = id => { const e = document.getElementById(id); return e ? e.checked : undefined; };
+  const paare = {};
+  const setzeWenn = (feld, wert) => { if(wert !== undefined) paare["punkte."+pid+"."+feld] = wert; };
+  setzeWenn("zeit", g("p_zeit"));
+  setzeWenn("hoehe", g("p_hoehe"));
+  setzeWenn("bild", g("p_bild"));
+  setzeWenn("winkel", g("p_winkel"));
+  setzeWenn("schwelle", g("p_schwelle"));
+  setzeWenn("isf", g("p_isf"));
+  setzeWenn("dsf", g("p_dsf"));
+  setzeWenn("tsf", g("p_tsf"));
+  setzeWenn("lai", g("p_lai"));
+  setzeWenn("elad", g("p_elad"));
+  setzeWenn("open", g("p_open"));
+  setzeWenn("himmel", g("p_himmel"));
+  setzeWenn("aufnehmer", g("p_aufnehmer"));
+  setzeWenn("nord", h("p_nord"));
+  setzeWenn("horiz", h("p_horiz"));
+  setzeWenn("bem", g("p_bem"));
+  setzenMehrere(paare, true);
+  punktListeAufbauen();
+  window.scrollTo(0,0);
 }
 
 /* ---------- Live-Plausibilität: p = (TSF−ISF)/(DSF−ISF) ---------- */
@@ -114,18 +236,21 @@ function pBisher(ausser){
 }
 
 function pruefungZeigen(){
-  const isf = Number(document.getElementById("p_isf").value);
-  const dsf = Number(document.getElementById("p_dsf").value);
-  const tsf = Number(document.getElementById("p_tsf").value);
   const box = document.getElementById("pPruefung");
+  if(!box) return;
+  const feld = id => document.getElementById(id);
+  if(!feld("p_isf")) return;
+  const isf = Number(feld("p_isf").value);
+  const dsf = Number(feld("p_dsf").value);
+  const tsf = Number(feld("p_tsf").value);
   const meldungen = [];
 
   [["ISF",isf],["DSF",dsf],["TSF",tsf]].forEach(([n,v]) => {
-    const roh = document.getElementById("p_"+n.toLowerCase()).value;
+    const roh = feld("p_"+n.toLowerCase()).value;
     if(roh !== "" && (v < 0 || v > 100)) meldungen.push(['fehler', n+" liegt außerhalb 0–100 %"]);
   });
 
-  const alleDa = ["p_isf","p_dsf","p_tsf"].every(id => document.getElementById(id).value !== "");
+  const alleDa = ["p_isf","p_dsf","p_tsf"].every(id => feld(id).value !== "");
   if(alleDa){
     const min = Math.min(isf,dsf), max = Math.max(isf,dsf);
     if(tsf < min - 0.5 || tsf > max + 0.5)
@@ -143,7 +268,7 @@ function pruefungZeigen(){
       }else if(!isNaN(geraet) && Math.abs(p - geraet) > 0.15){
         meldungen.push(['warn', txt + ", am Gerät eingestellt ist " + geraet.toFixed(2) + ". Werte gegenlesen."]);
       }else if(ref !== null && Math.abs(p - ref) > 0.2){
-        meldungen.push(['warn', txt + ", die anderen Punkte liegen bei " + ref.toFixed(2) + ". Werte bitte am Gerät gegenlesen."]);
+        meldungen.push(['warn', txt + ", die anderen Punkte liegen bei " + ref.toFixed(2) + ". Werte gegenlesen."]);
       }else{
         meldungen.push(['ok', txt + (!isNaN(geraet) ? " — passt zur Geräteeinstellung (" + geraet.toFixed(2) + ")"
                                     : (ref !== null ? " — passt zu den übrigen Punkten (" + ref.toFixed(2) + ")" : ""))]);
@@ -155,24 +280,9 @@ function pruefungZeigen(){
     '<div class="p-anzeige p-'+(art==='ok'?'ok':art==='warn'?'warn':'fehler')+'">'+txt+'</div>').join("");
 }
 
-function punktSpeichern(pid){
-  const g = id => document.getElementById(id);
-  D.punkte[pid] = {
-    zeit:g("p_zeit").value, hoehe:g("p_hoehe").value,
-    bild:g("p_bild").value, winkel:g("p_winkel").value, schwelle:g("p_schwelle").value,
-    isf:g("p_isf").value, dsf:g("p_dsf").value, tsf:g("p_tsf").value,
-    lai:g("p_lai").value, elad:g("p_elad").value, open:g("p_open").value,
-    himmel:g("p_himmel").value, aufnehmer:g("p_aufnehmer").value,
-    nord:g("p_nord").checked, horiz:g("p_horiz").checked,
-    bem:g("p_bem").value
-  };
-  speichern(true);
-  punktListeAufbauen();
-  window.scrollTo(0,0);
-}
-
 /* =====================================================================
-   Vegetation — beide Verfahren nebeneinander
+   VEGETATION — beide Verfahren nebeneinander (unverändert im Umfang,
+   nur auf die neue Schreibweise mit Zeitstempel umgestellt)
    ===================================================================== */
 function radius(k){
   const r = zahl((D.veg.radien||{})[k]);
@@ -180,9 +290,6 @@ function radius(k){
   const s = SCHICHTEN.find(x => x.k === k);
   return s ? s.radius : 1;
 }
-
-/* Wurde der Radius im Feld bestätigt oder ist es nur die Vorgabe? Der Unterschied
-   gehört in den Export — sonst behauptet das Protokoll etwas, das niemand gemessen hat. */
 function radiusGesetzt(k){ return !isNaN(zahl((D.veg.radien||{})[k])); }
 function radiusText(k){ return radius(k) + " m" + (radiusGesetzt(k) ? "" : " [Vorgabe, im Feld nicht bestätigt]"); }
 
@@ -195,11 +302,7 @@ function radienFelderAufbauen(){
     + '</div>';
   autoAus(box);
 }
-function radiusSetzen(k, wert){
-  if(!D.veg.radien) D.veg.radien = {};
-  D.veg.radien[k] = wert;
-  speichern();
-}
+function radiusSetzen(k, wert){ setzen("veg.radien."+k, wert); }
 
 function vegEinfachFertig(pid){
   const v = (D.veg.punkte||{})[pid];
@@ -248,7 +351,6 @@ function vegOeffnen(pid){
     '<input list="personenliste" value="'+(v.aufnehmer||"")+'" placeholder="Name" '+
       'onchange="vegSetzen(\''+pid+'\',\'aufnehmer\',this.value)">';
 
-  /* --- Verfahren 1: vereinfacht --- */
   inhalt += '<h4>Verfahren 1 — vereinfacht (Projektstandard 2021/22)</h4>'+
     '<div class="info" style="font-size:13px">Je Schicht Deckungsgrad und mittlere Höhe. '+
     'Leere Schichten überspringen. <b>Diese Aufnahme ist die Brücke zu den Altdaten.</b></div>';
@@ -267,7 +369,6 @@ function vegOeffnen(pid){
       '</div>';
   });
 
-  /* --- Verfahren 2: Braun-Blanquet --- */
   inhalt += '<h4>Verfahren 2 — Braun-Blanquet</h4>'+
     '<label>Kronenschlussgrad <span class="hint">(Baumschicht 1)</span></label>'+
     '<select onchange="vegSetzen(\''+pid+'\',\'kronenschluss\',this.value)">'+
@@ -308,13 +409,21 @@ function vegOeffnen(pid){
   window.scrollTo(0,0);
 }
 
-function vegEinfachSetzen(pid, feld, wert){ D.veg.punkte[pid].einfach[feld] = wert; speichern(); }
-function vegSetzen(pid, feld, wert){ D.veg.punkte[pid][feld] = wert; speichern(); }
+function vegEinfachSetzen(pid, feld, wert){ setzen("veg.punkte."+pid+".einfach."+feld, wert); }
+function vegSetzen(pid, feld, wert){ setzen("veg.punkte."+pid+"."+feld, wert); }
+
 function artAnlegen(pid, schicht){
-  D.veg.punkte[pid].arten.push({schicht:schicht, art:"", am:"", soz:""});
+  D.veg.punkte[pid].arten.push(neuerEintrag({schicht:schicht, art:"", am:"", soz:""}));
   speichern(true); vegOeffnen(pid);
 }
-function artSetzen(pid, i, feld, wert){ D.veg.punkte[pid].arten[i][feld] = wert; speichern(); }
+function artSetzen(pid, i, feld, wert){
+  const a = D.veg.punkte[pid].arten[i];
+  if(!a) return;
+  const aenderung = {}; aenderung[feld] = wert;
+  eintragAendern(a, aenderung);
+  speichern();
+}
 function artLoeschen(pid, i){
-  D.veg.punkte[pid].arten.splice(i,1); speichern(true); vegOeffnen(pid);
+  D.veg.punkte[pid].arten.splice(i,1);
+  speichern(true); vegOeffnen(pid);
 }

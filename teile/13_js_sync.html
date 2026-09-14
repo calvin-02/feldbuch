@@ -1,0 +1,386 @@
+
+/* =====================================================================
+   SYNCHRONISATION ÜBER DAS NETZ — zuschaltbar (14.09.2026)
+
+   WOZU.
+   Vier bis fünf Leute nehmen auf verschiedenen Flächen auf. Ohne
+   Synchronisation muss abends jemand alle Dateien einsammeln und
+   nacheinander einlesen. Mit Synchronisation geschieht dasselbe von selbst,
+   sobald ein Gerät wieder Netz hat.
+
+   WAS SIE NICHT LEISTET — das muss vorher klar sein:
+   Im Wald gibt es kein Netz. Es wird NICHT gleichzeitig am selben Datensatz
+   gearbeitet. Jeder arbeitet offline auf seinem Gerät; zusammengeführt wird,
+   sobald Empfang da ist. Der Unterschied zum Dateiaustausch ist allein, dass
+   niemand mehr daran denken muss.
+
+   WIE SIE GEBAUT IST.
+   Jedes Gerät schreibt AUSSCHLIESSLICH SEIN EIGENES Dokument:
+
+       flaechen/<flaecheId>                      Name und Datum der Fläche
+       flaechen/<flaecheId>/geraete/<geraeteId>  der Stand dieses Geräts
+
+   Dadurch kann kein Gerät die Arbeit eines anderen überschreiben — auch
+   nicht bei gleichzeitigem Zugriff. Gelesen werden alle Geräte-Dokumente,
+   und zusammengeführt wird lokal mit derselben Funktion, die auch den
+   Dateiaustausch trägt (zusammenfuehren() in 06). Es gibt also nur EINEN
+   Zusammenführungsweg, und der wird nur einmal geprüft.
+
+   Der ganze Stand wird bei jedem Mal vollständig geschrieben, nicht als
+   Änderungsliste. Das ist etwas mehr Datenverkehr (eine Fläche sind
+   10 bis 100 kB) und dafür unempfindlich: Ein missglückter Versuch braucht
+   keine Nacharbeit, der nächste schreibt einfach den dann gültigen Stand.
+
+   OHNE KONFIGURATION PASSIERT HIER NICHTS. Die App läuft vollständig ohne
+   Netz weiter; der Dateiaustausch bleibt die Rückfallebene.
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   HIER TRÄGT CALVIN DIE ZUGANGSDATEN EIN
+   (Anleitung: Unterlagen/Feldapp_Synchronisation_Einrichtung.md)
+
+   projekt    — die Projekt-ID aus der Firebase-Konsole, z. B. "wta-feldbuch"
+   schluessel — der Web-API-Schlüssel desselben Projekts
+
+   Solange beide leer sind, ist die Synchronisation AUS und die App verhält
+   sich genau wie ohne dieses Modul.
+   --------------------------------------------------------------------- */
+const SYNC_KONFIG = {
+  projekt:    "",
+  schluessel: ""
+};
+
+const P_SYNC_AN    = "wta_v3_sync_an";      // hat der Anwender sie eingeschaltet?
+const P_SYNC_MAIL  = "wta_v3_sync_mail";
+const P_SYNC_TOKEN = "wta_v3_sync_token";   // Erneuerungsschlüssel, überlebt den Neustart
+
+let SYNC_ID_TOKEN = null;        // gilt eine Stunde
+let SYNC_TOKEN_BIS = 0;
+let SYNC_LAEUFT = false;
+let SYNC_TIMER = null;
+let SYNC_LETZTE = null;
+let SYNC_MELDUNG = "";
+
+function syncMoeglich(){
+  return !!(SYNC_KONFIG.projekt && SYNC_KONFIG.schluessel);
+}
+function syncAn(){
+  if(!syncMoeglich()) return false;
+  try{ return localStorage.getItem(P_SYNC_AN) === "1"; }catch(e){ return false; }
+}
+function syncSchalten(an){
+  try{ localStorage.setItem(P_SYNC_AN, an ? "1" : "0"); }catch(e){}
+  syncZustandZeigen();
+  if(an) syncJetzt();
+}
+
+/* =====================================================================
+   Anmeldung
+   Firebase gibt ein Zugangstoken, das nach einer Stunde abläuft, und einen
+   Erneuerungsschlüssel, der bleibt. Nur der Erneuerungsschlüssel wird
+   gespeichert — das Kennwort nie.
+   ===================================================================== */
+function syncAnmelden(mail, kennwort){
+  return fetch("https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key="
+      + encodeURIComponent(SYNC_KONFIG.schluessel), {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({email:mail, password:kennwort, returnSecureToken:true})
+  }).then(a => a.json().then(j => {
+    if(!a.ok){
+      const grund = (j && j.error && j.error.message) || "unbekannt";
+      throw new Error(syncFehlerDeutsch(grund));
+    }
+    SYNC_ID_TOKEN  = j.idToken;
+    SYNC_TOKEN_BIS = Date.now() + (Number(j.expiresIn || 3600) - 120) * 1000;
+    try{
+      localStorage.setItem(P_SYNC_TOKEN, j.refreshToken);
+      localStorage.setItem(P_SYNC_MAIL, mail);
+    }catch(e){}
+    return j;
+  }));
+}
+
+/* Fehlermeldungen von Google sind englisch und knapp — hier in Klartext. */
+function syncFehlerDeutsch(code){
+  const m = {
+    "EMAIL_NOT_FOUND":     "Diese Adresse ist im Projekt nicht angelegt.",
+    "INVALID_PASSWORD":    "Das Kennwort stimmt nicht.",
+    "INVALID_LOGIN_CREDENTIALS": "Adresse oder Kennwort stimmen nicht.",
+    "USER_DISABLED":       "Dieser Zugang ist gesperrt.",
+    "TOO_MANY_ATTEMPTS_TRY_LATER": "Zu viele Versuche. Später noch einmal.",
+    "OPERATION_NOT_ALLOWED": "Die Anmeldung per E-Mail ist im Projekt nicht freigeschaltet.",
+    "TOKEN_EXPIRED":       "Die Anmeldung ist abgelaufen — bitte neu anmelden."
+  };
+  return m[code] || ("Google meldet: " + code);
+}
+
+/* Zugangstoken auffrischen, ohne Kennwort. */
+function syncTokenHolen(){
+  if(SYNC_ID_TOKEN && Date.now() < SYNC_TOKEN_BIS) return Promise.resolve(SYNC_ID_TOKEN);
+  let erneuerung = null;
+  try{ erneuerung = localStorage.getItem(P_SYNC_TOKEN); }catch(e){}
+  if(!erneuerung) return Promise.reject(new Error("Noch nicht angemeldet."));
+  return fetch("https://securetoken.googleapis.com/v1/token?key="
+      + encodeURIComponent(SYNC_KONFIG.schluessel), {
+    method:"POST",
+    headers:{"Content-Type":"application/x-www-form-urlencoded"},
+    body: "grant_type=refresh_token&refresh_token=" + encodeURIComponent(erneuerung)
+  }).then(a => a.json().then(j => {
+    if(!a.ok) throw new Error(syncFehlerDeutsch((j && j.error && j.error.message) || "unbekannt"));
+    SYNC_ID_TOKEN  = j.id_token;
+    SYNC_TOKEN_BIS = Date.now() + (Number(j.expires_in || 3600) - 120) * 1000;
+    return SYNC_ID_TOKEN;
+  }));
+}
+
+function syncAngemeldet(){
+  try{ return !!localStorage.getItem(P_SYNC_TOKEN); }catch(e){ return false; }
+}
+function syncAbmelden(){
+  SYNC_ID_TOKEN = null; SYNC_TOKEN_BIS = 0;
+  try{ localStorage.removeItem(P_SYNC_TOKEN); }catch(e){}
+  syncZustandZeigen();
+}
+
+/* =====================================================================
+   Firestore über die Netzschnittstelle
+
+   Der ganze Datensatz wird als EIN Textfeld abgelegt. Das spart die
+   Umrechnung in Firestores eigene Werttypen (stringValue, integerValue,
+   mapValue …), die bei verschachtelten Daten sehr umständlich ist, und es
+   hat keinen Nachteil: Wir suchen in der Datenbank nie nach einzelnen
+   Feldern, wir holen immer den ganzen Stand.
+   ===================================================================== */
+function fsWurzel(){
+  return "https://firestore.googleapis.com/v1/projects/" + SYNC_KONFIG.projekt
+       + "/databases/(default)/documents";
+}
+
+function fsAnfrage(pfad, art, koerper){
+  return syncTokenHolen().then(token =>
+    fetch(fsWurzel() + pfad, {
+      method: art,
+      headers: Object.assign({"Authorization":"Bearer " + token},
+                             koerper ? {"Content-Type":"application/json"} : {}),
+      body: koerper ? JSON.stringify(koerper) : undefined
+    }).then(a => a.json().then(j => {
+      if(!a.ok){
+        const grund = (j && j.error && j.error.message) || ("HTTP " + a.status);
+        throw new Error(grund);
+      }
+      return j;
+    }))
+  );
+}
+
+/* Den eigenen Stand hochladen. */
+function syncHochladen(datensatz){
+  const inhalt = JSON.stringify(datensatz);
+  const kopfDaten = {
+    fields: {
+      flaeche:   {stringValue: (datensatz.kopf && datensatz.kopf.f_flaeche) || "ohne Namen"},
+      datum:     {stringValue: (datensatz.kopf && datensatz.kopf.f_datum) || ""},
+      geaendert: {stringValue: datensatz.geaendert || new Date().toISOString()}
+    }
+  };
+  const geraetDaten = {
+    fields: {
+      daten:     {stringValue: inhalt},
+      geraet:    {stringValue: GERAET},
+      name:      {stringValue: geraeteName() || ""},
+      geaendert: {stringValue: datensatz.geaendert || new Date().toISOString()},
+      groesse:   {integerValue: String(inhalt.length)}
+    }
+  };
+  return fsAnfrage("/flaechen/" + datensatz.id, "PATCH", kopfDaten)
+    .then(() => fsAnfrage("/flaechen/" + datensatz.id + "/geraete/" + GERAET, "PATCH", geraetDaten));
+}
+
+/* Alle fremden Stände einer Fläche holen. */
+function syncHolenFlaeche(flaecheId){
+  return fsAnfrage("/flaechen/" + flaecheId + "/geraete", "GET").then(j => {
+    const docs = (j && j.documents) || [];
+    return docs.map(d => {
+      const f = d.fields || {};
+      const geraet = (f.geraet && f.geraet.stringValue) || "";
+      if(geraet === GERAET) return null;             // der eigene Stand
+      try{ return JSON.parse((f.daten && f.daten.stringValue) || "null"); }
+      catch(e){ return null; }
+    }).filter(x => x);
+  });
+}
+
+/* Welche Flächen liegen überhaupt in der Datenbank? */
+function syncFlaechenListe(){
+  return fsAnfrage("/flaechen?pageSize=100", "GET").then(j => {
+    const docs = (j && j.documents) || [];
+    return docs.map(d => {
+      const teile = (d.name || "").split("/");
+      const f = d.fields || {};
+      return {
+        id: teile[teile.length-1],
+        flaeche: (f.flaeche && f.flaeche.stringValue) || "ohne Namen",
+        datum:   (f.datum && f.datum.stringValue) || "",
+        geaendert: (f.geaendert && f.geaendert.stringValue) || ""
+      };
+    });
+  });
+}
+
+/* =====================================================================
+   Der Ablauf: hochladen, holen, zusammenführen
+   ===================================================================== */
+function syncJetzt(still){
+  if(!syncAn() || !syncAngemeldet()){ return Promise.resolve(null); }
+  if(SYNC_LAEUFT) return Promise.resolve(null);
+  if(!navigator.onLine){
+    if(!still) syncMelden("Kein Netz — wird nachgeholt, sobald Empfang da ist.", "warn");
+    return Promise.resolve(null);
+  }
+  SYNC_LAEUFT = true;
+  if(!still) syncMelden("Synchronisiert …", null);
+
+  const bilanz = {hoch:0, runter:0, neu:0, erneuert:0, konflikte:0, flaechen:0};
+
+  // 1 · Eigene Flächen hochladen
+  const eigene = flaechenListe();
+  let kette = Promise.resolve();
+  eigene.forEach(e => {
+    kette = kette.then(() => {
+      const d = (D.id === e.id) ? D : flaecheLesen(e.id);
+      if(!d) return;
+      return syncHochladen(d).then(() => { bilanz.hoch++; });
+    });
+  });
+
+  // 2 · Fremde Flächen holen und einsortieren
+  kette = kette.then(() => syncFlaechenListe()).then(liste => {
+    bilanz.flaechen = liste.length;
+    let k2 = Promise.resolve();
+    liste.forEach(f => {
+      k2 = k2.then(() => syncHolenFlaeche(f.id).then(staende => {
+        staende.forEach(fremd => {
+          if(!fremd || !fremd.id) fremd.id = f.id;
+          const erg = standEinsortieren(fremd);
+          bilanz.runter++;
+          if(erg.bericht){
+            bilanz.neu       += erg.bericht.neu || 0;
+            bilanz.erneuert  += erg.bericht.erneuert || 0;
+            bilanz.konflikte += (erg.bericht.konflikte || []).length;
+          }
+        });
+      }));
+    });
+    return k2;
+  });
+
+  return kette.then(() => {
+    SYNC_LAEUFT = false;
+    SYNC_LETZTE = new Date();
+    if(!still){
+      syncMelden("Fertig: " + bilanz.hoch + " hochgeladen, " + bilanz.runter
+        + " fremde Stände geholt, " + (bilanz.neu + bilanz.erneuert) + " Felder übernommen"
+        + (bilanz.konflikte ? ", " + bilanz.konflikte + " Konflikte — bitte ansehen" : "") + ".",
+        bilanz.konflikte ? "warn" : "ok");
+    }
+    if(typeof alles === "function") alles();
+    syncZustandZeigen();
+    return bilanz;
+  }).catch(fehler => {
+    SYNC_LAEUFT = false;
+    syncMelden("<b>Synchronisation fehlgeschlagen.</b> " + (fehler.message || fehler)
+      + "<br><span style='font-weight:400'>Die Aufnahme ist davon nicht betroffen — sie liegt "
+      + "auf diesem Gerät. Notfalls den Dateiweg benutzen.</span>", "fehler");
+    syncZustandZeigen();
+    return null;
+  });
+}
+
+/* Gedrosselter Anstoß: wird nach jedem Speichern gerufen, löst aber
+   höchstens alle 45 Sekunden wirklich aus. Ohne Drosselung schriebe jede
+   Tastatureingabe ins Netz. */
+function syncAnstossen(){
+  if(!syncAn() || !syncAngemeldet() || !navigator.onLine) return;
+  if(SYNC_TIMER) return;
+  SYNC_TIMER = setTimeout(() => {
+    SYNC_TIMER = null;
+    syncJetzt(true);
+  }, 45000);
+}
+
+function syncMelden(txt, art){
+  SYNC_MELDUNG = txt;
+  const el = document.getElementById("syncMeldung");
+  if(el){
+    el.className = art ? ("p-anzeige p-" + art) : "hint";
+    el.innerHTML = txt;
+  }
+}
+
+/* =====================================================================
+   Anzeige im Abschnitt "Daten"
+   ===================================================================== */
+function syncZustandZeigen(){
+  const box = document.getElementById("syncBereich");
+  if(!box) return;
+
+  if(!syncMoeglich()){
+    box.innerHTML =
+      '<div class="info achtung"><b>Synchronisation ist noch nicht eingerichtet.</b> '
+      + 'Dafür fehlen Projekt-Kennung und Schlüssel in <i>teile/13_js_sync.html</i>. '
+      + 'Bis dahin läuft der Austausch über Dateien — das ist vollwertig, nur von Hand. '
+      + '<br>Anleitung: <i>Unterlagen/Feldapp_Synchronisation_Einrichtung.md</i></div>';
+    return;
+  }
+
+  const an = syncAn();
+  const angemeldet = syncAngemeldet();
+  let mail = "";
+  try{ mail = localStorage.getItem(P_SYNC_MAIL) || ""; }catch(e){}
+
+  let h = '<div class="info ' + (an && angemeldet ? "gut" : "") + '">'
+    + '<b>Synchronisation: ' + (an ? (angemeldet ? "eingeschaltet" : "eingeschaltet, aber nicht angemeldet") : "ausgeschaltet") + '</b>'
+    + (angemeldet ? '<br>angemeldet als ' + mail : '')
+    + (SYNC_LETZTE ? '<br>zuletzt abgeglichen ' + SYNC_LETZTE.toLocaleTimeString("de-DE") : '')
+    + '<br><span class="hint">Dieses Gerät: ' + GERAET + '</span>'
+    + '</div>';
+
+  if(!angemeldet){
+    h += '<label>E-Mail</label><input id="syncMail" type="email" autocomplete="username" value="'+mail+'">'
+      +  '<label>Kennwort</label><input id="syncKennwort" type="password" autocomplete="current-password">'
+      +  '<button class="knopf" onclick="syncAnmeldenKnopf()">Anmelden</button>'
+      +  '<div class="info" style="font-size:13px">Das Kennwort wird <b>nicht gespeichert</b>. '
+      +  'Die App merkt sich nur einen Erneuerungsschlüssel, mit dem sie sich selbst anmeldet — '
+      +  'einmal je Gerät, dann nie wieder.</div>';
+  }else{
+    h += '<div class="knopfreihe" style="display:flex; gap:8px; flex-wrap:wrap">'
+      +  '<button class="knopf" style="flex:1" onclick="syncJetzt()">Jetzt abgleichen</button>'
+      +  '<button class="knopf zweit" style="flex:1" onclick="syncSchalten(' + (an ? "false" : "true") + ')">'
+      +  (an ? "Ausschalten" : "Einschalten") + '</button>'
+      +  '</div>'
+      +  '<button class="knopf zweit" onclick="syncAbmelden()">Abmelden</button>';
+  }
+  h += '<div id="syncMeldung" class="hint" style="margin-top:8px">' + SYNC_MELDUNG + '</div>';
+  box.innerHTML = h;
+}
+
+function syncAnmeldenKnopf(){
+  const mail = (document.getElementById("syncMail") || {}).value || "";
+  const kw   = (document.getElementById("syncKennwort") || {}).value || "";
+  if(!mail || !kw){ syncMelden("Adresse und Kennwort eintragen.", "warn"); return; }
+  syncMelden("Melde an …", null);
+  syncAnmelden(mail.trim(), kw).then(() => {
+    try{ localStorage.setItem(P_SYNC_AN, "1"); }catch(e){}
+    syncMelden("Angemeldet.", "ok");
+    syncZustandZeigen();
+    syncJetzt();
+  }).catch(f => {
+    syncMelden("<b>Anmeldung fehlgeschlagen.</b> " + (f.message || f), "fehler");
+  });
+}
+
+/* Sobald das Gerät wieder Empfang hat, einmal abgleichen. */
+window.addEventListener("online", () => {
+  if(syncAn() && syncAngemeldet()) setTimeout(() => syncJetzt(true), 3000);
+});

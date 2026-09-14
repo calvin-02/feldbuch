@@ -1,8 +1,17 @@
 
 /* =====================================================================
-   Export, Sicherung, Wiederherstellung
+   EXPORT, SICHERUNG, EINLESEN — Fassung 3
+
+   Der wichtigste Unterschied zu Fassung 2 steht beim Einlesen: Es wird
+   ZUSAMMENGEFÜHRT, nicht überschrieben. Der alte Import sagte wörtlich
+   "Überschreibt alles, was gerade erfasst ist" — mit mehreren Leuten im
+   Feld war das ein sicherer Datenverlust.
+
+   Neu ist außerdem der Koordinatenexport: die Tabelle, aus der die Fläche
+   später im Laserdatensatz verortet wird.
    ===================================================================== */
 function exporteAufbauen(){
+  // Projektformat der Lichtmessung
   const zeilen = [];
   PUNKTE.forEach(p => {
     const d = D.punkte[p.id];
@@ -10,7 +19,24 @@ function exporteAufbauen(){
     zeilen.push([d.zeit||"", d.dsf||"", d.isf||"", d.tsf||"", d.lai||"", d.elad||""].join("\t"));
   });
   const ep = document.getElementById("exportProjekt");
-  if(ep) ep.value = zeilen.length ? zeilen.join("\n") : "(noch keine Messwerte — die kommen aus der Bildauswertung)";
+  if(ep) ep.value = zeilen.length ? zeilen.join("\n")
+    : "(noch keine Messwerte — sie kommen aus der gemeinsamen Bildauswertung)";
+
+  // Koordinaten der Messpunkte
+  const g = [];
+  g.push(["Punkt","Serie","Breite","Laenge","Genauigkeit_m","Messungen","Zeit","Datum"].join("\t"));
+  PUNKTE.forEach(p => {
+    const d = D.punkte[p.id] || {};
+    [1,2].forEach(s => {
+      const k = d["gps"+s];
+      if(!k || !k.lat) return;
+      g.push([p.id, s, k.lat, k.lon, k.acc, k.n||"", k.zeit||"", k.datum||""].join("\t"));
+    });
+  });
+  const eg = document.getElementById("exportGps");
+  if(eg) eg.value = (g.length > 1) ? g.join("\n")
+    : "(noch keine Punktkoordinaten — ohne sie ist die Fläche später nicht verortbar)";
+
   const ea = document.getElementById("exportAlles");
   if(ea) ea.value = textFassung();
 }
@@ -21,145 +47,156 @@ function textFassung(){
   const q = geometrie();
   const z = [];
   const w = (ziel,id) => wertVon(ziel,id) || "—";
+
   z.push("FELDAUFNAHME WEISSTANNE 2.0   (Feldbuch Fassung " + FASSUNG + ")");
   z.push("Fläche: " + w("kopf","f_flaeche") + "   Datum: " + (D.kopf.f_datum||"—"));
   z.push("Aufnahmegruppe: " + (D.kopf.f_team||"—"));
-  z.push("Ankunft " + (D.kopf.f_ankunft||"—") + "   Abfahrt " + (D.gelaende.g_abfahrt||"—"));
+  z.push("Ankunft " + (D.kopf.f_ankunft||"—") + "   Abfahrt " + (D.bedingungen.g_abfahrt||"—"));
+  z.push("Gerät dieser Aufnahme: " + GERAET + (geraeteName() ? " (" + geraeteName() + ")" : ""));
   z.push("");
-  z.push("GERÄT: " + (D.kopf.f_geraet||"—") + "  Nr. " + (D.kopf.f_serie||"—"));
-  z.push("  Standort im Gerät: " + (D.kopf.f_breite||"—") + " °N / " + (D.kopf.f_laenge||"—") + " °O");
-  z.push("  Atmosphärische Durchlässigkeit: " + (D.kopf.f_atm||"—") + " %");
-  z.push("  Kosinus-Gewichtung: " + jaNein(D.kopf.f_kosinus));
-  z.push("  DSF-Zeitspanne: " + (D.kopf.f_periode_von||"—") + " bis " + (D.kopf.f_periode_bis||"—"));
-  z.push("  TSF-Formel: " + (D.kopf.f_tsf_formel||"—") + "   -> p = " + (D.kopf.f_p_geraet||"—"));
-  z.push("  Bildwinkel Openness/GapFraction: " + (D.kopf.f_bildwinkel||"—") + " °");
-  z.push("  Max. Neigung bei Fernauslösung: " + (D.kopf.f_max_neigung||"—") + " °");
-  z.push("  Anzahl Schwellwerte: " + (D.kopf.f_schwellen||"—"));
-  z.push("  Himmelsmodell: " + (D.kopf.f_himmelsmodell||"—") + "   Bezugsfläche: " + (D.kopf.f_neigung_bezug||"—"));
-  z.push("  Einstellungen fotografiert: " + jaNein(D.kopf.f_fotos));
-  z.push("  Hemisphärenbilder gespeichert: " + jaNein(D.kopf.f_bilder) + "   Export: " + (D.kopf.f_bildexport||"—"));
+
+  z.push("GERÄTEEINSTELLUNGEN");
+  z.push("  Geprüft, unverändert, fotografiert: " + jaNein(D.kopf.f_geraet_ok));
+  if(D.kopf.f_geraet_abweichung) z.push("  ABWEICHUNG: " + D.kopf.f_geraet_abweichung);
+  z.push("  Modell " + (D.kopf.f_geraet||"Solariscope SOL 300B [Vorgabe aus BY07]")
+         + "  Nr. " + (D.kopf.f_serie||"—"));
+  z.push("  Atmosphärische Durchlässigkeit: " + (D.kopf.f_atm||"60 [BY07]") + " %"
+         + "   Schwellwerte: " + (D.kopf.f_schwellen||"7 [BY07]"));
+  z.push("  DSF-Zeitspanne: " + (D.kopf.f_periode_von||"1.4. [BY07]") + " bis "
+         + (D.kopf.f_periode_bis||"30.9. [BY07]"));
+  z.push("  TSF-Formel: " + (D.kopf.f_tsf_formel||"60:40 [BY07]")
+         + "   -> p = " + (D.kopf.f_p_geraet||"0,60 [BY07]"));
+  z.push("  Bildwinkel Openness/GapFraction: " + (D.kopf.f_bildwinkel||"60 [BY07]") + " °");
   z.push("");
+
   z.push("PARZELLEN");
   z.push("  A: Lage " + w("parzA","pa_lage") + " | Herkunft " + (D.parzellen.A.pa_herkunft||"—")
          + " | Reg.-Nr. " + (D.parzellen.A.pa_code||"—"));
-  z.push("     L " + (D.parzellen.A.pa_laenge||"?") + " m, B außen " + (D.parzellen.A.pa_breite_a||"?")
-         + " m, B innen " + (D.parzellen.A.pa_breite_i||"?") + " m"
-         + (D.parzellen.A.pa_breite_i_geschaetzt ? "  [innen GESCHÄTZT, nicht gemessen]" : ""));
+  z.push("     L " + (D.parzellen.A.pa_laenge||"?") + " m x B " + (D.parzellen.A.pa_breite||"?") + " m");
   z.push("  B: Lage " + w("parzB","pb_lage") + " | Herkunft " + (D.parzellen.B.pb_herkunft||"—")
          + " | Reg.-Nr. " + (D.parzellen.B.pb_code||"—"));
-  z.push("     L " + (D.parzellen.B.pb_laenge||"?") + " m, B außen " + (D.parzellen.B.pb_breite_a||"?")
-         + " m, B innen " + (D.parzellen.B.pb_breite_i||"?") + " m"
-         + (D.parzellen.B.pb_breite_i_geschaetzt ? "  [innen GESCHÄTZT, nicht gemessen]" : ""));
-  z.push("  Trennstreifen: " + (D.kopf.f_trenn||"?") + " m");
+  z.push("     L " + (D.parzellen.B.pb_laenge||"?") + " m x B " + (D.parzellen.B.pb_breite||"?") + " m");
+  z.push("  Trennstreifen: Länge (Abstand A-B) " + (D.kopf.f_trenn_l||"?")
+         + " m, Breite (quer) " + (D.kopf.f_trenn_b||"?") + " m");
   z.push("  Berechnet: Fläche A " + rund(q.A.flaeche,0) + " m², B " + rund(q.B.flaeche,0)
          + " m², Gatter gesamt " + rund(q.A.flaeche+q.B.flaeche+q.streifen.flaeche,0) + " m²");
   z.push("  Berechnet: Sollabstand Mittelpunkt A -> B = " + rund(q.abstandAB,1) + " m");
-  z.push("  Vermarkung: " + w("kopf","f_vermarkung") + "  (" + (D.kopf.f_marken_anzahl||"?")
-         + " Marken, " + (D.kopf.f_marken_art||"—") + ")");
-  z.push("  GPS: " + (D.kopf.f_gps_lat||"—") + " / " + (D.kopf.f_gps_lon||"—") + "  ± " + (D.kopf.f_gps_acc||"?") + " m");
+  if(!q.g.gemessen) z.push("  ACHTUNG: Es fehlen Maße; die Rechnung benutzt Ersatzwerte.");
+  z.push("  Vermarkung: " + w("kopf","f_vermarkung"));
+  z.push("  Flächenkoordinate (nur Kachelauswahl): " + (D.kopf.f_gps_lat||"—") + " / "
+         + (D.kopf.f_gps_lon||"—") + "  ± " + (D.kopf.f_gps_acc||"?") + " m");
   if(D.kopf.f_gps_lat && D.kopf.f_gps_lon){
     const u = nachUTM32(Number(D.kopf.f_gps_lat), Number(D.kopf.f_gps_lon));
-    z.push("  UTM32: " + Math.round(u.ost) + " / " + Math.round(u.nord) +
-           "   Kachel " + Math.floor(u.ost/1000) + "_" + Math.floor(u.nord/1000));
+    z.push("     UTM32: " + Math.round(u.ost) + " / " + Math.round(u.nord)
+           + "   Kachel " + Math.floor(u.ost/1000) + "_" + Math.floor(u.nord/1000));
   }
   z.push("");
-  z.push("SKIZZE UND PUNKTNUMMERN");
-  z.push("  Azimut Längsachse A->B: " + (D.schema.s_achse||"—") + " °   Eingang: " + w("schema","s_eingang"));
-  z.push("  Zählregel: " + (D.schema.s_regel||"—"));
-  z.push("  Abgesteckt von: " + w("schema","s_aufnehmer"));
-  z.push("Parzelle\tLage\tNummer\tAbstand_m\tAzimut_grad");
+
+  z.push("SKIZZE");
+  z.push("  Azimut Längsachse A->B: " + (D.schema.s_achse||"—") + " °"
+         + "   Eingang: " + w("schema","s_eingang"));
+  z.push("  Ansichtsdrehung der Skizze: " + drehung() + " ° (nur Darstellung)");
+  z.push("  Zählregel im Feld: " + (D.schema.s_regel||"—"));
   ["A","B"].forEach(pz => {
-    const teil = q[pz], num = D.schema.nummern[pz] || {};
-    ECKEN.forEach(e => z.push([pz, ECKENNAME[e], num[e]||"?", rund(teil.sat[e].dist,1),
-      isNaN(teil.sat[e].azimut) ? "?" : Math.round(teil.sat[e].azimut)].join("\t")));
-    z.push([pz, "Mittelpunkt", num.M||"M", "0", "-"].join("\t"));
+    const n = D.schema.nummern[pz] || {};
+    const t = Object.keys(n).map(k => k + "=" + n[k]).join(", ");
+    z.push("  Punktnummern " + pz + ": " + (t || "—"));
   });
+  if(D.schema.s_bem) z.push("  Bemerkung: " + D.schema.s_bem);
   z.push("");
-  z.push("LICHTMESSUNG");
-  z.push("Punkt\tZeit\tHöhe\tBild\tWinkel\tSchwelle\tISF\tDSF\tTSF\tLAI\tELAD\tOpenness\tHimmel\tN\tHor\tvon\tBemerkung");
+
+  z.push("LICHTMESSPUNKTE");
   PUNKTE.forEach(p => {
-    const d = D.punkte[p.id]; if(!d) return;
-    z.push([p.id, d.zeit, d.hoehe, d.bild, d.winkel, d.schwelle, d.isf, d.dsf, d.tsf,
-            d.lai, d.elad, d.open, d.himmel, d.nord?"x":"", d.horiz?"x":"", d.aufnehmer||"",
-            (d.bem||"").replace(/\s+/g," ")].join("\t"));
+    const d = D.punkte[p.id];
+    if(!d){ z.push("  " + p.id + ": —"); return; }
+    let zeile = "  " + p.id + ": " + (d.zeit||"--:--")
+      + "  Bild " + (d.bild || "FEHLT")
+      + (d.hoehe ? "  h=" + d.hoehe + " cm" : "");
+    if(d.isf !== "" && d.isf != null){
+      zeile += "  ISF " + d.isf + "  DSF " + (d.dsf||"—") + "  TSF " + (d.tsf||"—");
+      if(d.lai)  zeile += "  LAI " + d.lai;
+      if(d.elad) zeile += "  ELAD " + d.elad;
+    }
+    if(d.aufnehmer) zeile += "  (" + d.aufnehmer + ")";
+    z.push(zeile);
+    [1,2].forEach(s => {
+      const k = d["gps"+s];
+      if(k && k.lat){
+        z.push("        GPS Serie " + s + ": " + k.lat + " / " + k.lon
+               + "  ± " + k.acc + " m" + (k.n ? "  aus " + k.n + " Messungen" : "")
+               + "  " + (k.zeit||"") + " " + (k.datum||""));
+      }
+    });
+    if(d.bem) z.push("        Bemerkung: " + d.bem);
+  });
+  const mess = PUNKTE.filter(p => p.id !== "W1" && p.id !== "W2");
+  const ohne = mess.filter(p => { const d = D.punkte[p.id]; return !(d && d.gps1 && d.gps1.lat); });
+  if(ohne.length) z.push("  ACHTUNG: An " + ohne.length + " Punkten fehlt die Koordinate ("
+                         + ohne.map(p=>p.id).join(", ") + ") — die Fläche ist so nicht verortbar.");
+  z.push("");
+
+  z.push("MESSBEDINGUNGEN");
+  [["Beginn","1"],["Mitte","2"],["Ende","3"]].forEach(([n,i]) => {
+    z.push("  " + n + ": " + (D.bedingungen["g_himmel"+i]||"—")
+           + "   Messung zulässig: " + jaNein(D.bedingungen["g_ok"+i]));
   });
   z.push("");
-  z.push("KO-REGISTRIERUNG");
-  z.push("  Azimutgerät: " + w("koreg","k_geraet") + "   Distanzgerät: " + w("koreg","k_distgeraet")
-         + "   Vertex kalibriert: " + jaNein(D.koreg.k_vertex_kal));
-  z.push("  Nordbezug: " + (D.koreg.k_nordbezug||"NICHT ANGEGEBEN"));
-  z.push("  Gegenkurs-Test: " + (D.koreg.k_gegenkurs||"—"));
-  z.push("  Klammer A->B gemessen: Azimut " + (D.koreg.k_azimut_ab||"—") + "°, Distanz " + (D.koreg.k_dist_ab||"—") + " m");
-  klammerAusBaeumen().forEach(k => z.push("  Klammer A->B über Verbindungsbaum " + k.nr + ": "
-    + Math.round(k.azimut) + "°, " + rund(k.dist,1) + " m"));
-  z.push("  Aufgenommen von: " + w("koreg","k_aufnehmer"));
-  z.push("Nr\tStandpunkt\tAzimut\tDistanz\tAzimut_B\tDistanz_B\tArt\tHöhe\tBHD\tMerkmal");
-  D.baeume.forEach(b => z.push([b.nr,b.standpunkt,b.azimut,b.dist,b.azimut_b||"",b.dist_b||"",
-    b.art,b.hoehe,b.bhd,(b.merkmal||"").replace(/\s+/g," ")].join("\t")));
-  z.push("");
-  z.push("BESTANDESBESCHREIBUNG");
-  z.push("  Bestandestyp: " + w("bestand","b_typ"));
-  z.push("  Mischungsgrad: " + w("bestand","b_mischungsgrad") + "   Mischungsform: " + w("bestand","b_mischungsform"));
-  z.push("  Alter: " + w("bestand","b_alter") + "   Verteilung: " + w("bestand","b_verteilung"));
-  z.push("  Schlussgrad: " + w("bestand","b_schlussgrad")
-         + (wertVon("bestand","b_schlussgrad2") ? ", stellenweise " + wertVon("bestand","b_schlussgrad2") : ""));
-  z.push("  Schlussgrad in Worten: " + (D.bestand.b_schluss_text||"—"));
-  z.push("  Besonderheiten: " + (D.bestand.b_besonderheiten||"—"));
-  z.push("  Aufgenommen von: " + w("bestand","b_aufnehmer"));
-  z.push("");
-  z.push("VEGETATION — Bezugsradien: " + SCHICHTEN.map(s => s.k+" "+radiusText(s.k)).join(", "));
-  z.push("A) vereinfacht");
-  z.push("Punkt\tvon\t" + SCHICHTEN.map(s => s.k+"-Deckung\t"+s.k+"-Höhe\t"+s.k+"-frei").join("\t"));
+
+  z.push("VEGETATION");
+  z.push("  Bezugsradien: " + SCHICHTEN.map(s => s.k + " " + radiusText(s.k)).join(", "));
   VEG_PUNKTE.forEach(p => {
-    const v = (D.veg.punkte||{})[p.id]; if(!v) return;
-    z.push(p.id + "\t" + (v.aufnehmer||"") + "\t" + SCHICHTEN.map(s =>
-      ((v.einfach||{})[s.k+"_d"]||"") + "\t" + ((v.einfach||{})[s.k+"_h"]||"") + "\t"
-      + ((v.einfach||{})[s.k+"_frei"]||"")).join("\t"));
-  });
-  z.push("B) Braun-Blanquet");
-  z.push("Punkt\tvon\tKronenschluss\tSchicht\tArt\tArtmächtigkeit\tSoziabilität");
-  VEG_PUNKTE.forEach(p => {
-    const v = (D.veg.punkte||{})[p.id]; if(!v) return;
-    (v.arten||[]).forEach(a => z.push([p.id, v.aufnehmer||"", v.kronenschluss||"", a.schicht, a.art, a.am, a.soz].join("\t")));
-    if(v.bem) z.push(p.id + "\t\t\t\t[Bemerkung] " + v.bem.replace(/\s+/g," ") + "\t\t");
+    const v = (D.veg.punkte||{})[p.id];
+    if(!v){ z.push("  " + p.id + ": —"); return; }
+    z.push("  " + p.id + (v.aufnehmer ? "  (" + v.aufnehmer + ")" : ""));
+    const e = v.einfach || {};
+    SCHICHTEN.forEach(s => {
+      const d = e[s.k+"_d"], h = e[s.k+"_h"], f = e[s.k+"_frei"];
+      if(d || h || f) z.push("      " + s.k + ": Deckung " + (d||"—") + ", Höhe " + (h||"—")
+                             + (f ? "  [" + f + "]" : ""));
+    });
+    if(v.kronenschluss) z.push("      Kronenschluss: " + v.kronenschluss);
+    (v.arten||[]).forEach(a => {
+      z.push("      " + (a.schicht||"?") + "  " + (a.art||"?") + "   "
+             + (a.am||"—") + " / " + (a.soz||"—"));
+    });
+    if(v.bem) z.push("      Bemerkung: " + v.bem);
   });
   z.push("");
-  const wtaZeilen = [];
-  Object.keys(D.wta.werte||{}).sort().forEach(s => {
-    const wv = D.wta.werte[s];
-    if(!wv || (!wv.h && !wv.v)) return;
-    const [pz,r,pl] = s.split("-");
-    wtaZeilen.push([pz, r, pl, wv.h||"", wv.v||"", wv.s||""].join("\t"));
-  });
-  if(wtaZeilen.length){
-    z.push("WEISSTANNEN (" + wtaZeilen.length + " Pflanzplätze) — aufgenommen von " + w("wta","w_aufnehmer"));
-    z.push("Parzelle\tReihe\tPlatz\tHöhe_cm\tVitalität\tSchaden");
-    wtaZeilen.forEach(x => z.push(x));
-    z.push("");
-  }
+
   if((D.oberstand||[]).length){
-    const ob = D.oberstand;
-    const nA = ob.filter(b => (b.parzelle||"A") === "A").length;
-    const nB = ob.filter(b => b.parzelle === "B").length;
-    const nK = ob.filter(b => b.kontrolle).length;
-    z.push("OBERSTAND — aufgenommen von " + w("kopf","o_aufnehmer"));
-    z.push("  " + ob.length + " Bäume (Mittelpunkt A: " + nA + ", B: " + nB
-           + "), davon " + nK + (nK === 1 ? " Kontrollbaum" : " Kontrollbäume"));
-    z.push("  Richtung und Entfernung vom jeweiligen Parzellenmittelpunkt.");
-    z.push("Nr\tParzelle\tAzimut\tDistanz_m\tBaumart\tBHD_cm\tHöhe_m\tKontrollbaum\tDist_anderer_MP\tAzimut_sorgfältig\tBemerkung\tX\tY\tKoordinatensystem");
-    ob.forEach(b => z.push([b.nr, b.parzelle||"A", b.azimut||"", b.dist||"", b.art, b.bhd,
-      b.hoehe, b.kontrolle ? "ja" : "", b.k_dist2||"", b.k_azimut||"",
-      (b.bem||"").replace(/\s+/g," "), b.x||"", b.y||"", b.ks||""].join("\t")));
+    z.push("OBERSTAND  (" + D.oberstand.length + " Bäume)");
+    z.push("  Azimutgerät: " + w("kopf","k_geraet") + "   Nordbezug: " + (D.kopf.k_nordbezug||"—"));
+    z.push("  Nr\tParz\tArt\tAzimut\tDist\tBHD\tHöhe");
+    D.oberstand.forEach(b => {
+      z.push("  " + [b.nr, b.parzelle, b.art, b.azimut, b.dist, b.bhd, b.hoehe||""].join("\t")
+             + (b.kontrolle ? "\t[Kontrollbaum]" : "") + (b.bem ? "\t" + b.bem : ""));
+    });
     z.push("");
   }
-  z.push("GELÄNDE");
-  z.push("  Neigung: " + (D.gelaende.g_neigung||"—") + "°   Exposition: " + w("gelaende","g_exposition"));
-  z.push("  Relief: " + w("gelaende","g_relief") + "   Horizont: " + (D.gelaende.g_horizont||"—"));
-  z.push("  Himmel Beginn/Mitte/Ende: " + (D.gelaende.g_himmel1||"—") + " / " +
-         (D.gelaende.g_himmel2||"—") + " / " + (D.gelaende.g_himmel3||"—"));
+
+  const wz = Object.keys(D.wta.werte||{}).filter(k => {
+    const v = D.wta.werte[k]; return v && (v.h || v.v);
+  });
+  if(wz.length){
+    z.push("WEISSTANNEN  (" + wz.length + " Pflanzplätze erfasst)");
+    z.push("  Parz-Reihe-Platz\tHöhe_cm\tZustand\tSchaden");
+    wz.sort().forEach(k => {
+      const v = D.wta.werte[k];
+      z.push("  " + k + "\t" + (v.h||"") + "\t" + (v.v||"") + "\t" + (v.s||""));
+    });
+    z.push("");
+  }
+
+  z.push("BESTAND");
+  z.push("  In eigenen Worten: " + (D.bestand.b_schluss_text||"—"));
+  z.push("  Typ " + w("bestand","b_typ") + " | Mischungsgrad " + w("bestand","b_mischungsgrad")
+         + " | Form " + w("bestand","b_mischungsform"));
+  z.push("  Alter " + w("bestand","b_alter") + " | Verteilung " + w("bestand","b_verteilung")
+         + " | Schlussgrad " + w("bestand","b_schlussgrad")
+         + (wertVon("bestand","b_schlussgrad2") ? " / " + w("bestand","b_schlussgrad2") : ""));
+  if(D.bestand.b_besonderheiten) z.push("  Besonderheiten: " + D.bestand.b_besonderheiten);
   z.push("");
   z.push("Bemerkungen zur Fläche: " + (D.kopf.f_bemerkung||"—"));
-  z.push("Bemerkung zur Skizze: " + (D.schema.s_bem||"—"));
   z.push("");
   z.push("Erzeugt: " + new Date().toLocaleString("de-DE") + "  ·  Feldbuch " + FASSUNG + " (" + STAND + ")");
   return z.join("\n");
@@ -194,7 +231,7 @@ function inZwischenablage(art){
   const txt = (art === "json") ? JSON.stringify(D) : textFassung();
   const fertig = () => {
     SEIT_SICHERUNG = 0; erinnerungPruefen();
-    meldung("Kopiert (" + txt.length + " Zeichen) — jetzt in eine Notiz oder Mail einfügen und abschicken.");
+    meldung("Kopiert (" + txt.length + " Zeichen) — jetzt in eine Notiz oder Nachricht einfügen.");
   };
   if(navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(txt).then(fertig).catch(() => ersatzKopie(txt, fertig));
@@ -213,7 +250,7 @@ function ersatzKopie(txt, fertig){
   try{ ok = document.execCommand("copy"); }catch(e){ ok = false; }
   ta.remove();
   if(ok){ fertig(); }
-  else{ meldung("Automatisches Kopieren ging nicht. Bitte den Text unten lange antippen, alles markieren und kopieren."); }
+  else{ meldung("Automatisches Kopieren ging nicht. Bitte den Text unten lange antippen und kopieren."); }
 }
 
 function meldung(t){ const e = document.getElementById("exportMeldung"); if(e) e.textContent = t; }
@@ -231,6 +268,9 @@ function textLaden(){
   uebernehmen(txt, "Text");
 }
 
+/* =====================================================================
+   EINLESEN — zusammenführen statt überschreiben
+   ===================================================================== */
 function uebernehmen(roh, quelle){
   let neu;
   try{ neu = JSON.parse(roh); }
@@ -238,23 +278,62 @@ function uebernehmen(roh, quelle){
   if(!neu || typeof neu !== "object" || !("punkte" in neu)){
     meldung("Der Inhalt sieht nicht nach einer Sicherung dieser App aus."); return;
   }
-  const alteFassung = !neu.fassung || neu.fassung < 2;
-  const anzahl = Object.keys(neu.punkte||{}).length;
-  const jetzt = Object.keys(D.punkte||{}).length;
-  nachfragen("Sicherung übernehmen?",
-    "Die Sicherung enthält <b>" + anzahl + " Messpunkte</b>"
-    + (neu.kopf && neu.kopf.f_flaeche ? " von " + neu.kopf.f_flaeche : "") + ". "
-    + (alteFassung ? "Sie stammt aus der <b>alten Fassung</b> und wird beim Übernehmen umgesetzt. " : "")
-    + (jetzt ? "Die aktuell erfassten " + jetzt + " Punkte werden dabei <b>überschrieben</b>." : ""),
-    "Übernehmen",
+
+  const ausAlt = !neu.fassung || neu.fassung < 3;
+  const fremd  = ausAlt ? ausFassung2(neu) : neu;
+  if(ausAlt) fremd.id = neu.id || null;
+
+  const anzahl = Object.keys(fremd.punkte||{}).length;
+  const name   = (fremd.kopf && fremd.kopf.f_flaeche) || "ohne Namen";
+
+  nachfragen("Sicherung einlesen?",
+    "Die Sicherung gehört zu <b>" + name + "</b> und enthält <b>" + anzahl + " Messpunkte</b>"
+    + ((fremd.oberstand||[]).length ? " und " + fremd.oberstand.length + " Bäume" : "") + ". "
+    + (ausAlt ? "Sie stammt aus einer <b>älteren Fassung</b> und wird dabei umgesetzt. " : "")
+    + "<b>Nichts wird überschrieben:</b> Gibt es diese Fläche hier schon, werden beide Stände "
+    + "Feld für Feld zusammengeführt — der jüngere Eintrag gewinnt.",
+    "Einlesen",
     () => {
-      D = alteFassung ? migrieren(neu) : Object.assign(leererDatensatz(), neu);
-      ergaenzen();
-      speichern(true); alles();
-      meldung("Sicherung aus " + quelle + " übernommen: " + anzahl + " Messpunkte, "
-              + (D.baeume||[]).length + " Passpunktbäume."
-              + (alteFassung ? " Aus der alten Fassung umgesetzt — Herkünfte und Maße je Parzelle bitte gegenlesen." : ""));
-    }, jetzt > 0);
+      const erg = standEinsortieren(fremd);
+      if(erg.id && erg.id !== D.id && erg.art === "neu"){
+        // Neue Fläche: gleich öffnen, damit sichtbar wird, was passiert ist
+        flaecheOeffnen(erg.id);
+      }
+      alles();
+      berichtZeigen(erg, quelle, name);
+    }, false);
+}
+
+/* Der Bericht ist kein Beiwerk: Er belegt, was tatsächlich passiert ist —
+   und er ist die einzige Stelle, an der ein Widerspruch zwischen zwei
+   Geräten sichtbar wird. */
+function berichtZeigen(erg, quelle, name){
+  const box = document.getElementById("importBericht");
+  if(!box) return;
+  const b = erg.bericht || {};
+  let h = '<div class="info gut" style="margin-top:10px"><b>'
+    + (erg.art === "neu" ? "Als neue Fläche angelegt" : "Mit der vorhandenen Fläche zusammengeführt")
+    + ": " + name + "</b><br>"
+    + (b.neu||0) + " Felder neu · " + (b.erneuert||0) + " Felder erneuert · "
+    + (b.behalten||0) + " eigene behalten (waren jünger) · " + (b.listen||0) + " Listeneinträge ergänzt."
+    + '</div>';
+
+  const k = b.konflikte || [];
+  if(k.length){
+    h += '<div class="info achtung" style="margin-top:8px"><b>' + k.length
+      + ' Felder waren auf beiden Geräten verschieden gefüllt.</b> Übernommen wurde jeweils der '
+      + 'jüngere Eintrag. <b>Bitte durchsehen — bei Messwerten ist "jünger" nicht immer "richtig".</b>'
+      + '<div class="tabellenrahmen"><table><tr><th>Feld</th><th>hier</th><th>eingelesen</th><th>genommen</th></tr>'
+      + k.slice(0,25).map(x =>
+          '<tr><td>' + x.pfad + '</td><td>' + String(x.hier).slice(0,24)
+          + '</td><td>' + String(x.dort).slice(0,24) + '</td><td><b>'
+          + (x.gewinner === "dort" ? "eingelesen" : "hier") + '</b></td></tr>').join("")
+      + '</table></div>'
+      + (k.length > 25 ? '<p>… und ' + (k.length-25) + ' weitere.</p>' : '')
+      + '</div>';
+  }
+  box.innerHTML = h;
+  meldung("Aus " + quelle + " eingelesen.");
 }
 
 function dateiWegePruefen(){
@@ -267,20 +346,6 @@ function dateiWegePruefen(){
   if(i && !eingebettet) i.innerHTML =
     '<label style="margin-top:14px">…oder eine Sicherungsdatei wählen</label>'+
     '<input type="file" accept=".json,.txt" onchange="dateiLaden(event)">';
-}
-
-function allesLoeschen(){
-  const anzahl = Object.keys(D.punkte||{}).length;
-  nachfragen("Alle Daten löschen?",
-    "Gelöscht werden <b>" + anzahl + " Messpunkte</b>, "
-    + (D.baeume||[]).length + " Passpunktbäume und alle übrigen Eingaben dieser Fläche. "
-    + "<b>Das lässt sich nicht rückgängig machen.</b> Hast du vorher gesichert?",
-    "Endgültig löschen",
-    () => {
-      D = leererDatensatz();
-      try{ localStorage.removeItem(SCHLUESSEL); }catch(e){}
-      alles(); meldung("Alle Daten gelöscht.");
-    }, true);
 }
 
 /* =====================================================================
@@ -299,26 +364,21 @@ function offlineEinrichten(){
   navigator.serviceWorker.register("sw.js").then(reg => {
     SW_REG = reg;
     offlineZustandZeigen();
-    // Beim allerersten Aufruf ist die Vorhaltung erst ein paar Sekunden spaeter fertig.
-    // Ohne diese beiden Zeilen bliebe die Anzeige auf "wird gerade gespeichert" stehen,
-    // obwohl laengst alles auf dem Geraet liegt -- und genau daran soll Calvin ablesen,
-    // ob er die App im Bestand oeffnen kann.
-    navigator.serviceWorker.ready.then(offlineZustandZeigen);
-    navigator.serviceWorker.addEventListener("controllerchange", offlineZustandZeigen);
     reg.addEventListener("updatefound", () => {
       const neu = reg.installing;
       if(!neu) return;
       neu.addEventListener("statechange", () => {
         if(neu.state === "installed" && navigator.serviceWorker.controller){
-          balkenZeigen('Eine neuere Fassung der App ist geladen. <button class="knopf zweit klein" '
-            + 'style="width:auto;padding:4px 10px;margin:0" onclick="location.reload()">neu starten</button>');
+          balkenZeigen("Eine neue Fassung der App ist geladen. <b>Zum Übernehmen die App "
+            + "schließen und neu öffnen.</b>");
         }
       });
     });
-  }).catch(e => {
-    if(box) box.innerHTML = '<div class="info warnung"><b>Offline-Vorhaltung nicht eingerichtet.</b> '
-      + 'Meldung: ' + (e && e.message ? e.message : "unbekannt") + '. '
-      + 'Die App läuft weiter, braucht zum Öffnen aber Netz.</div>';
+  }).catch(f => {
+    if(box) box.innerHTML = '<div class="info achtung"><b>Offline-Vorhaltung nicht eingerichtet.</b> '
+      + 'Meldung: ' + (f && f.message ? f.message : "unbekannt")
+      + '<br>Auf einem Rechner ist das normal; <b>auf dem Handy muss es klappen</b> — '
+      + 'sonst öffnet die App im Wald nicht.</div>';
   });
 }
 
@@ -326,71 +386,45 @@ function offlineZustandZeigen(){
   const box = document.getElementById("offlineZustand");
   if(!box) return;
   const bereit = !!(navigator.serviceWorker && navigator.serviceWorker.controller);
-  const installiert = window.matchMedia("(display-mode: standalone)").matches
-                   || window.navigator.standalone === true;
-  if(bereit && installiert){
-    box.innerHTML = '<div class="info gut"><b>&#10003; Offline einsatzbereit.</b> '
-      + 'Die App ist installiert und vollständig auf dem Gerät — sie startet ohne Netz.</div>';
-  }else if(bereit){
-    box.innerHTML = '<div class="info gut"><b>&#10003; Offline gespeichert.</b> Die App öffnet auch '
-      + 'ohne Netz. <b>Noch besser:</b> im Browsermenü <i>„Zum Startbildschirm hinzufügen"</i> — '
-      + 'dann bekommt sie ein eigenes Symbol und startet ohne Browser.</div>';
-  }else{
-    box.innerHTML = '<div class="info warnung"><b>Wird gerade offline gespeichert …</b> '
-      + 'Diese Seite <b>einmal mit Netz</b> geöffnet lassen, bis hier ein Haken steht. '
-      + 'Danach läuft sie ohne Verbindung.</div>';
-  }
+  caches.keys().then(namen => {
+    const meiner = namen.filter(n => n.indexOf("feldbuch") === 0);
+    box.innerHTML = '<div class="info ' + (bereit ? "gut" : "achtung") + '">'
+      + '<b>Offline: ' + (bereit ? "eingerichtet" : "noch nicht übernommen") + '</b>'
+      + (meiner.length ? '<br>Speicher: ' + meiner.join(", ") : '')
+      + (bereit ? '' : '<br>Die App einmal schließen und neu öffnen.')
+      + '</div>';
+  }).catch(() => {
+    box.innerHTML = '<div class="info">Offline-Zustand nicht abfragbar.</div>';
+  });
 }
 
 function aktualisierungSuchen(){
-  if(!SW_REG){ meldungTempo("Keine Offline-Vorhaltung aktiv — nichts zu prüfen."); return; }
-  SW_REG.update().then(() => meldungTempo("Geprüft. Gibt es eine neuere Fassung, meldet sich die App."))
-                 .catch(e => meldungTempo("Prüfung nicht möglich: " + (e && e.message ? e.message : "unbekannt")));
+  if(!SW_REG){ meldungTempo("Kein Offline-Speicher eingerichtet."); return; }
+  meldungTempo("Suche …");
+  SW_REG.update().then(() => meldungTempo("Nachgesehen. Gibt es etwas Neues, meldet sich die App."))
+                 .catch(f => meldungTempo("Ging nicht: " + (f && f.message ? f.message : "unbekannt")));
 }
 
 function meldungTempo(t){ const e = document.getElementById("tempoMeldung"); if(e) e.innerHTML = t; }
 
-/* Zeigt schwarz auf weiß, was das Speichern kostet — die Klage über Trägheit
-   war der Anlass für den Umbau, also muss sie nachprüfbar sein. */
-function tempoMessen(){
-  const gross = JSON.stringify(D).length;
-  const t0 = performance.now();
-  let n = 0;
-  for(let i = 0; i < 20; i++){ JSON.stringify(D); n++; }
-  const bauen = (performance.now() - t0) / n;
-  const t1 = performance.now();
-  let schreiben = null;
-  try{
-    localStorage.setItem("_wta_tempo", JSON.stringify(D));
-    localStorage.removeItem("_wta_tempo");
-    schreiben = performance.now() - t1;
-  }catch(e){ schreiben = null; }
-  const t2 = performance.now();
-  textFassung();
-  const bericht = performance.now() - t2;
-  meldungTempo("Datensatz <b>" + (gross/1024).toFixed(1) + " kB</b> · "
-    + "Umwandeln <b>" + bauen.toFixed(1) + " ms</b> · "
-    + "Schreiben <b>" + (schreiben === null ? "geht nicht" : schreiben.toFixed(1) + " ms") + "</b> · "
-    + "Berichtstext <b>" + bericht.toFixed(1) + " ms</b>."
-    + "<br>Der Berichtstext wird jetzt <b>nur noch beim Öffnen dieses Abschnitts</b> gebaut — "
-    + "in der alten Fassung lief er bei jeder einzelnen Eingabe mit.");
-}
-
 function technikZeigen(){
   const box = document.getElementById("technik");
   if(!box) return;
-  let platz = "unbekannt";
+  let belegt = 0;
   try{
-    const gross = new Blob([localStorage.getItem(SCHLUESSEL)||""]).size;
-    platz = (gross/1024).toFixed(1) + " kB belegt";
+    for(let i = 0; i < localStorage.length; i++){
+      const k = localStorage.key(i);
+      belegt += (k.length + (localStorage.getItem(k)||"").length) * 2;
+    }
   }catch(e){}
+  const l = flaechenListe();
   box.innerHTML =
-    "<b>Fassung:</b> " + FASSUNG + " (" + STAND + ")<br>"
-    + "<b>Speicher:</b> " + (SPEICHER_OK ? "verfügbar, " + platz : "<b>NICHT verfügbar</b>") + "<br>"
-    + "<b>Gesicherte Verbindung:</b> " + jaNein(window.isSecureContext)
-    + " &middot; <b>Offline vorgehalten:</b> " + jaNein(!!(navigator.serviceWorker && navigator.serviceWorker.controller)) + "<br>"
-    + "<b>Als App installiert:</b> " + jaNein(window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true) + "<br>"
-    + "<b>Netz gerade:</b> " + (navigator.onLine ? "verbunden" : "getrennt — die App läuft trotzdem")
-    + (LETZTE_SPEICHERDAUER !== null ? "<br><b>Letztes Speichern:</b> " + LETZTE_SPEICHERDAUER.toFixed(0) + " ms" : "");
-  offlineZustandZeigen();
+      "<b>Fassung:</b> " + FASSUNG + " (" + STAND + ")<br>"
+    + "<b>Gerät:</b> " + GERAET + (geraeteName() ? " · " + geraeteName() : "") + "<br>"
+    + "<b>Flächen auf diesem Gerät:</b> " + l.length + "<br>"
+    + "<b>Speicher belegt:</b> " + (belegt/1024).toFixed(0) + " kB<br>"
+    + "<b>Speicher nutzbar:</b> " + (SPEICHER_OK ? "ja" : "NEIN") + "<br>"
+    + "<b>Netz:</b> " + (navigator.onLine ? "verbunden" : "offline") + "<br>"
+    + "<b>Als App installiert:</b> "
+    + (window.matchMedia("(display-mode: standalone)").matches ? "ja" : "im Browser");
 }

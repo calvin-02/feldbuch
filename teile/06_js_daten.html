@@ -1,20 +1,29 @@
 <script>
 "use strict";
 /* =====================================================================
-   Feldbuch Weißtanne 2.0 — Fassung 2 (08.09.2026)
-   Gebaut nach dem ersten Feldtag auf BY07 (07.09.2026).
-   Neu gegenüber Fassung 1:
-     · läuft offline als installierbare App (Service Worker)
-     · jede Auswahlliste hat eine Zeile "eigene Angabe"
-     · Herkunft und Maße werden je Parzelle erfasst, nicht mehr fest verdrahtet
-     · antippbare Flächenskizze mit abgeleiteten Soll-Azimuten
-     · Vegetation in beiden Verfahren gleichzeitig
-     · "aufgenommen von" in jedem Abschnitt und bei jedem Punkt
-     · Speichern entkoppelt — der Export wird nicht mehr bei jedem Tastendruck gebaut
+   Feldbuch Weißtanne 2.0 — Fassung 3 (14.09.2026)
+
+   Gebaut in der Nacht vom 14. auf den 15.09.2026, nach zwei Feldtagen
+   (BY07 am 07.09., BY02 am 06.07.) und mit Blick auf den Termin am 17.09.
+
+   Neu gegenüber Fassung 2 — die Leitgedanken:
+     · MEHRERE FLÄCHEN nebeneinander statt einer einzigen Aufnahme
+     · ZUSAMMENFÜHREN statt Überschreiben: zwei Stände derselben Fläche
+       ergeben einen, Feld für Feld nach Zeitstempel
+     · SYNCHRONISATION über das Netz, zuschaltbar — dieselbe Mechanik wie
+       beim Dateiaustausch, deshalb nur ein Weg, der geprüft werden muss
+     · GPS AN JEDEM MESSPUNKT statt einer Koordinate je Fläche. Die
+       Ko-Registrierung über Passpunktbäume ist am 09.09. gescheitert; die
+       Lage der Fläche hängt seither an genau diesen Koordinaten
+     · WENIGER FELDER. Was das Modell nicht braucht, fragt die App nicht mehr
+
+   Was aus Fassung 2 unverändert übernommen ist, weil es geprüft wurde:
+   sämtliche Codelisten (gegen beide Projektmasken abgeglichen am 12.09.),
+   die Baumarten- und Pflanzenlisten, die Punktdefinition.
    ===================================================================== */
 
-const FASSUNG = "2.1.2";
-const STAND   = "08.09.2026";
+const FASSUNG = "3.0.0";
+const STAND   = "14.09.2026";
 
 /* ---------- Auswahllisten ----------
    Alles hier ist Vorschlag, nicht Vorschrift: jede Liste bekommt beim Aufbau
@@ -204,40 +213,395 @@ const LISTEN = {
   BESTANDESTYPEN, HIMMEL, DECKUNG_EINFACH, HOEHE_EINFACH, KRONENSCHLUSS
 };
 
-/* =====================================================================
-   Datenhaltung
-   ===================================================================== */
-const SCHLUESSEL = "wta_feld_v2";
-const SCHLUESSEL_ALT = "wta_feld_v1";
 
+/* =====================================================================
+   DATENHALTUNG — Fassung 3 (14.09.2026)
+
+   WARUM DER UMBAU.
+   Fassung 2 hielt genau EINE Aufnahme. Wer eine zweite Fläche begann oder
+   die Sicherung eines Kollegen einlas, überschrieb die erste — der alte
+   Import sagte das sogar ausdrücklich ("Überschreibt alles"). Solange nur
+   einer aufnimmt, fällt das nicht auf. Mit mehreren Leuten im Feld ist es
+   ein sicherer Datenverlust.
+
+   WAS JETZT GILT.
+   1. Jede Fläche liegt für sich. Die App führt eine Liste und öffnet eine
+      davon; die anderen bleiben unberührt liegen.
+   2. Jedes einzelne Feld trägt einen Zeitstempel. Treffen zwei Stände
+      derselben Fläche aufeinander, gewinnt FELD FÜR FELD der jüngere —
+      nichts wird verworfen, nur weil es in der älteren Datei stand.
+   3. Genau diese Mechanik trägt BEIDE Wege: die Datei per WhatsApp und die
+      Synchronisation über das Netz. Es gibt nur einen Zusammenführungsweg,
+      und der wird dadurch auch nur einmal geprüft.
+
+   WAS SIE NICHT KANN — und das gehört in den Methodenteil:
+   Der Zeitstempel kommt von der UHR DES GERÄTS. Geht ein Handy zehn Minuten
+   nach, verliert es Konflikte, die es gewinnen müsste. Bei getrennter Arbeit
+   (jeder seine Fläche, jeder seine Punkte) spielt das keine Rolle, weil es
+   dann gar keine Konflikte gibt. Kritisch wäre nur, wenn zwei Leute
+   DASSELBE Feld verschieden ausfüllen — und dafür meldet die App den
+   Konflikt, statt ihn still zu entscheiden.
+   ===================================================================== */
+
+const P_LISTE   = "wta_v3_liste";      // Übersicht der Flächen auf diesem Gerät
+const P_FLAECHE = "wta_v3_f_";         // + id → eine vollständige Aufnahme
+const P_AKTUELL = "wta_v3_aktuell";    // welche Aufnahme gerade offen ist
+const P_GERAET  = "wta_v3_geraet";     // Kennung dieses Geräts (für die Synchronisation)
+const P_NAME    = "wta_v3_name";       // wer an diesem Gerät arbeitet
+const SCHLUESSEL_V2 = "wta_feld_v2";   // Fassung 2 — wird beim ersten Start übernommen
+const SCHLUESSEL_V1 = "wta_feld_v1";   // Fassung 1 — desgleichen
+
+/* ---------- Gerätekennung ----------
+   Einmal erzeugt und dann behalten. Sie beantwortet beim Zusammenführen die
+   Frage "von welchem Gerät kam das", und bei der Synchronisation schreibt
+   jedes Gerät nur seinen EIGENEN Eintrag — dadurch kann kein Gerät die
+   Arbeit eines anderen überschreiben, auch nicht bei gleichzeitigem Zugriff. */
+function geraeteKennung(){
+  let k = null;
+  try{ k = localStorage.getItem(P_GERAET); }catch(e){}
+  if(!k){
+    k = "g" + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+    try{ localStorage.setItem(P_GERAET, k); }catch(e){}
+  }
+  return k;
+}
+const GERAET = geraeteKennung();
+
+function geraeteName(){
+  try{ return localStorage.getItem(P_NAME) || ""; }catch(e){ return ""; }
+}
+function geraeteNameSetzen(n){
+  try{ localStorage.setItem(P_NAME, n); }catch(e){}
+}
+
+/* ---------- Der Datensatz einer Fläche ---------- */
 function leererDatensatz(){
   return {
-    fassung: 2,
-    kopf:{}, bestand:{}, gelaende:{}, koreg:{}, schema:{nummern:{A:{},B:{}}},
+    fassung: 3,
+    id: null,                       // eindeutig, wird beim Anlegen vergeben
+    kopf:{}, bestand:{}, schema:{nummern:{A:{},B:{}}},
     parzellen:{ A:{}, B:{} },
-    punkte:{}, baeume:[], veg:{punkte:{}, radien:{}}, wta:{}, oberstand:[],
+    punkte:{},                      // Lichtmessung je Punkt, einschl. GPS
+    veg:{punkte:{}, radien:{}},
+    wta:{},
+    oberstand:[],
+    bedingungen:{},                 // Himmel über den Tag, Abfahrt
+    t:{},                           // Zeitstempel je Feldpfad — das Herz des Zusammenführens
+    herkunft:{},                    // welches Gerät hat wann zuletzt geschrieben
     geaendert:null
   };
 }
+
 let D = leererDatensatz();
-let SPEICHER_OK = null;      // wird beim Start geprüft
-let SEIT_SICHERUNG = 0;      // Änderungen seit der letzten Sicherung
+let SPEICHER_OK = null;
+let SEIT_SICHERUNG = 0;
 let LETZTE_SPEICHERDAUER = null;
 
-/* --- Zielobjekte der Formularfelder --- */
-function zielObjekt(name){
-  switch(name){
-    case "kopf":     return D.kopf;
-    case "bestand":  return D.bestand;
-    case "gelaende": return D.gelaende;
-    case "koreg":    return D.koreg;
-    case "schema":   return D.schema;
-    case "wta":      return D.wta;
-    case "parzA":    return D.parzellen.A;
-    case "parzB":    return D.parzellen.B;
-    default:         return D.kopf;
+/* =====================================================================
+   Pfadzugriff — "kopf.f_datum" oder "punkte.A-M.bild"
+   Die Punkt-Kennungen enthalten Bindestriche, aber nie Punkte; deshalb ist
+   der Punkt als Trennzeichen eindeutig.
+   ===================================================================== */
+function ausPfad(obj, pfad){
+  const teile = pfad.split(".");
+  let o = obj;
+  for(let i = 0; i < teile.length; i++){
+    if(o === null || o === undefined || typeof o !== "object") return undefined;
+    o = o[teile[i]];
+  }
+  return o;
+}
+
+function inPfad(obj, pfad, wert){
+  const teile = pfad.split(".");
+  let o = obj;
+  for(let i = 0; i < teile.length - 1; i++){
+    if(o[teile[i]] === undefined || o[teile[i]] === null || typeof o[teile[i]] !== "object"){
+      o[teile[i]] = {};
+    }
+    o = o[teile[i]];
+  }
+  o[teile[teile.length - 1]] = wert;
+}
+
+/* ---------- Die EINZIGE Schreibfunktion ----------
+   Alles, was den Datensatz ändert, läuft hier durch. Nur so bekommt jedes
+   Feld seinen Zeitstempel, und nur mit Zeitstempel kann zusammengeführt
+   statt überschrieben werden. */
+function setzen(pfad, wert, sofort){
+  inPfad(D, pfad, wert);
+  D.t[pfad] = Date.now();
+  speichern(sofort);
+}
+
+/* Mehrere Felder auf einmal — z. B. wenn eine Maske gespeichert wird. */
+function setzenMehrere(paare, sofort){
+  const jetzt = Date.now();
+  Object.keys(paare).forEach(pfad => {
+    inPfad(D, pfad, paare[pfad]);
+    D.t[pfad] = jetzt;
+  });
+  speichern(sofort);
+}
+
+/* =====================================================================
+   ZUSAMMENFÜHREN
+
+   Kern der Fassung 3. Nimmt zwei Stände derselben Fläche und baut daraus
+   einen, der nichts verliert:
+     · Feld für Feld gewinnt der jüngere Zeitstempel.
+     · Was nur einer der beiden kennt, wird übernommen.
+     · Listen (Oberstand, Artenlisten) werden VEREINIGT, nicht ersetzt —
+       über die Kennung des einzelnen Eintrags.
+     · Ein echter Konflikt (beide haben dasselbe Feld verschieden gefüllt,
+       keiner ist klar jünger) wird GEMELDET, nicht still entschieden.
+
+   Der Bericht, den die Funktion zurückgibt, ist kein Beiwerk: Er ist der
+   Beleg dafür, was beim Einlesen tatsächlich passiert ist.
+   ===================================================================== */
+function zusammenfuehren(ziel, quelle){
+  const bericht = { neu:0, erneuert:0, behalten:0, listen:0, konflikte:[] };
+  if(!quelle || typeof quelle !== "object") return bericht;
+
+  const tq = quelle.t || {};
+  const tz = ziel.t   || {};
+
+  Object.keys(tq).forEach(pfad => {
+    if(pfad.indexOf("oberstand") === 0) return;        // Listen unten gesondert
+    const wertQ = ausPfad(quelle, pfad);
+    if(wertQ === undefined) return;
+    const sQ = tq[pfad] || 0;
+    const sZ = tz[pfad] || 0;
+    const wertZ = ausPfad(ziel, pfad);
+
+    if(wertZ === undefined || sQ > sZ){
+      // Die Quelle ist jünger oder das Feld ist hier unbekannt.
+      if(wertZ !== undefined && String(wertZ) !== String(wertQ) && sZ > 0){
+        bericht.konflikte.push({pfad:pfad, hier:wertZ, dort:wertQ, gewinner:"dort"});
+      }
+      inPfad(ziel, pfad, wertQ);
+      ziel.t[pfad] = sQ;
+      if(wertZ === undefined) bericht.neu++; else bericht.erneuert++;
+    }else if(sZ > sQ){
+      if(String(wertZ) !== String(wertQ)){
+        bericht.konflikte.push({pfad:pfad, hier:wertZ, dort:wertQ, gewinner:"hier"});
+      }
+      bericht.behalten++;
+    }
+  });
+
+  // --- Listen vereinigen ---
+  bericht.listen += listeVereinigen(ziel, quelle, "oberstand");
+
+  // Artenlisten der Vegetation liegen je Punkt
+  const vq = (quelle.veg && quelle.veg.punkte) || {};
+  Object.keys(vq).forEach(pid => {
+    if(!ziel.veg) ziel.veg = {punkte:{}, radien:{}};
+    if(!ziel.veg.punkte) ziel.veg.punkte = {};
+    if(!ziel.veg.punkte[pid]) ziel.veg.punkte[pid] = {einfach:{}, arten:[], bem:"", aufnehmer:""};
+    const zp = ziel.veg.punkte[pid], qp = vq[pid] || {};
+    if(Array.isArray(qp.arten)){
+      const vorher = (zp.arten || []).length;
+      zp.arten = eintraegeVereinigen(zp.arten || [], qp.arten);
+      bericht.listen += Math.max(0, zp.arten.length - vorher);
+    }
+  });
+
+  ziel.geaendert = new Date().toISOString();
+  return bericht;
+}
+
+/* Eine Liste im Datensatz vereinigen (Oberstand). */
+function listeVereinigen(ziel, quelle, name){
+  const q = Array.isArray(quelle[name]) ? quelle[name] : [];
+  if(!Array.isArray(ziel[name])) ziel[name] = [];
+  const vorher = ziel[name].length;
+  ziel[name] = eintraegeVereinigen(ziel[name], q);
+  return Math.max(0, ziel[name].length - vorher);
+}
+
+/* Zwei Listen von Einträgen vereinigen. Jeder Eintrag trägt eine Kennung _id
+   und einen Zeitstempel _t. Gleiche Kennung → der jüngere gewinnt.
+   Einträge OHNE Kennung (aus älteren Fassungen) bekommen eine, abgeleitet aus
+   ihrem Inhalt — damit derselbe Baum nicht zweimal in der Liste landet. */
+function eintraegeVereinigen(a, b){
+  const nach = {};
+  const aufnehmen = eintrag => {
+    if(!eintrag || typeof eintrag !== "object") return;
+    const id = eintrag._id || inhaltsKennung(eintrag);
+    if(!eintrag._id) eintrag._id = id;
+    const alt = nach[id];
+    if(!alt || (eintrag._t || 0) > (alt._t || 0)) nach[id] = eintrag;
+  };
+  a.forEach(aufnehmen);
+  b.forEach(aufnehmen);
+  return Object.keys(nach).map(k => nach[k]);
+}
+
+/* Kennung aus dem Inhalt — für Einträge, die vor Fassung 3 angelegt wurden. */
+function inhaltsKennung(o){
+  const roh = JSON.stringify(o, Object.keys(o).filter(k => k[0] !== "_").sort());
+  let h = 0;
+  for(let i = 0; i < roh.length; i++){ h = ((h << 5) - h + roh.charCodeAt(i)) | 0; }
+  return "a" + Math.abs(h).toString(36);
+}
+
+/* Neuer Listeneintrag mit Kennung und Stempel. */
+function neuerEintrag(felder){
+  return Object.assign({
+    _id: GERAET + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2,5),
+    _t:  Date.now(),
+    _g:  GERAET
+  }, felder || {});
+}
+
+function eintragAendern(eintrag, felder){
+  Object.assign(eintrag, felder);
+  eintrag._t = Date.now();
+  eintrag._g = GERAET;
+  return eintrag;
+}
+
+/* =====================================================================
+   Flächenverwaltung
+   ===================================================================== */
+function flaechenListe(){
+  try{
+    const roh = localStorage.getItem(P_LISTE);
+    const l = roh ? JSON.parse(roh) : [];
+    return Array.isArray(l) ? l : [];
+  }catch(e){ return []; }
+}
+
+function flaechenListeSchreiben(l){
+  try{ localStorage.setItem(P_LISTE, JSON.stringify(l)); }catch(e){}
+}
+
+/* Den Übersichtseintrag einer Fläche auffrischen — Name, Datum, Fortschritt. */
+function listeAuffrischen(){
+  if(!D.id) return;
+  const l = flaechenListe();
+  const fertig = PUNKTE.filter(p => punktFertig(p.id)).length;
+  const eintrag = {
+    id: D.id,
+    flaeche: wertVon("kopf","f_flaeche") || "ohne Namen",
+    datum: D.kopf.f_datum || "",
+    geaendert: D.geaendert || new Date().toISOString(),
+    punkte: fertig,
+    baeume: (D.oberstand || []).length
+  };
+  const i = l.findIndex(e => e.id === D.id);
+  if(i >= 0) l[i] = eintrag; else l.push(eintrag);
+  flaechenListeSchreiben(l);
+}
+
+function flaecheAnlegen(name){
+  const id = "f" + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+  const neu = leererDatensatz();
+  neu.id = id;
+  neu.kopf.f_datum = new Date().toISOString().slice(0,10);
+  neu.t["kopf.f_datum"] = Date.now();
+  if(name){
+    neu.kopf.f_flaeche = name;
+    neu.t["kopf.f_flaeche"] = Date.now();
+  }
+  const aufnehmer = geraeteName();
+  if(aufnehmer){
+    neu.kopf.f_team = aufnehmer;
+    neu.t["kopf.f_team"] = Date.now();
+  }
+  D = neu;
+  flaecheSchreiben();
+  aktuelleMerken(id);
+  listeAuffrischen();
+  return id;
+}
+
+function flaecheSchreiben(){
+  if(!D.id || !SPEICHER_OK) return false;
+  try{
+    localStorage.setItem(P_FLAECHE + D.id, JSON.stringify(D));
+    return true;
+  }catch(e){
+    SPEICHER_OK = false;
+    return false;
   }
 }
+
+function flaecheLesen(id){
+  try{
+    const roh = localStorage.getItem(P_FLAECHE + id);
+    if(!roh) return null;
+    const d = Object.assign(leererDatensatz(), JSON.parse(roh));
+    d.id = id;
+    return d;
+  }catch(e){ return null; }
+}
+
+function aktuelleMerken(id){
+  try{ localStorage.setItem(P_AKTUELL, id || ""); }catch(e){}
+}
+
+function flaecheOeffnen(id){
+  const d = flaecheLesen(id);
+  if(!d) return false;
+  D = d;
+  ergaenzen();
+  aktuelleMerken(id);
+  SEIT_SICHERUNG = 0;
+  return true;
+}
+
+function flaecheLoeschen(id){
+  try{ localStorage.removeItem(P_FLAECHE + id); }catch(e){}
+  flaechenListeSchreiben(flaechenListe().filter(e => e.id !== id));
+  if(D.id === id){ D = leererDatensatz(); aktuelleMerken(""); }
+}
+
+/* Einen fremden Stand einsortieren: gehört er zu einer Fläche, die es hier
+   schon gibt, wird zusammengeführt — sonst als neue Fläche angelegt.
+   Zugeordnet wird über die Kennung; hilfsweise über Flächenname und Datum,
+   damit auch Sicherungen aus Fassung 2 (die keine Kennung haben) landen,
+   wo sie hingehören. */
+function standEinsortieren(fremd){
+  const l = flaechenListe();
+  let zielId = null;
+
+  if(fremd.id && l.some(e => e.id === fremd.id)){
+    zielId = fremd.id;
+  }else{
+    const name  = (fremd.kopf && fremd.kopf.f_flaeche) || "";
+    const datum = (fremd.kopf && fremd.kopf.f_datum) || "";
+    const treffer = l.find(e => e.flaeche === name && e.datum === datum && name);
+    if(treffer) zielId = treffer.id;
+  }
+
+  if(zielId){
+    const war = (D.id === zielId) ? D : flaecheLesen(zielId);
+    const bericht = zusammenfuehren(war, fremd);
+    if(D.id === zielId){ D = war; }
+    else{
+      const merk = D;
+      D = war; flaecheSchreiben(); D = merk;
+    }
+    // Übersicht des Ziels auffrischen
+    const merk2 = D; D = war; listeAuffrischen(); D = merk2;
+    return {art:"zusammengefuehrt", id:zielId, bericht:bericht};
+  }
+
+  // Neue Fläche
+  const neu = Object.assign(leererDatensatz(), fremd);
+  neu.id = fremd.id || ("f" + Date.now().toString(36) + Math.random().toString(36).slice(2,6));
+  neu.fassung = 3;
+  const merk = D;
+  D = neu; ergaenzen(); flaecheSchreiben(); listeAuffrischen(); D = merk;
+  return {art:"neu", id:neu.id, bericht:{neu:Object.keys(neu.t||{}).length, erneuert:0, behalten:0, listen:(neu.oberstand||[]).length, konflikte:[]}};
+}
+
+/* =====================================================================
+   Speichern
+   ===================================================================== */
+let SPEICHER_TIMER = null;
 
 function speicherPruefen(){
   try{
@@ -248,20 +612,15 @@ function speicherPruefen(){
   return SPEICHER_OK;
 }
 
-/* ---------- Speichern, entkoppelt ----------
-   Fassung 1 schrieb bei JEDER Eingabe den ganzen Datensatz weg UND baute beide
-   Exporttexte neu auf. Das wurde mit wachsender Aufnahme spürbar langsamer — genau
-   der Effekt, der am Feldtag aufgefallen ist. Jetzt:
-     · der Schreibvorgang wird gebündelt (250 ms nach der letzten Eingabe),
-     · der Export wird nur noch gebaut, wenn der Abschnitt "Daten" offen ist. */
-let SPEICHER_TIMER = null;
-
 function speichern(sofort){
   D.geaendert = new Date().toISOString();
+  D.herkunft[GERAET] = D.geaendert;
   SEIT_SICHERUNG++;
   kopfAktualisieren();
   erinnerungPruefen();
-  if(document.getElementById("daten").classList.contains("aktiv")) exporteAufbauen();
+  if(document.getElementById("daten") && document.getElementById("daten").classList.contains("aktiv")){
+    exporteAufbauen();
+  }
   if(!SPEICHER_OK){ statusZeigen("KEIN SPEICHER — regelmäßig sichern!", true); return; }
   if(SPEICHER_TIMER) clearTimeout(SPEICHER_TIMER);
   if(sofort){ wirklichSpeichern(); return; }
@@ -271,30 +630,20 @@ function speichern(sofort){
 function wirklichSpeichern(){
   SPEICHER_TIMER = null;
   const t0 = performance.now();
-  try{
-    localStorage.setItem(SCHLUESSEL, JSON.stringify(D));
+  const ok = flaecheSchreiben();
+  if(ok){
+    listeAuffrischen();
     LETZTE_SPEICHERDAUER = performance.now() - t0;
     statusZeigen("gespeichert " + new Date().toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})
       + " · " + LETZTE_SPEICHERDAUER.toFixed(0) + " ms");
-  }catch(e){
-    SPEICHER_OK = false;
+    if(typeof syncAnstossen === "function") syncAnstossen();
+  }else{
     speicherWarnungZeigen();
-    statusZeigen("Speichern fehlgeschlagen: " + (e && e.name ? e.name : "unbekannt"), true);
+    statusZeigen("Speichern fehlgeschlagen", true);
   }
 }
 
-function laden(){
-  if(!SPEICHER_OK) return;
-  try{
-    const roh = localStorage.getItem(SCHLUESSEL);
-    if(roh){ D = Object.assign(leererDatensatz(), JSON.parse(roh)); ergaenzen(); return; }
-    // Kein Datensatz der neuen Fassung — dann nach der alten sehen und umsetzen.
-    const alt = localStorage.getItem(SCHLUESSEL_ALT);
-    if(alt){ D = migrieren(JSON.parse(alt)); wirklichSpeichern(); }
-  }catch(e){ /* leerer Start */ }
-}
-
-/* Fehlende Zweige nachziehen — eine ältere Sicherung kennt sie noch nicht. */
+/* ---------- Fehlende Zweige nachziehen ---------- */
 function ergaenzen(){
   const leer = leererDatensatz();
   Object.keys(leer).forEach(k => { if(D[k] === undefined || D[k] === null) D[k] = leer[k]; });
@@ -309,64 +658,221 @@ function ergaenzen(){
   if(!D.veg.punkte) D.veg.punkte = {};
   if(!D.veg.radien) D.veg.radien = {};
   if(!D.wta) D.wta = {};
-  if(!Array.isArray(D.baeume)) D.baeume = [];
+  if(!D.t) D.t = {};
+  if(!D.herkunft) D.herkunft = {};
+  if(!D.bedingungen) D.bedingungen = {};
   if(!Array.isArray(D.oberstand)) D.oberstand = [];
 
-  /* Seit Fassung 2.1 trägt der Oberstand Richtung und Entfernung — er
-     verortet die Fläche (SITZUNGSSTAND Kap. 1t). Ältere Aufnahmen haben
-     diese Felder nicht; sie werden hier leer ergänzt, damit nichts
-     verlorengeht und keine Anzeige über undefinierte Werte stolpert. */
   D.oberstand.forEach(b => {
-    if(b.parzelle  === undefined) b.parzelle  = "A";
-    if(b.azimut    === undefined) b.azimut    = "";
-    if(b.dist      === undefined) b.dist      = "";
+    if(b.parzelle === undefined) b.parzelle = "A";
+    if(b.azimut   === undefined) b.azimut   = "";
+    if(b.dist     === undefined) b.dist     = "";
+    if(b.bem      === undefined) b.bem      = "";
     if(b.kontrolle === undefined) b.kontrolle = false;
-    if(b.k_dist2   === undefined) b.k_dist2   = "";
-    if(b.k_azimut  === undefined) b.k_azimut  = "";
-    if(b.bem       === undefined) b.bem       = "";
+    if(b.k_dist2  === undefined) b.k_dist2  = "";
+    if(b.k_azimut === undefined) b.k_azimut = "";
+    if(b._id      === undefined) b._id      = inhaltsKennung(b);
+    if(b._t       === undefined) b._t       = 1;
   });
 }
 
-/* ---------- Übernahme einer Sicherung der Fassung 1 ----------
-   Der Aufbau ist bis auf drei Punkte gleich:
-     · Herkunft und Gattermaße lagen im Kopf, jetzt je Parzelle
-     · Vegetation hatte einen Modus (entweder/oder), jetzt beides nebeneinander
-     · der Freitext der Auswahlfelder ist neu
-   Nichts wird verworfen: Was sich nicht zuordnen lässt, landet in der Bemerkung. */
-function migrieren(alt){
+/* =====================================================================
+   Übernahme aus den Fassungen 1 und 2
+   Beim ersten Start der Fassung 3 wird die alte Aufnahme gesucht und als
+   erste Fläche angelegt. Nichts wird gelöscht: Der alte Speicherplatz
+   bleibt unberührt, damit ein Rückschritt möglich bleibt.
+   ===================================================================== */
+function altUebernehmen(){
+  if(flaechenListe().length) return null;      // schon Flächen da — nichts zu tun
+  let alt = null, ausFassung = 0;
+  try{
+    const r2 = localStorage.getItem(SCHLUESSEL_V2);
+    if(r2){ alt = JSON.parse(r2); ausFassung = 2; }
+    else{
+      const r1 = localStorage.getItem(SCHLUESSEL_V1);
+      if(r1){ alt = JSON.parse(r1); ausFassung = 1; }
+    }
+  }catch(e){ return null; }
+  if(!alt) return null;
+
+  const neu = ausFassung2(alt);
+  neu.id = "f" + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+  D = neu;
+  flaecheSchreiben();
+  aktuelleMerken(neu.id);
+  listeAuffrischen();
+  return {fassung: ausFassung, flaeche: (neu.kopf.f_flaeche || "ohne Namen"),
+          punkte: Object.keys(neu.punkte || {}).length};
+}
+
+/* Einen Datensatz der Fassung 1 oder 2 in die Fassung 3 überführen.
+
+   Drei Dinge ändern sich inhaltlich, und alle drei werden hier vollzogen,
+   damit keine Altaufnahme still falsch weiterläuft:
+   (1) Je Parzelle gab es Breite außen UND innen; jetzt gibt es eine Breite.
+       Übernommen wird die AUSSENBREITE — sie ist die gemessene; die
+       Innenbreite war auf BY07 ohnehin geschätzt.
+   (2) Der Trennstreifen hatte nur ein Maß. Es wandert auf die Länge
+       (Abstand zwischen den Parzellen); die Breite bleibt leer.
+   (3) Die Ko-Registrierung (Passpunktbäume, Klammer) entfällt. Was dort
+       stand, geht NICHT verloren, sondern wird an die Bemerkung angehängt. */
+function ausFassung2(alt){
   const n = leererDatensatz();
   if(!alt || typeof alt !== "object") return n;
-  n.kopf      = Object.assign({}, alt.kopf || {});
-  n.bestand   = Object.assign({}, alt.bestand || {});
-  n.gelaende  = Object.assign({}, alt.gelaende || {});
-  n.koreg     = Object.assign({}, alt.koreg || {});
-  n.punkte    = Object.assign({}, alt.punkte || {});
-  n.baeume    = Array.isArray(alt.baeume) ? alt.baeume.slice() : [];
-  n.oberstand = Array.isArray(alt.oberstand) ? alt.oberstand.slice() : [];
-  n.wta       = Object.assign({}, alt.wta || {});
+  const stempel = alt.geaendert ? new Date(alt.geaendert).getTime() : Date.now();
 
-  n.parzellen.A.herkunft = (alt.kopf && alt.kopf.f_herkunft_a) || "";
-  n.parzellen.B.herkunft = (alt.kopf && alt.kopf.f_herkunft_b) || "";
-  if(alt.kopf && alt.kopf.f_laenge_m){ n.parzellen.A.pa_laenge = alt.kopf.f_laenge_m; }
-  if(alt.kopf && alt.kopf.f_breite_m){ n.parzellen.A.pa_breite_a = alt.kopf.f_breite_m; }
-  delete n.kopf.f_herkunft_a; delete n.kopf.f_herkunft_b;
-  delete n.kopf.f_laenge_m;   delete n.kopf.f_breite_m;
+  const uebernehmen = (quelle, praefix) => {
+    if(!quelle || typeof quelle !== "object") return;
+    Object.keys(quelle).forEach(k => {
+      const wert = quelle[k];
+      if(wert === undefined || wert === null || wert === "") return;
+      inPfad(n, praefix + "." + k, wert);
+      n.t[praefix + "." + k] = stempel;
+    });
+  };
 
-  n.veg.punkte = {};
-  const altVeg = (alt.veg && alt.veg.punkte) || {};
-  Object.keys(altVeg).forEach(pid => {
-    const v = altVeg[pid] || {};
-    n.veg.punkte[pid] = {
-      einfach: v.einfach || {},
-      arten:   Array.isArray(v.arten) ? v.arten : [],
-      kronenschluss: v.kronenschluss || "",
-      bem: v.bem || "",
-      aufnehmer: ""
-    };
+  uebernehmen(alt.kopf, "kopf");
+  uebernehmen(alt.bestand, "bestand");
+  uebernehmen(alt.wta, "wta");
+  uebernehmen(alt.schema, "schema");
+  if(alt.schema && alt.schema.nummern) n.schema.nummern = alt.schema.nummern;
+
+  // Parzellen: Außenbreite wird die Breite
+  if(alt.parzellen){
+    ["A","B"].forEach(pz => {
+      const p = alt.parzellen[pz] || {};
+      const vor = (pz === "A") ? "pa_" : "pb_";
+      const ziel = "parzellen." + pz + ".";
+      [["code","code"],["herkunft","herkunft"],["lage","lage"],["lage_frei","lage_frei"],
+       ["laenge","laenge"]].forEach(([von,nach]) => {
+        if(p[vor+von] !== undefined && p[vor+von] !== ""){
+          inPfad(n, ziel + vor + nach, p[vor+von]);
+          n.t[ziel + vor + nach] = stempel;
+        }
+      });
+      if(p[vor+"breite_a"] !== undefined && p[vor+"breite_a"] !== ""){
+        inPfad(n, ziel + vor + "breite", p[vor+"breite_a"]);
+        n.t[ziel + vor + "breite"] = stempel;
+      }
+    });
+  }
+
+  // Trennstreifen: das alte Einzelmaß ist die Länge (Abstand der Parzellen)
+  if(alt.kopf && alt.kopf.f_trenn){
+    inPfad(n, "kopf.f_trenn_l", alt.kopf.f_trenn);
+    n.t["kopf.f_trenn_l"] = stempel;
+  }
+
+  // Messpunkte einschließlich aller Werte
+  const ap = alt.punkte || {};
+  Object.keys(ap).forEach(pid => {
+    const p = ap[pid] || {};
+    Object.keys(p).forEach(k => {
+      if(p[k] === undefined || p[k] === null || p[k] === "") return;
+      inPfad(n, "punkte." + pid + "." + k, p[k]);
+      n.t["punkte." + pid + "." + k] = stempel;
+    });
   });
-  n.veg.radien = {};
-  n.fassung = 2;
+
+  // Vegetation
+  if(alt.veg){
+    n.veg.radien = alt.veg.radien || {};
+    const av = alt.veg.punkte || {};
+    Object.keys(av).forEach(pid => {
+      const v = av[pid] || {};
+      n.veg.punkte[pid] = {
+        einfach: v.einfach || {},
+        arten: (Array.isArray(v.arten) ? v.arten : []).map(a =>
+          Object.assign({_id: inhaltsKennung(a), _t: stempel}, a)),
+        kronenschluss: v.kronenschluss || "",
+        bem: v.bem || "",
+        aufnehmer: v.aufnehmer || ""
+      };
+      Object.keys(n.veg.punkte[pid].einfach).forEach(k => {
+        n.t["veg.punkte." + pid + ".einfach." + k] = stempel;
+      });
+      ["kronenschluss","bem","aufnehmer"].forEach(k => {
+        if(n.veg.punkte[pid][k]) n.t["veg.punkte." + pid + "." + k] = stempel;
+      });
+    });
+  }
+
+  // Oberstand
+  n.oberstand = (Array.isArray(alt.oberstand) ? alt.oberstand : []).map(b =>
+    Object.assign({_id: inhaltsKennung(b), _t: stempel, _g: "alt"}, b));
+
+  // Messbedingungen aus dem alten Geländeabschnitt
+  if(alt.gelaende){
+    ["g_himmel1","g_himmel2","g_himmel3","g_ok1","g_ok2","g_ok3","g_abfahrt"].forEach(k => {
+      if(alt.gelaende[k] !== undefined && alt.gelaende[k] !== ""){
+        inPfad(n, "bedingungen." + k, alt.gelaende[k]);
+        n.t["bedingungen." + k] = stempel;
+      }
+    });
+  }
+
+  // Was entfällt, wird angehängt statt weggeworfen
+  const reste = [];
+  if(alt.gelaende){
+    const g = alt.gelaende;
+    if(g.g_neigung)  reste.push("Hangneigung im Feld geschätzt: " + g.g_neigung + "°");
+    if(g.g_horizont) reste.push("Horizontüberhöhung: " + g.g_horizont);
+    if(g.g_exposition) reste.push("Exposition: " + g.g_exposition);
+    if(g.g_relief)   reste.push("Relief: " + g.g_relief);
+  }
+  if(alt.koreg){
+    const k = alt.koreg;
+    if(k.k_azimut_ab || k.k_dist_ab)
+      reste.push("Klammer A→B: " + (k.k_azimut_ab||"—") + "° / " + (k.k_dist_ab||"—") + " m");
+    if(k.k_nordbezug)  reste.push("Nordbezug: " + k.k_nordbezug);
+    if(k.k_gegenkurs)  reste.push("Gegenkurs-Test: " + k.k_gegenkurs);
+    if(k.k_geraet)     reste.push("Azimutgerät: " + k.k_geraet);
+  }
+  if(Array.isArray(alt.baeume) && alt.baeume.length){
+    reste.push("Passpunktbäume der alten Fassung (" + alt.baeume.length + "): "
+      + alt.baeume.map(b => (b.nr||"?") + " " + (b.azimut||"?") + "°/" + (b.dist||"?") + "m").join(" · "));
+  }
+  if(reste.length){
+    const bisher = n.kopf.f_bemerkung ? n.kopf.f_bemerkung + "\n\n" : "";
+    n.kopf.f_bemerkung = bisher
+      + "--- Aus der Fassung 2 übernommen (Abschnitte entfallen in Fassung 3) ---\n"
+      + reste.join("\n");
+    n.t["kopf.f_bemerkung"] = Date.now();
+  }
+
+  n.fassung = 3;
   n.geaendert = alt.geaendert || new Date().toISOString();
-  n.umgesetzt_aus_fassung1 = true;
+  n.aus_fassung2 = true;
   return n;
+}
+
+/* =====================================================================
+   Zielobjekte und Zielpfade der Formularfelder
+
+   Die Masken nennen ihr Ziel weiterhin kurz ("kopf", "parzA"). Fassung 3
+   braucht zusätzlich den PFAD, weil jedes Feld seinen Zeitstempel unter
+   diesem Pfad ablegt. Beides steht hier nebeneinander, damit es nicht
+   auseinanderlaufen kann.
+   ===================================================================== */
+function zielObjekt(name){
+  switch(name){
+    case "kopf":        return D.kopf;
+    case "bestand":     return D.bestand;
+    case "bedingungen": return D.bedingungen;
+    case "schema":      return D.schema;
+    case "wta":         return D.wta;
+    case "parzA":       return D.parzellen.A;
+    case "parzB":       return D.parzellen.B;
+    default:            return D.kopf;
+  }
+}
+
+function zielPfad(name){
+  switch(name){
+    case "parzA": return "parzellen.A";
+    case "parzB": return "parzellen.B";
+    case "kopf": case "bestand": case "bedingungen": case "schema": case "wta":
+      return name;
+    default: return "kopf";
+  }
 }

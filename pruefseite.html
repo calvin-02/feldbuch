@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Feldbuch — Prüfseite</title>
+<style>
+  :root{
+    --gruen:#2d6a3e; --gruen-hell:#3f8a52; --gruen-blass:#eaf3ec;
+    --rand:#cfd8d0; --grau:#eef1ee; --text:#1c2620; --text-zweit:#5a6b60;
+    --ocker:#b8860b; --rot:#a63232; --bg:#fbfaf7;
+  }
+  body{margin:0; background:var(--bg); color:var(--text);
+       font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; padding:16px;}
+  h1{font-size:21px; margin:0 0 4px;}
+  h2{font-size:17px; margin:26px 0 8px; color:var(--gruen); border-bottom:2px solid var(--gruen-blass); padding-bottom:4px;}
+  p{max-width:62em;}
+  .hinweis{background:var(--gruen-blass); border-left:4px solid var(--gruen);
+           padding:10px 13px; border-radius:0 7px 7px 0; margin:12px 0; max-width:62em;}
+  .achtung{background:#fdf6e3; border-left-color:var(--ocker);}
+  .reihe{display:flex; gap:18px; flex-wrap:wrap; align-items:flex-start;}
+  figure{margin:0; background:#fff; border:1.5px solid var(--rand); border-radius:9px; padding:10px;}
+  figcaption{font-weight:700; font-size:14px; margin-bottom:6px; text-align:center;}
+  .parzflaeche{fill:var(--gruen-blass); stroke:var(--gruen); stroke-width:2;}
+  .streifen{fill:#f3efe2; stroke:var(--ocker); stroke-width:1.5; stroke-dasharray:5 4;}
+  .eingang{stroke:var(--rot); stroke-width:5; stroke-linecap:round;}
+  .punkt circle{fill:#fff; stroke:var(--gruen); stroke-width:2;}
+  .punkt.belegt circle{fill:var(--gruen);}
+  .punkt text{font-size:13px; font-weight:700; text-anchor:middle; dominant-baseline:central; fill:var(--gruen);}
+  .punkt.belegt text{fill:#fff;}
+  .parzname{font-size:19px; font-weight:800; text-anchor:middle; dominant-baseline:central; fill:var(--gruen-hell);}
+  .beschriftung{font-size:13px; font-weight:700; text-anchor:middle; dominant-baseline:central; fill:var(--text-zweit);}
+  .nordpfeil{stroke:var(--text); stroke-width:2.5; fill:none; stroke-linecap:round; stroke-linejoin:round;}
+  .nordtext{font-size:13px; font-weight:800; text-anchor:middle; fill:var(--text);}
+  table{border-collapse:collapse; margin:10px 0; font-size:14px;}
+  th,td{border:1px solid var(--rand); padding:5px 9px; text-align:left;}
+  th{background:var(--grau);}
+  .ok{color:var(--gruen); font-weight:700;}
+  .fehler{color:var(--rot); font-weight:700;}
+  code{background:var(--grau); padding:1px 5px; border-radius:3px; font-size:13px;}
+</style>
+</head>
+<body>
+
+<h1>Feldbuch Fassung 3 — Prüfseite</h1>
+<p>Erzeugt in der Nacht vom 14. auf den 15.09.2026. <b>Diese Seite rechnet mit demselben Code
+wie die App</b> — sie lädt die Bausteine und lässt sie zeichnen. Was hier steht, ist also kein
+Bild von gestern, sondern der heutige Stand.</p>
+
+<div class="hinweis achtung">
+  <b>Warum es diese Seite gibt.</b> Am 14.09. meldete Skript 48 „7 von 7 Punkten liegen im Wald —
+  Sorge entkräftet“, und erst das Kronenhöhenbild zeigte die Häuserzeilen. Daraus der Merksatz:
+  <b>Jede automatische Beurteilung braucht ein Bild daneben.</b> Die Zahlenprüfungen unten sind
+  bestanden — <b>sieh dir trotzdem die Zeichnungen an</b>, bevor du der Drehung im Feld vertraust.
+</div>
+
+<h2>1 · Die Skizze in vier Drehungen</h2>
+<p>Maße der echten Fläche <b>BY07</b>, wie sie am 07.09. gemessen wurden: Parzelle A 37,3 × 28,5 m,
+Trennstreifen 17 m, Parzelle B 35,5 × 32 m. <b>A liegt im Süden</b>, der Eingang ebenfalls.</p>
+<p><b>Worauf du achten musst:</b> Die Himmelsrichtung an der Oberkante, der Nordpfeil links oben
+und die Lage von A müssen zusammenpassen. Steht oben <code>O</code>, muss A (Süden) rechts liegen
+und der Nordpfeil nach links zeigen.</p>
+
+<div class="reihe" id="skizzen"></div>
+
+<h2>2 · Was die Prüfungen sagen</h2>
+<div id="pruefungen"></div>
+
+<h2>3 · Geometrie</h2>
+<div id="geometrie"></div>
+
+<script>
+/* Die Zeichenfunktionen der App, hier ohne den Rest der Oberfläche.
+   Bewusst aus derselben Quelle kopiert wie teile/08_js_skizze.html —
+   wird dort etwas geändert, gehört es auch hierher. */
+function zahl(v){ if(v===undefined||v===null||v==="") return NaN; return parseFloat(String(v).replace(",",".")); }
+function grad(rad){ let g = rad*180/Math.PI; while(g<0) g+=360; while(g>=360) g-=360; return g; }
+function richtungsname(az){
+  const n = ["N","NNO","NO","ONO","O","OSO","SO","SSO","S","SSW","SW","WSW","W","WNW","NW","NNW"];
+  return n[Math.round(((az%360)+360)%360/22.5)%16];
+}
+const ECKEN = ["or","ur","ul","ol"];
+const LAGE_AZIMUT = {"Nord":0,"Nordost":45,"Ost":90,"Südost":135,"Süd":180,"Südwest":225,"West":270,"Nordwest":315};
+
+const M = {La:37.3, Wa:28.5, Lb:35.5, Wb:32, T:17, Tb:30, achse:0};
+
+function geometrie(){
+  const g = M;
+  const bau = (yUnten,L,W) => {
+    const yc = yUnten + L/2;
+    const ecken = {ur:{x:W/2,y:yUnten}, ul:{x:-W/2,y:yUnten},
+                   or:{x:W/2,y:yUnten+L}, ol:{x:-W/2,y:yUnten+L}};
+    const sat = {};
+    ECKEN.forEach(e => {
+      sat[e] = {x:0.75*ecken[e].x, y:yc+0.75*(ecken[e].y-yc)};
+      sat[e].dist = Math.hypot(sat[e].x, sat[e].y-yc);
+      sat[e].azimut = (grad(Math.atan2(sat[e].x, sat[e].y-yc)) + g.achse) % 360;
+    });
+    return {yc:yc, ecken:ecken, sat:sat, L:L, W:W, flaeche:L*W};
+  };
+  const A = bau(0, g.La, g.Wa), B = bau(g.La+g.T, g.Lb, g.Wb);
+  return {g:g, A:A, B:B,
+          streifen:{y0:g.La, y1:g.La+g.T, W:g.Tb, flaeche:g.T*g.Tb},
+          gesamtL:g.La+g.T+g.Lb, maxW:Math.max(g.Wa,g.Wb,g.Tb),
+          abstandAB:B.yc-A.yc};
+}
+
+function drehen(x,y,w){ const r=w*Math.PI/180,c=Math.cos(r),s=Math.sin(r); return [x*c-y*s, x*s+y*c]; }
+
+function zeichnen(dreh, nummern){
+  const q = geometrie(), a = q.g.achse;
+  const dr = (x,y) => drehen(x,y,dreh);
+  const alle = [];
+  ["A","B"].forEach(pz => ECKEN.forEach(e => alle.push([q[pz].ecken[e].x, q[pz].ecken[e].y])));
+  alle.push([-q.streifen.W/2,q.streifen.y0],[q.streifen.W/2,q.streifen.y0],
+            [-q.streifen.W/2,q.streifen.y1],[q.streifen.W/2,q.streifen.y1]);
+  const gd = alle.map(([x,y]) => dr(x,y));
+  const xs = gd.map(p=>p[0]), ys = gd.map(p=>p[1]);
+  const xmin=Math.min(...xs), xmax=Math.max(...xs), ymin=Math.min(...ys), ymax=Math.max(...ys);
+  const spanX=Math.max(1,xmax-xmin), spanY=Math.max(1,ymax-ymin);
+  const rand={l:54,r:54,o:56,u:56};
+  const skala = Math.min(232/spanX, 330/spanY);
+  const breite = spanX*skala+rand.l+rand.r, hoehe = spanY*skala+rand.o+rand.u;
+  const P=(x,y)=>{ const [gx,gy]=dr(x,y); return [rand.l+(gx-xmin)*skala, rand.o+(ymax-gy)*skala]; };
+  const poly = pts => pts.map(([x,y])=>P(x,y).join(",")).join(" ");
+  const kanten = {oben:(a+dreh)%360, rechts:(a+dreh+90)%360, unten:(a+dreh+180)%360, links:(a+dreh+270)%360};
+
+  let s = '<svg viewBox="0 0 '+breite.toFixed(0)+' '+hoehe.toFixed(0)+'" width="'+breite.toFixed(0)+'" height="'+hoehe.toFixed(0)+'">';
+  s += '<polygon class="parzflaeche" points="'+poly([[q.A.ecken.ul.x,q.A.ecken.ul.y],[q.A.ecken.ur.x,q.A.ecken.ur.y],[q.A.ecken.or.x,q.A.ecken.or.y],[q.A.ecken.ol.x,q.A.ecken.ol.y]])+'"/>';
+  s += '<polygon class="streifen" points="'+poly([[-q.streifen.W/2,q.streifen.y0],[q.streifen.W/2,q.streifen.y0],[q.streifen.W/2,q.streifen.y1],[-q.streifen.W/2,q.streifen.y1]])+'"/>';
+  s += '<polygon class="parzflaeche" points="'+poly([[q.B.ecken.ul.x,q.B.ecken.ul.y],[q.B.ecken.ur.x,q.B.ecken.ur.y],[q.B.ecken.or.x,q.B.ecken.or.y],[q.B.ecken.ol.x,q.B.ecken.ol.y]])+'"/>';
+
+  // Eingang im Süden
+  const ez = 180;
+  const kand = {
+    unten:{az:(a+180)%360, pts:[[-q.maxW/6,0],[q.maxW/6,0]]},
+    oben:{az:a, pts:[[-q.maxW/6,q.gesamtL],[q.maxW/6,q.gesamtL]]},
+    rechts:{az:(a+90)%360, pts:[[q.maxW/2,q.gesamtL*0.42],[q.maxW/2,q.gesamtL*0.58]]},
+    links:{az:(a+270)%360, pts:[[-q.maxW/2,q.gesamtL*0.42],[-q.maxW/2,q.gesamtL*0.58]]}
+  };
+  let beste="unten", diff=999;
+  Object.keys(kand).forEach(k=>{ const d=Math.abs(((kand[k].az-ez+540)%360)-180); if(d<diff){diff=d;beste=k;} });
+  const [p1,p2]=kand[beste].pts, [x1,y1]=P(p1[0],p1[1]), [x2,y2]=P(p2[0],p2[1]);
+  s += '<line class="eingang" x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+'"/>';
+
+  ["A","B"].forEach(pz=>{
+    const t=q[pz];
+    ECKEN.forEach(e=>{
+      const [px,py]=P(t.sat[e].x, t.sat[e].y);
+      s += '<g class="punkt belegt"><circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="13"/>'
+         + '<text x="'+px.toFixed(1)+'" y="'+py.toFixed(1)+'">'+nummern[pz][e]+'</text></g>';
+    });
+    const [mx,my]=P(0,t.yc);
+    s += '<g class="punkt belegt"><circle cx="'+mx.toFixed(1)+'" cy="'+my.toFixed(1)+'" r="13"/>'
+       + '<text x="'+mx.toFixed(1)+'" y="'+my.toFixed(1)+'">5</text></g>';
+    const [lx,ly]=P(0, t.yc + (pz==="A" ? -t.L*0.3 : t.L*0.3));
+    s += '<text class="parzname" x="'+lx.toFixed(1)+'" y="'+ly.toFixed(1)+'">'+pz+'</text>';
+  });
+
+  s += '<text class="beschriftung" x="'+(breite/2)+'" y="20">'+richtungsname(kanten.oben)+'</text>';
+  s += '<text class="beschriftung" x="'+(breite/2)+'" y="'+(hoehe-8)+'">'+richtungsname(kanten.unten)+'</text>';
+  s += '<text class="beschriftung" x="'+(breite-16)+'" y="'+(hoehe/2)+'">'+richtungsname(kanten.rechts)+'</text>';
+  s += '<text class="beschriftung" x="16" y="'+(hoehe/2)+'">'+richtungsname(kanten.links)+'</text>';
+  s += '<g transform="translate(26,34) rotate('+(-(a+dreh))+')">'
+     + '<line class="nordpfeil" x1="0" y1="16" x2="0" y2="-14"/>'
+     + '<polyline class="nordpfeil" points="-6,-6 0,-15 6,-6"/></g>'
+     + '<text class="nordtext" x="26" y="56">N</text>';
+  s += '</svg>';
+  return {svg:s, kanten:kanten, breite:breite, hoehe:hoehe};
+}
+
+const nummern = {A:{or:"1",ur:"2",ul:"3",ol:"4"}, B:{or:"1",ur:"2",ul:"3",ol:"4"}};
+const box = document.getElementById("skizzen");
+const ergebnisse = [];
+[0,90,180,270].forEach(d => {
+  const r = zeichnen(d, nummern);
+  const f = document.createElement("figure");
+  f.innerHTML = '<figcaption>Drehung '+d+'° — oben: '+richtungsname(r.kanten.oben)+'</figcaption>' + r.svg;
+  box.appendChild(f);
+  ergebnisse.push({dreh:d, r:r});
+});
+
+/* --- Prüfungen, die scheitern können --- */
+const q = geometrie();
+const p = [];
+const erwartet = {0:"N", 90:"O", 180:"S", 270:"W"};
+ergebnisse.forEach(({dreh,r}) => {
+  const ist = richtungsname(r.kanten.oben);
+  p.push(["Drehung "+dreh+"°: Oberkante zeigt "+ist, ist === erwartet[dreh],
+          "erwartet "+erwartet[dreh]]);
+  const quer = r.breite > r.hoehe;
+  p.push(["Drehung "+dreh+"°: Parzellen liegen "+(quer?"nebeneinander":"übereinander"),
+          (dreh===90||dreh===270) ? quer : !quer,
+          (dreh===90||dreh===270) ? "bei 90/270 nebeneinander erwartet" : "bei 0/180 übereinander erwartet"]);
+});
+p.push(["Fläche A = "+q.A.flaeche.toFixed(0)+" m²", Math.abs(q.A.flaeche-1063)<1, "37,3 × 28,5 = 1063"]);
+p.push(["Fläche B = "+q.B.flaeche.toFixed(0)+" m²", Math.abs(q.B.flaeche-1136)<1, "35,5 × 32 = 1136"]);
+p.push(["Abstand Mittelpunkt A → B = "+q.abstandAB.toFixed(2)+" m", Math.abs(q.abstandAB-53.4)<0.01,
+        "18,65 + 17 + 17,75 = 53,40 — rein arithmetisch aus denselben Maßen, also KEIN unabhängiger Beleg"]);
+p.push(["Abweichung zu Martens' Polygon (53,7 m): "+Math.abs(q.abstandAB-53.7).toFixed(2)+" m",
+        Math.abs(q.abstandAB-53.7) < 1.0,
+        "DAS ist die unabhängige Gegenprobe (Kap. 1u-C6): 0,3 m = 0,5 % — sie hätte scheitern können"]);
+p.push(["Mittelpunkt A auf halber Länge: y = "+q.A.yc.toFixed(2), Math.abs(q.A.yc-18.65)<0.01,
+        "Rechteck statt Trapez — die Mitte ist die Mitte"]);
+
+document.getElementById("pruefungen").innerHTML =
+  '<table><tr><th>Prüfung</th><th>Ergebnis</th><th>Maßstab</th></tr>'
+  + p.map(([t,ok,m]) => '<tr><td>'+t+'</td><td class="'+(ok?"ok":"fehler")+'">'+(ok?"bestanden":"GESCHEITERT")+'</td><td>'+m+'</td></tr>').join("")
+  + '</table>'
+  + (p.every(x=>x[1])
+      ? '<div class="hinweis"><b>Alle '+p.length+' Prüfungen bestanden.</b> Sie prüfen Rechenwege, '
+        + 'nicht die Tauglichkeit im Feld — dafür sind die Zeichnungen oben da.</div>'
+      : '<div class="hinweis achtung"><b>Mindestens eine Prüfung ist gescheitert.</b> Nicht ins Feld nehmen.</div>');
+
+document.getElementById("geometrie").innerHTML =
+  '<table><tr><th></th><th>Länge</th><th>Breite</th><th>Fläche</th><th>Satellitenabstand</th></tr>'
+  + '<tr><td><b>Parzelle A</b></td><td>37,3 m</td><td>28,5 m</td><td>'+q.A.flaeche.toFixed(0)+' m²</td><td>'+q.A.sat.or.dist.toFixed(1)+' m</td></tr>'
+  + '<tr><td><b>Trennstreifen</b></td><td>17 m</td><td>30 m</td><td>'+q.streifen.flaeche.toFixed(0)+' m²</td><td>—</td></tr>'
+  + '<tr><td><b>Parzelle B</b></td><td>35,5 m</td><td>32 m</td><td>'+q.B.flaeche.toFixed(0)+' m²</td><td>'+q.B.sat.or.dist.toFixed(1)+' m</td></tr>'
+  + '<tr><td><b>Gatter gesamt</b></td><td>'+q.gesamtL.toFixed(1)+' m</td><td>—</td><td>'
+  + (q.A.flaeche+q.B.flaeche+q.streifen.flaeche).toFixed(0)+' m²</td><td>—</td></tr>'
+  + '</table>'
+  + '<div class="hinweis"><b>Zum Satellitenabstand:</b> '+q.A.sat.or.dist.toFixed(1)+' m in Parzelle A. '
+  + 'Das ist die Strecke vom markierten Pfosten zu jedem der vier Satellitenpunkte — <b>zum Nachmessen '
+  + 'im Feld</b>. Weicht die gemessene Strecke deutlich ab, stimmen die Maße nicht.</div>';
+</script>
+
+</body>
+</html>

@@ -1,18 +1,19 @@
 
 /* =====================================================================
-   Start
+   START
    ===================================================================== */
-const KOPF_FELDER = ["f_datum","f_ankunft","f_team","f_geraet","f_serie","f_breite","f_laenge",
-  "f_atm","f_schwellen","f_kosinus","f_periode_von","f_periode_bis","f_tsf_formel","f_p_geraet",
-  "f_bildwinkel","f_max_neigung","f_himmelsmodell","f_neigung_bezug","f_fotos","f_bilder",
-  "f_bildexport","f_trenn","f_marken_anzahl","f_marken_art","f_gps_lat","f_gps_lon","f_gps_acc",
+const KOPF_FELDER = ["f_datum","f_ankunft","f_team",
+  "f_geraet_ok","f_geraet_abweichung",
+  "f_geraet","f_serie","f_breite","f_laenge","f_atm","f_schwellen","f_kosinus",
+  "f_periode_von","f_periode_bis","f_tsf_formel","f_p_geraet","f_bildwinkel","f_max_neigung",
+  "f_trenn_l","f_trenn_b",
+  "f_gps_lat","f_gps_lon","f_gps_acc",
+  "k_nordbezug",
   "f_bemerkung"];
-const PARZ_A_FELDER = ["pa_code","pa_herkunft","pa_laenge","pa_breite_a","pa_breite_i"];
-const PARZ_B_FELDER = ["pb_code","pb_herkunft","pb_laenge","pb_breite_a","pb_breite_i"];
+const PARZ_A_FELDER = ["pa_code","pa_herkunft","pa_laenge","pa_breite"];
+const PARZ_B_FELDER = ["pb_code","pb_herkunft","pb_laenge","pb_breite"];
 const BESTAND_FELDER = ["b_besonderheiten","b_schluss_text"];
-const GELAENDE_FELDER = ["g_neigung","g_horizont","g_himmel1","g_himmel2","g_himmel3",
-  "g_ok1","g_ok2","g_ok3","g_abfahrt"];
-const KOREG_FELDER = ["k_azimut_ab","k_dist_ab","k_gegenkurs","k_nordbezug","k_vertex_kal"];
+const BEDINGUNGEN_FELDER = ["g_himmel1","g_himmel2","g_himmel3","g_ok1","g_ok2","g_ok3","g_abfahrt"];
 const SCHEMA_FELDER = ["s_achse","s_regel","s_bem"];
 
 function anhaengen(id, ereignis, was){
@@ -25,23 +26,20 @@ function alles(){
   PARZ_A_FELDER.forEach(id => feldBinden(id, "parzA"));
   PARZ_B_FELDER.forEach(id => feldBinden(id, "parzB"));
   BESTAND_FELDER.forEach(id => feldBinden(id, "bestand"));
-  GELAENDE_FELDER.forEach(id => feldBinden(id, "gelaende"));
-  KOREG_FELDER.forEach(id => feldBinden(id, "koreg"));
+  BEDINGUNGEN_FELDER.forEach(id => feldBinden(id, "bedingungen"));
   SCHEMA_FELDER.forEach(id => feldBinden(id, "schema"));
 
   auswahlfelderAufbauen();
   personenAktualisieren();
 
-  // Reaktionen auf einzelne Felder
   ["f_gps_lat","f_gps_lon"].forEach(id => anhaengen(id, "input", utmZeigen));
   anhaengen("f_team", "change", personenAktualisieren);
   anhaengen("f_datum", "change", datumPruefen);
   ["f_tsf_formel","f_p_geraet"].forEach(id => { anhaengen(id,"input",pFormelPruefen); anhaengen(id,"change",pFormelPruefen); });
-  PARZ_A_FELDER.concat(PARZ_B_FELDER, ["f_trenn"]).forEach(id =>
-    anhaengen(id, "change", () => { geometrieAnzeigen(); skizzeZeichnen(); klammerPruefen(); }));
-  anhaengen("s_achse", "change", () => { skizzeZeichnen(); klammerPruefen(); });
+  PARZ_A_FELDER.concat(PARZ_B_FELDER, ["f_trenn_l","f_trenn_b"]).forEach(id =>
+    anhaengen(id, "change", () => { geometrieAnzeigen(); skizzeZeichnen(); }));
+  anhaengen("s_achse", "change", skizzeZeichnen);
   anhaengen("k_nordbezug", "change", kompassHinweis);
-  ["k_azimut_ab","k_dist_ab"].forEach(id => anhaengen(id, "change", klammerPruefen));
   anhaengen("g_abfahrt", "change", dauerZeigen);
   anhaengen("w_parzelle", "change", wtaHerkunftZeigen);
 
@@ -54,7 +52,6 @@ function alles(){
   radienFelderAufbauen();
   vegListeAufbauen();
   punktListeAufbauen();
-  baumListeAufbauen();
   wtaEinrichten();
   wtaAnsicht();
   obSchnellAufbauen();
@@ -62,6 +59,7 @@ function alles(){
   obFortschritt();
   skizzeZeichnen();
   kopfAktualisieren();
+  flaechenListeZeigen();
   dauerZeigen();
   autoAus();
 }
@@ -74,15 +72,52 @@ const pl = document.getElementById("pflanzenliste");
 if(pl) pl.innerHTML = PFLANZEN.map(a => '<option value="'+a+'">').join("");
 const fz = document.getElementById("fusszeile");
 if(fz) fz.innerHTML = "Feldaufnahme Weißtanne 2.0 · Fassung " + FASSUNG + " · Stand " + STAND
-  + " · gehört zur Bachelorarbeit Lichtmodell, Konzept rev. 9"
+  + " · gehört zur Bachelorarbeit Lichtmodell"
   + "<br>Läuft ohne Netz. Das gedruckte Feldprotokoll bleibt die Rückfallebene.";
 
+/* ---------- Der eigentliche Start ---------- */
 dateiWegePruefen();
 speicherPruefen();
-laden();
-if(!D.kopf.f_datum) D.kopf.f_datum = new Date().toISOString().slice(0,10);
+
+/* 1 · Eine Aufnahme aus Fassung 1/2 übernehmen, falls vorhanden und noch
+      keine Fläche angelegt ist. Der alte Speicherplatz bleibt unberührt —
+      ein Rückschritt auf die alte Fassung bleibt dadurch möglich. */
+let UEBERNOMMEN = null;
+if(SPEICHER_OK) UEBERNOMMEN = altUebernehmen();
+
+/* 2 · Zuletzt offene Fläche wieder öffnen */
+if(SPEICHER_OK && !D.id){
+  let letzte = null;
+  try{ letzte = localStorage.getItem(P_AKTUELL); }catch(e){}
+  if(letzte) flaecheOeffnen(letzte);
+  if(!D.id){
+    const l = flaechenListe();
+    if(l.length) flaecheOeffnen(l[0].id);
+  }
+}
+
 alles();
 offlineEinrichten();
+syncZustandZeigen();
+
+/* Beim Start in die Übersicht, wenn es mehrere Flächen gibt oder keine offen ist */
+if(!D.id || flaechenListe().length > 1){
+  zeigeAbschnitt("uebersicht");
+}else{
+  zeigeAbschnitt("flaeche");
+}
+
+if(UEBERNOMMEN){
+  const box = document.getElementById("uebernahmeHinweis");
+  if(box) box.innerHTML = '<div class="info gut" style="margin-top:12px">'
+    + '<b>Aus der Fassung ' + UEBERNOMMEN.fassung + ' übernommen:</b> '
+    + UEBERNOMMEN.flaeche + ' mit ' + UEBERNOMMEN.punkte + ' Messpunkten.'
+    + '<br>Drei Dinge haben sich dabei geändert und gehören gegengelesen: '
+    + 'Je Parzelle gilt jetzt <b>eine Breite</b> (übernommen wurde die Außenbreite), '
+    + 'der Trennstreifen hat <b>Länge und Breite</b> (das alte Maß steht als Länge), '
+    + 'und was aus Gelände und Ko-Registrierung entfiel, steht in der '
+    + '<b>Bemerkung zur Fläche</b>.</div>';
+}
 
 if(!SPEICHER_OK){
   speicherWarnungZeigen();
@@ -93,14 +128,13 @@ if(!SPEICHER_OK){
     : "bereit — noch nichts erfasst");
 }
 
-/* Beim Verlassen warnen, solange etwas erfasst ist. In der installierten App
-   greift das selten — schadet aber nicht. */
+/* Beim Verlassen warnen, solange etwas erfasst ist. */
 window.addEventListener("beforeunload", e => {
-  const hatDaten = Object.keys(D.punkte).length || D.baeume.length;
+  const hatDaten = Object.keys(D.punkte||{}).length || (D.oberstand||[]).length;
   if(hatDaten && SEIT_SICHERUNG > 0){ e.preventDefault(); e.returnValue = ""; }
 });
 
-/* Vor dem Schließen bzw. beim Wegschalten sofort schreiben, nicht erst nach 250 ms. */
+/* Vor dem Wegschalten sofort schreiben, nicht erst nach 250 ms. */
 document.addEventListener("visibilitychange", () => {
   if(document.visibilityState === "hidden" && SPEICHER_TIMER) wirklichSpeichern();
 });

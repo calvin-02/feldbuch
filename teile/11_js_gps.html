@@ -1,12 +1,19 @@
 
 /* =====================================================================
-   Standpunktkoordinate
-   Drei Wege, weil der bequemste ausfallen kann:
-   (1) Ortung durch den Browser  (2) Text aus einer Karten-App einfügen
-   (3) die drei Felder von Hand füllen.
-   Gebraucht wird die Koordinate nur grob: die richtige Laserdaten-Kachel finden
-   und der Einpassung einen Startwert geben.
+   KOORDINATEN
+
+   Zwei verschiedene Dinge, die nicht verwechselt werden dürfen:
+
+   1. Die FLÄCHENKOORDINATE (unten, Abschnitt Fläche). Grob, ein Punkt.
+      Zweck: die richtige Laserdaten-Kachel finden. Mehr nicht.
+
+   2. Die PUNKTKOORDINATEN (gpsPunktMessen, Abschnitt Licht). Zehn Stück,
+      so genau wie das Gerät es hergibt. An ihnen hängt die Verortung der
+      Fläche im Laserdatensatz — seit dem 09.09.2026 ist das der einzige
+      tragende Weg, weil die Ko-Registrierung über Passpunktbäume
+      nachweislich gescheitert ist (0 von 30 Treffern, Kap. 1r-F).
    ===================================================================== */
+
 function gpsMelden(txt, art){
   const m = document.getElementById("gpsMeldung");
   if(!m) return;
@@ -14,63 +21,199 @@ function gpsMelden(txt, art){
   m.innerHTML = txt;
 }
 
-function gpsHolen(){
+function gpsPunktMelden(txt, art){
+  const m = document.getElementById("gpsPunktMeldung");
+  if(!m) return;
+  m.className = art ? ("p-anzeige p-" + art) : "hint";
+  m.innerHTML = txt;
+}
+
+function gpsVoraussetzung(melden){
   if(!navigator.geolocation){
-    gpsMelden("Dieses Gerät bietet keine Ortung an. Bitte Weg 2 benutzen.", "warn");
-    return;
+    melden("Dieses Gerät bietet keine Ortung an. Koordinate von Hand eintragen.", "warn");
+    return false;
   }
   if(!window.isSecureContext){
-    gpsMelden("<b>Ortung gesperrt.</b> Die Seite läuft nicht über eine gesicherte Verbindung "
-      + "(https). Als installierte App ist das erfüllt — als lose Datei nicht. Nimm Weg 2.", "warn");
+    melden("<b>Ortung gesperrt.</b> Die Seite läuft nicht über eine gesicherte Verbindung (https). "
+      + "Als installierte App ist das erfüllt — als lose Datei nicht.", "warn");
+    return false;
+  }
+  return true;
+}
+
+function gpsFehlerText(err){
+  const eingebettet = (window.top !== window.self);
+  const grund = {
+    1: eingebettet
+       ? "Die Seite läuft in einer eingebetteten Ansicht, und die gibt die Ortung nicht frei."
+       : "Die Ortung ist für diese App gesperrt: keine Standortfreigabe erteilt, oder der "
+         + "Standortdienst des Geräts ist aus.",
+    2: "Das Gerät bekommt gerade keine Position (kein Empfang, Ortung ausgeschaltet).",
+    3: "Zeitüberschreitung — unter dichtem Kronendach kann das Signal ausbleiben."
+  }[err.code] || "Unbekannter Fehler.";
+  return grund + "<br><span style='font-weight:400'>Meldung des Geräts: „"
+    + (err.message || "—") + "“ (Code " + err.code + ")</span>";
+}
+
+/* =====================================================================
+   MESSUNG EINES MESSPUNKTES — 45 Sekunden sammeln statt einmal schießen
+
+   Warum nicht einfach eine Position abfragen:
+   Eine einzelne Ortung unter Kronendach streut stark. Die App verfolgt
+   deshalb die Position 45 Sekunden lang, sammelt alle Meldungen und bildet
+   am Ende einen mit 1/Genauigkeit² gewichteten Mittelwert aus den besten.
+
+   WAS DAS NICHT LEISTET — gehört so in den Methodenteil:
+   Die Fehler eines Satellitensystems sind über kurze Zeit KORRELIERT
+   (Mehrwegausbreitung an Stämmen ändert sich in einer Minute kaum). Das
+   Mitteln entfernt also das Rauschen, nicht den systematischen Anteil. Der
+   Gewinn liegt bei einem knappen Meter, nicht bei einer Größenordnung —
+   deshalb bleibt die zweite Serie an einem anderen Tag unverzichtbar.
+   ===================================================================== */
+let GPS_LAUF = null;
+
+function gpsPunktMessen(pid, serie){
+  if(!gpsVoraussetzung(gpsPunktMelden)) return;
+  if(GPS_LAUF){ gpsPunktMelden("Es läuft schon eine Messung.", "warn"); return; }
+
+  const dauer = 45000;
+  const start = Date.now();
+  const proben = [];
+  let beste = null;
+
+  gpsPunktMelden("<b>Messung läuft — bitte still stehen.</b> Noch 45 s …", null);
+
+  const wacht = navigator.geolocation.watchPosition(
+    pos => {
+      proben.push({
+        lat: pos.coords.latitude,
+        lon: pos.coords.longitude,
+        acc: pos.coords.accuracy
+      });
+      if(beste === null || pos.coords.accuracy < beste) beste = pos.coords.accuracy;
+      const rest = Math.max(0, Math.round((dauer - (Date.now() - start)) / 1000));
+      gpsPunktMelden("<b>Messung läuft — bitte still stehen.</b> Noch " + rest + " s · "
+        + proben.length + " Messungen · beste ± " + Math.round(beste) + " m"
+        + '<br><button class="knopf zweit klein" style="width:auto;padding:6px 12px" '
+        + 'onclick="gpsPunktBeenden(\''+pid+'\','+serie+')">jetzt übernehmen</button>', null);
+    },
+    err => {
+      gpsPunktAufraeumen();
+      gpsPunktMelden("<b>Ortung nicht möglich.</b> " + gpsFehlerText(err)
+        + "<br><b>Ausweg:</b> Koordinate in einer Karten-App ablesen und im Abschnitt"
+        + " Fläche eintragen — dann wenigstens für die Kachelauswahl.", "fehler");
+    },
+    {enableHighAccuracy:true, timeout:20000, maximumAge:0}
+  );
+
+  GPS_LAUF = {
+    wacht: wacht,
+    proben: proben,
+    ende: setTimeout(() => gpsPunktBeenden(pid, serie), dauer)
+  };
+}
+
+function gpsPunktAufraeumen(){
+  if(!GPS_LAUF) return;
+  try{ navigator.geolocation.clearWatch(GPS_LAUF.wacht); }catch(e){}
+  clearTimeout(GPS_LAUF.ende);
+  GPS_LAUF = null;
+}
+
+function gpsPunktBeenden(pid, serie){
+  if(!GPS_LAUF) return;
+  const proben = GPS_LAUF.proben.slice();
+  gpsPunktAufraeumen();
+
+  if(!proben.length){
+    gpsPunktMelden("<b>Keine Position bekommen.</b> Unter dichtem Schirm kommt es vor. "
+      + "Noch einmal versuchen, notfalls ein paar Schritte in eine Lücke gehen "
+      + "<b>und das in der Bemerkung festhalten</b>.", "fehler");
     return;
   }
-  gpsMelden("Position wird bestimmt … unter dichtem Schirm dauert das oft 30–60 Sekunden. "
-    + "<b>Nicht wegtippen.</b>", null);
+
+  // Nur die besten Proben verwenden: höchstens doppelt so ungenau wie die beste
+  const besteAcc = Math.min.apply(null, proben.map(p => p.acc));
+  const gute = proben.filter(p => p.acc <= besteAcc * 2);
+
+  // Gewichtetes Mittel, Gewicht 1/Genauigkeit²
+  let sLat = 0, sLon = 0, sG = 0;
+  gute.forEach(p => {
+    const g = 1 / Math.max(1, p.acc * p.acc);
+    sLat += p.lat * g; sLon += p.lon * g; sG += g;
+  });
+  const lat = sLat / sG, lon = sLon / sG;
+  // Genauigkeit des Mittels: die beste Einzelmessung, verbessert um die Wurzel der Anzahl,
+  // aber nie besser als die Hälfte der besten Einzelmessung (korrelierte Fehler!)
+  const gemittelt = Math.max(besteAcc / 2, besteAcc / Math.sqrt(gute.length));
+
+  const n = new Date();
+  const zeit = String(n.getHours()).padStart(2,"0")+":"+String(n.getMinutes()).padStart(2,"0");
+  const feld = "punkte." + pid + ".gps" + serie;
+  setzenMehrere({
+    [feld + ".lat"]:   Number(lat.toFixed(7)),
+    [feld + ".lon"]:   Number(lon.toFixed(7)),
+    [feld + ".acc"]:   Math.round(gemittelt * 10) / 10,
+    [feld + ".roh"]:   Math.round(besteAcc),
+    [feld + ".n"]:     gute.length,
+    [feld + ".zeit"]:  zeit,
+    [feld + ".datum"]: n.toISOString().slice(0,10),
+    [feld + ".geraet"]: GERAET
+  }, true);
+
+  gpsPunktMelden("<b>Serie " + serie + " übernommen.</b> " + lat.toFixed(6) + " / " + lon.toFixed(6)
+    + " · ± " + (Math.round(gemittelt*10)/10) + " m aus " + gute.length + " von " + proben.length
+    + " Messungen."
+    + (besteAcc > 15
+        ? " <b>Das ist ungenau</b> (beste Einzelmessung ± " + Math.round(besteAcc) + " m). "
+          + "Unter dichtem Schirm normal — die zweite Serie im Winter gleicht es aus."
+        : ""), "ok");
+
+  punktOeffnen(pid);
+  setTimeout(() => {
+    const m = document.getElementById("gpsPunktMeldung");
+    if(m) m.innerHTML = "Serie " + serie + " gespeichert.";
+  }, 50);
+}
+
+/* =====================================================================
+   FLÄCHENKOORDINATE — grob, nur für die Kachelauswahl
+   ===================================================================== */
+function gpsHolen(){
+  if(!gpsVoraussetzung(gpsMelden)) return;
+  gpsMelden("Position wird bestimmt … unter dichtem Schirm dauert das oft 30–60 Sekunden.", null);
   let fertig = false;
   navigator.geolocation.getCurrentPosition(
     pos => {
       fertig = true;
       const g = Math.round(pos.coords.accuracy);
       gpsSetzen(pos.coords.latitude, pos.coords.longitude, g);
-      gpsMelden("Position übernommen, ± " + g + " m. "
-        + (g <= 30 ? "Das genügt für Kachel und Startwert."
-                   : "Auch das genügt — die Kachel ist einen Kilometer groß."), "ok");
+      gpsMelden("Position übernommen, ± " + g + " m. Für die Kachelauswahl genügt das — "
+        + "eine Kachel ist einen Kilometer groß.", "ok");
     },
     err => {
       fertig = true;
-      const eingebettet = (window.top !== window.self);
-      const grund = {
-        1: eingebettet
-           ? "Die Seite läuft in einer eingebetteten Ansicht, und die gibt die Ortung nicht "
-             + "frei — daran ändert auch die Standortfreigabe des Browsers nichts."
-           : "Die Ortung ist für diese App gesperrt: keine Standortfreigabe erteilt, "
-             + "oder der Standortdienst des Geräts ist aus.",
-        2: "Das Gerät bekommt gerade keine Position (kein Empfang, Ortung ausgeschaltet).",
-        3: "Zeitüberschreitung — unter dichtem Kronendach kann das Signal ausbleiben."
-      }[err.code] || "Unbekannter Fehler.";
-      gpsMelden("<b>Ortung nicht möglich.</b> " + grund
-        + "<br><span style='font-weight:400'>Meldung des Geräts: „" + (err.message || "—")
-        + "“ (Code " + err.code + ")</span>"
-        + "<br><b>Nimm Weg 2:</b> Koordinate in einer Karten- oder GPS-App ablesen, kopieren "
-        + "und unten einfügen. Für diese Arbeit ist das gleichwertig.", "warn");
+      gpsMelden("<b>Ortung nicht möglich.</b> " + gpsFehlerText(err)
+        + "<br><b>Ausweg:</b> Koordinate in einer Karten- oder GPS-App ablesen, kopieren und "
+        + "unten einfügen.", "warn");
     },
     {enableHighAccuracy:true, timeout:60000, maximumAge:0}
   );
-  setTimeout(() => { if(!fertig) gpsMelden("Immer noch am Suchen … das ist unter Schirm normal. "
-    + "Wenn nach zwei Minuten nichts kommt: Weg 2.", null); }, 20000);
+  setTimeout(() => { if(!fertig) gpsMelden("Immer noch am Suchen … das ist unter Schirm normal.", null); }, 20000);
 }
 
 function gpsSetzen(lat, lon, genauigkeit){
   const la = Number(lat).toFixed(6), lo = Number(lon).toFixed(6);
-  document.getElementById("f_gps_lat").value = la;
-  document.getElementById("f_gps_lon").value = lo;
-  D.kopf.f_gps_lat = la;
-  D.kopf.f_gps_lon = lo;
+  const e1 = document.getElementById("f_gps_lat"), e2 = document.getElementById("f_gps_lon");
+  if(e1) e1.value = la;
+  if(e2) e2.value = lo;
+  const paare = {"kopf.f_gps_lat": la, "kopf.f_gps_lon": lo};
   if(genauigkeit !== null && genauigkeit !== undefined){
-    document.getElementById("f_gps_acc").value = genauigkeit;
-    D.kopf.f_gps_acc = genauigkeit;
+    const e3 = document.getElementById("f_gps_acc");
+    if(e3) e3.value = genauigkeit;
+    paare["kopf.f_gps_acc"] = genauigkeit;
   }
-  speichern(true);
+  setzenMehrere(paare, true);
   utmZeigen();
 }
 
@@ -130,7 +273,7 @@ function koordUebernehmen(){
   if(!gelesen){
     gpsMelden("<b>Daraus kann ich keine Koordinate lesen.</b> Erwartet werden zwei Zahlen, "
       + "etwa <i>48.1769, 11.2554</i> oder <i>667412 5337588</i>. Notfalls die drei Felder "
-      + "unten direkt ausfüllen — das tut es auch.", "fehler");
+      + "unten direkt ausfüllen.", "fehler");
     return;
   }
   gpsSetzen(gelesen.lat, gelesen.lon, null);
@@ -143,7 +286,7 @@ function koordUebernehmen(){
     gpsMelden(txt + " <b>Achtung: Dieser Punkt liegt nicht in Deutschland</b> — bitte nachsehen, "
       + "ob die Zahlen stimmen.", "warn");
   }else{
-    gpsMelden(txt + " Genauigkeit von Hand eintragen, falls die App sie anzeigt.", "ok");
+    gpsMelden(txt, "ok");
   }
 }
 
@@ -196,8 +339,8 @@ function tausenderPunkt(n){
 function utmZeigen(){
   const box = document.getElementById("utmAnzeige");
   if(!box) return;
-  const lat = zahl(document.getElementById("f_gps_lat").value);
-  const lon = zahl(document.getElementById("f_gps_lon").value);
+  const lat = zahl((document.getElementById("f_gps_lat")||{}).value);
+  const lon = zahl((document.getElementById("f_gps_lon")||{}).value);
   if(isNaN(lat) || isNaN(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180){
     box.style.display = "none"; return;
   }
@@ -209,28 +352,6 @@ function utmZeigen(){
     + "<br><b>Laserdaten-Kachel (1 km): " + kx + "_" + ky + "</b>"
     + " <span class='hint'>— diese Kachel wird abends beim Landesamt geladen. "
     + "Liegt der Standpunkt nahe am Rand, die Nachbarkachel gleich mitnehmen.</span>";
-}
-
-function kompassHinweis(){
-  const box = document.getElementById("k_geraetHinweis");
-  if(!box) return;
-  const geraet = wertVon("koreg","k_geraet") || "Handykompass";
-  const bezug  = D.koreg.k_nordbezug || "";
-  if(!bezug){
-    box.innerHTML = '<div class="p-anzeige p-warn">Nordbezug noch offen. '
-      + (geraet.indexOf("Handy") === 0
-         ? 'Beim Handy steht die Einstellung unter Kompass — „wahres Nord" oder magnetisch?'
-         : 'Auch bei der Bussole festhalten, worauf sie bezogen ist.')
-      + '</div>';
-  }else if(bezug === "magnetisch"){
-    box.innerHTML = '<div class="p-anzeige p-ok">Magnetisch gemessen — in Ordnung, '
-      + 'die Missweisung wird bei der Auswertung herausgerechnet.</div>';
-  }else if(bezug === "unbekannt"){
-    box.innerHTML = '<div class="p-anzeige p-fehler">Unbekannter Nordbezug: Die Azimute lassen sich '
-      + 'später nicht mehr korrigieren. Wenn möglich noch am Standpunkt klären.</div>';
-  }else{
-    box.innerHTML = '<div class="p-anzeige p-ok">Geografisch Nord — passt zur Rechnung des Modells.</div>';
-  }
 }
 
 /* ---------- Kleine laufende Prüfungen ---------- */
@@ -247,10 +368,11 @@ function datumPruefen(){
   }else box.innerHTML = "";
 }
 function datumHeute(){
-  D.kopf.f_datum = new Date().toISOString().slice(0,10);
+  const heute = new Date().toISOString().slice(0,10);
+  setzen("kopf.f_datum", heute, true);
   const el = document.getElementById("f_datum");
-  if(el) el.value = D.kopf.f_datum;
-  speichern(true); datumPruefen();
+  if(el) el.value = heute;
+  datumPruefen();
 }
 
 /* Aus "60:40" den Direktanteil p ableiten — die Zahl, mit der das Modell rechnet. */
@@ -277,16 +399,17 @@ function pFormelPruefen(){
   box.innerHTML = '<div class="p-anzeige p-'+art+'">'+txt+'</div>';
 }
 function pUebernehmen(p){
-  D.kopf.f_p_geraet = String(p).replace(".", ",");
+  const wert = String(p).replace(".", ",");
+  setzen("kopf.f_p_geraet", wert, true);
   const el = document.getElementById("f_p_geraet");
-  if(el) el.value = D.kopf.f_p_geraet;
-  speichern(true); pFormelPruefen();
+  if(el) el.value = wert;
+  pFormelPruefen();
 }
 
 function dauerZeigen(){
   const box = document.getElementById("dauerAnzeige");
   if(!box) return;
-  const an = D.kopf.f_ankunft, ab = D.gelaende.g_abfahrt;
+  const an = D.kopf.f_ankunft, ab = D.bedingungen.g_abfahrt;
   if(!an || !ab){ box.innerHTML = ""; return; }
   const min = (h => Number(h.split(":")[0])*60 + Number(h.split(":")[1]));
   let d = min(ab) - min(an);
@@ -296,52 +419,86 @@ function dauerZeigen(){
     + 'restlichen Flächen — bitte nicht überschreiben.</div>';
 }
 
-/* ---------- Abschlusskontrolle ---------- */
+/* =====================================================================
+   ABSCHLUSSKONTROLLE
+
+   Auf die Feldvorschrift vom 10.09.2026 umgebaut. Was vorher hier stand,
+   prüfte Passpunktbäume, Verbindungsbäume und die Klammerprobe — alles
+   Verfahren, die inzwischen verworfen sind. Eine Kontrolle, die das Falsche
+   einfordert, ist schlimmer als keine: Sie kostet im Feld Zeit und nimmt
+   der Liste die Glaubwürdigkeit.
+
+   Die Reihenfolge ist absichtlich nach GEWICHT sortiert, nicht nach
+   Reihenfolge der Maske. Oben steht, was die Aufnahme wertlos macht, wenn
+   es fehlt.
+   ===================================================================== */
 function kontrolleAufbauen(){
-  const gemessen = PUNKTE.filter(p => { const d = D.punkte[p.id]; return d && d.isf !== "" && d.isf != null; });
-  const belegt   = PUNKTE.filter(p => punktFertig(p.id));
-  const offen    = PUNKTE.filter(p => !punktFertig(p.id));
-  const q = geometrie();
-  const ohneMerkmal = D.baeume.filter(b => !b.merkmal).length;
-  const verbindung  = D.baeume.filter(b => b.standpunkt === "AB").length;
+  const box = document.getElementById("kontrolle");
+  if(!box) return;
+
+  const mess    = PUNKTE.filter(p => p.id !== "W1" && p.id !== "W2");
+  const mitBild = PUNKTE.filter(p => { const d = D.punkte[p.id]; return d && d.bild; });
+  const belegt  = PUNKTE.filter(p => punktFertig(p.id));
+  const gps1    = mess.filter(p => { const d = D.punkte[p.id]; return d && d.gps1 && d.gps1.lat; });
+  const gps2    = mess.filter(p => { const d = D.punkte[p.id]; return d && d.gps2 && d.gps2.lat; });
+  const q       = geometrie();
   const nummernA = Object.keys(D.schema.nummern.A||{}).length;
   const nummernB = Object.keys(D.schema.nummern.B||{}).length;
 
-  const pruefungen = [
-    [belegt.length === PUNKTE.length, belegt.length + " von " + PUNKTE.length + " Punkten belegt (Zeit und Bild-Nr.)" +
-      (offen.length ? " — offen: " + offen.map(p=>p.id).join(", ") : "")],
-    [gemessen.length === PUNKTE.length, gemessen.length + " Punkte mit ISF/DSF-Werten" +
-      (gemessen.length < PUNKTE.length ? " — der Rest kommt aus der Bildauswertung" : "")],
-    [!!(D.punkte["W1"] && D.punkte["W2"]), "Wiederholungsmessung W-1 und W-2 vorhanden"],
-    [!!D.kopf.f_fotos, "Geräteeinstellungen fotografiert"],
-    [!!(D.kopf.f_geraet && D.kopf.f_atm && D.kopf.f_tsf_formel && D.kopf.f_schwellen),
-      "Geräteeinstellungen abgetippt (Modell, Durchlässigkeit, TSF-Formel, Schwellenzahl)"],
-    [D.baeume.length >= 10, D.baeume.length + " Passpunktbäume erfasst (5 je Mittelpunkt = 10)"],
-    [ohneMerkmal === 0, "Alle Passpunktbäume haben ein Erkennungsmerkmal" +
-      (ohneMerkmal ? " — es fehlen " + ohneMerkmal : "")],
-    [verbindung >= 1, verbindung + " Verbindungsbaum/-bäume von beiden Mittelpunkten"],
-    [!!(D.koreg.k_azimut_ab && D.koreg.k_dist_ab) || verbindung >= 1, "Klammer A→B gemessen oder über Verbindungsbaum bestimmbar"],
-    [!!(D.koreg.k_nordbezug) && D.koreg.k_nordbezug !== "unbekannt",
-      "Nordbezug der Azimute festgehalten" + (D.koreg.k_nordbezug ? " (" + D.koreg.k_nordbezug + ")" : "")],
-    [!!D.kopf.f_gps_lat, "GPS-Wegpunkt gespeichert"],
-    [q.g.gemessen, "Alle Gattermaße gemessen (Längen, Breiten außen und innen, Trennstreifen)"],
+  const schwer = [
+    [gps1.length === mess.length,
+     "<b>GPS an allen " + mess.length + " Messpunkten</b> (" + gps1.length + " da)"
+     + (gps1.length < mess.length
+        ? " — <b>ohne sie ist die Fläche später nicht im Laserdatensatz zu finden.</b> Fehlend: "
+          + mess.filter(p => !(D.punkte[p.id] && D.punkte[p.id].gps1 && D.punkte[p.id].gps1.lat))
+                .map(p => p.id).join(", ")
+        : "")],
+    [mitBild.length === PUNKTE.length,
+     "<b>Bild-Nummer an allen " + PUNKTE.length + " Punkten</b> (" + mitBild.length + " da)"
+     + (mitBild.length < PUNKTE.length
+        ? " — <b>die Bild-Nummer ist die einzige Verbindung zwischen Datei und Punkt.</b>"
+        : "")],
+    [!!D.kopf.f_geraet_ok, "Geräteeinstellungen geprüft und <b>fotografiert</b>"],
+    [!!(D.punkte["W1"] && D.punkte["W2"]), "Wiederholungsmessung W-1 und W-2 vorhanden"]
+  ];
+
+  const normal = [
+    [belegt.length === PUNKTE.length, belegt.length + " von " + PUNKTE.length + " Punkten mit Uhrzeit belegt"],
+    [q.g.gemessen, "Längen und Breiten beider Parzellen gemessen"],
+    [!isNaN(zahl(D.kopf.f_trenn_l)), "Trennstreifen — Länge gemessen"],
+    [!isNaN(zahl(D.kopf.f_trenn_b)), "Trennstreifen — Breite gemessen"],
     [!isNaN(zahl(D.schema.s_achse)), "Azimut der Längsachse A→B eingetragen"],
     [nummernA >= 5 && nummernB >= 5, "Punktnummern in der Skizze vergeben (A: "+nummernA+"/5, B: "+nummernB+"/5)"],
     [!!(D.parzellen.A.pa_herkunft && D.parzellen.B.pb_herkunft), "Herkunft je Parzelle eingetragen"],
     [!!(wertVon("parzA","pa_lage") && wertVon("parzB","pb_lage")), "Lage je Parzelle eingetragen"],
     [!!D.kopf.f_vermarkung, "Vermarkungsbefund eingetragen"],
-    [!!(wertVon("bestand","b_typ") && wertVon("bestand","b_schlussgrad")), "Bestandesbeschreibung ausgefüllt"],
+    [!!D.kopf.f_gps_lat, "Flächenkoordinate für die Kachelauswahl"],
     [VEG_PUNKTE.every(p => vegEinfachFertig(p.id)), "Vegetation vereinfacht an allen 10 Punkten (" +
       VEG_PUNKTE.filter(p => vegEinfachFertig(p.id)).length + " von " + VEG_PUNKTE.length + ")"],
     [VEG_PUNKTE.every(p => vegBBFertig(p.id)), "Vegetation Braun-Blanquet an allen 10 Punkten (" +
       VEG_PUNKTE.filter(p => vegBBFertig(p.id)).length + " von " + VEG_PUNKTE.length + ")"],
     [!!D.kopf.f_team, "Aufnahmegruppe eingetragen"]
   ];
-  const box = document.getElementById("kontrolle");
-  box.innerHTML = pruefungen.map(([ok,txt]) =>
-    '<div class="info '+(ok?"gut":"achtung")+'" style="margin:6px 0">'+
-    (ok ? "&#10003; " : "<b>offen:</b> ") + txt + '</div>').join("");
 
+  const zeile = ([ok,txt], schwerwiegend) =>
+    '<div class="info '+(ok ? "gut" : (schwerwiegend ? "achtung" : ""))+'" style="margin:6px 0">'
+    + (ok ? "&#10003; " : (schwerwiegend ? "<b>FEHLT: </b>" : "<b>offen:</b> ")) + txt + '</div>';
+
+  let h = '<div class="info" style="font-size:13px"><b>Zuerst das Schwerwiegende.</b> Was hier '
+        + 'oben fehlt, lässt sich nach der Abfahrt nicht mehr nachholen — die übrigen Punkte '
+        + 'schon.</div>';
+  h += schwer.map(z => zeile(z, true)).join("");
+  h += '<h4 style="margin-top:16px">Das Übrige</h4>';
+  h += normal.map(z => zeile(z, false)).join("");
+
+  if(gps2.length) h += '<div class="info gut" style="margin:6px 0">&#10003; Zweite GPS-Serie an '
+    + gps2.length + " von " + mess.length + " Punkten</div>";
+  else h += '<div class="info" style="margin:6px 0">Zweite GPS-Serie: <b>kommt beim Wintertermin</b> '
+    + '— dieselbe Aufnahme wieder öffnen und Serie 2 messen.</div>';
+
+  box.innerHTML = h;
+
+  // Wiederholbarkeit, wenn Werte da sind
   const w1 = D.punkte["W1"], w2 = D.punkte["W2"];
   if(w1 && w2 && w1.isf !== "" && w2.isf !== "" && w1.isf != null && w2.isf != null){
     const d = Math.abs(Number(w1.isf) - Number(w2.isf));

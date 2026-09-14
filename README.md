@@ -1,8 +1,8 @@
 # Feldbuch Weißtanne 2.0
 
 Feld-Erfassung für die Dauerbeobachtungsflächen des Projektes **Weißtanne 2.0** —
-Lichtmessung mit dem Solariskop, Vegetation, Bestandesbeschreibung, Weißtannen-Wachstum,
-Oberstand, Ko-Registrierung und Gelände.
+Lichtmessung mit dem Solariskop samt **Koordinate an jedem Messpunkt**, Vegetation,
+Bestandesbeschreibung, Weißtannen-Wachstum und Oberstand.
 
 Entstanden im Rahmen einer Bachelorarbeit an der **HSWT (Forstingenieurwesen)** zum
 räumlich expliziten Modell des für die Weißtannenverjüngung verfügbaren Lichts.
@@ -13,8 +13,7 @@ räumlich expliziten Modell des für die Weißtannenverjüngung verfügbaren Lic
 
 Im Bestand gibt es kein Netz. Die Seite muss sich deshalb **ohne Verbindung öffnen** lassen
 und **ohne Verbindung speichern**. Dafür sorgt ein Service Worker (`sw.js`), der beim ersten
-Aufruf alle Dateien auf dem Gerät ablegt; die Aufnahme selbst liegt im `localStorage` des
-Geräts und verlässt es nur, wenn man sie ausdrücklich kopiert oder als Datei sichert.
+Aufruf alle Dateien auf dem Gerät ablegt; die Aufnahme liegt im `localStorage` des Geräts.
 
 **In diesem Verzeichnis liegen keine Messdaten** — nur das leere Formular.
 `.gitignore` sperrt `*.json` und den Ordner `Aufnahmen/`, damit das so bleibt.
@@ -22,7 +21,7 @@ Geräts und verlässt es nur, wenn man sie ausdrücklich kopiert oder als Datei 
 ## Einrichten auf dem Handy
 
 1. Adresse **einmal mit Netz** öffnen und vollständig laden lassen.
-2. Unter *Daten → App und Speicher* prüfen: **„Offline vorgehalten: ja"**.
+2. Unter *Daten → App und Speicher* prüfen, ob die Offline-Vorhaltung eingerichtet ist.
 3. Chrome: **⋮ → Zum Startbildschirm hinzufügen**. Danach eigenes Symbol, Start im Vollbild,
    auch ohne Verbindung.
 
@@ -31,10 +30,11 @@ Geräts und verlässt es nur, wenn man sie ausdrücklich kopiert oder als Datei 
 | Datei | Rolle |
 |---|---|
 | `index.html` | die vollständige App — eine Datei, kein Bauwerkzeug nötig |
-| `sw.js` | Offline-Vorhaltung. **Bei jeder Änderung die Versionsnummer oben hochzählen**, sonst holt sich niemand die neue Fassung |
+| `sw.js` | Offline-Vorhaltung. **Bei jeder Änderung die Fassungsnummer hochzählen** |
 | `manifest.webmanifest` | Name, Symbole, Vollbildstart |
 | `icon-*.png`, `apple-touch-icon.png` | Symbole |
 | `teile/` | Quellstücke, aus denen `index.html` zusammengesetzt wird |
+| `pruefseite.html` | **Prüfseite**: zeichnet die Skizze in vier Drehungen und rechnet dreizehn Prüfungen nach. Gehört nicht zur App, sondern zur Kontrolle |
 
 ## Ändern
 
@@ -44,47 +44,73 @@ Geräts und verlässt es nur, wenn man sie ausdrücklich kopiert oder als Datei 
 cat teile/0*.html teile/1*.html > index.html
 ```
 
-Danach in `sw.js` die Zeile `const FASSUNG = "feldbuch-x.y.z"` hochzählen und in `index.html`
-(Teil 06) `FASSUNG` und `STAND` nachziehen. Ohne diesen Schritt bleibt auf den Geräten die
+Danach in `sw.js` die Zeile `const FASSUNG = "feldbuch-x.y.z"` hochzählen **und** in
+`teile/06_js_daten.html` `FASSUNG` nachziehen. Ohne diesen Schritt bleibt auf den Geräten die
 alte Fassung liegen.
+
+| Baustein | Inhalt |
+|---|---|
+| `01_kopf.html` | Kopf, CSS, Navigation |
+| `02_flaeche.html` | Flächenliste und Flächendaten |
+| `03_skizze.html` | Skizze mit Ansichtsdrehung |
+| `04_licht_veg.html` | Licht, Vegetation, Tannen, Oberstand |
+| `05_pass_gel_daten.html` | Abschluss und Datenverwaltung |
+| `06_js_daten.html` | **Datenmodell, Zusammenführen, Flächenverwaltung** · hier steht `FASSUNG` |
+| `07_js_ui.html` | Oberfläche, Navigation, Flächenliste |
+| `08_js_skizze.html` | Geometrie, Zeichnung, Drehung |
+| `09_js_licht_veg.html` | Messpunkte und Vegetation |
+| `10_js_baeume.html` | Weißtannen und Oberstand |
+| `11_js_gps.html` | **Koordinaten je Punkt**, UTM, Abschlusskontrolle |
+| `12_js_export.html` | Export, Einlesen, Offline-Betrieb |
+| `13_js_sync.html` | **Synchronisation über das Netz** (zuschaltbar) |
+| `14_js_start.html` | Start |
 
 ## Was die App im Feld prüft
 
 Prüfungen, die **scheitern können** — das ist ihr Zweck:
 
+- **Fehlende Koordinaten**: Die Abschlusskontrolle nennt jeden Punkt ohne GPS beim Namen
+- **Fehlende Bild-Nummern**: die einzige Verbindung zwischen Datei und Punkt
+- **Trennstreifenbreite** gegen die Parzellenbreiten — passt es nicht, ist ein Maß falsch
 - **Direktanteil `p`** aus ISF, DSF und TSF zurückgerechnet und gegen die Geräteeinstellung gehalten
-- **Sollabstand A→B** aus den Gattermaßen gegen die gemessene Klammer und gegen die
-  Verbindungsbäume
 - **Soll-Azimut und Soll-Distanz** jedes Satellitenpunktes aus der Flächengeometrie
-- **Passpunktbäume**: unterständige Bäume, Höhe = Distanz (Übertragungsfehler), zu kurze Visuren
 - **Wiederholbarkeit** aus den beiden Messungen W-1 und W-2 desselben Punktes
 - **Nordbezug** der Azimute — magnetisch ist rechenbar, unbekannt nicht
+- **Widersprüche beim Zusammenführen**: Felder, die zwei Geräte verschieden gefüllt haben
 
 ## Stand
 
-**Fassung 2.1.0 (10.09.2026) — die Verortung läuft jetzt über den Oberstand.**
+**Fassung 3.0.0 (14./15.09.2026) — mehrere Flächen, Zusammenführen, GPS je Punkt.**
 
-Grundlage: `SITZUNGSSTAND.md` Kap. 1t. In 1200 simulierten Durchgängen an zwanzig Waldorten
-in zwei Beständen zeigte sich, dass **viele grob gemessene Bäume besser sind als wenige genau
-gemessene**: Bei einer Vollaufnahme kostet grobes Messen nur 1 Prozentpunkt, bei sechzehn
-Einzelbäumen 11. Die Vollaufnahme mit Kompass und Entfernungsmesser trifft die Lage in 96 %
-der Fälle auf 2 m — so gut wie sechzehn Bäume mit Bogenschnitt, aber ohne dessen Aufwand.
+Fünf Leitgedanken:
 
-Geändert gegenüber 2.0.2:
+1. **Mehrere Flächen nebeneinander.** Fassung 2 hielt genau eine Aufnahme; wer eine zweite
+   begann oder eine fremde Sicherung einlas, überschrieb die erste.
+2. **Zusammenführen statt Überschreiben.** Jedes Feld trägt einen Zeitstempel; treffen zwei
+   Stände derselben Fläche aufeinander, gewinnt Feld für Feld der jüngere. Listen werden
+   vereinigt. Widersprüche werden gemeldet, nicht still entschieden.
+3. **Synchronisation über das Netz**, zuschaltbar — dieselbe Mechanik wie beim Dateiaustausch.
+   Einrichtung: `Unterlagen/Feldapp_Synchronisation_Einrichtung.md`.
+4. **GPS an jedem Messpunkt**, zwei Serien, 45 Sekunden Messdauer mit gewichtetem Mittel.
+   Die Ko-Registrierung über Passpunktbäume ist am 09.09.2026 gescheitert; die Lage der
+   Fläche hängt seither an genau diesen Koordinaten.
+5. **Weniger Felder.** Die Geräteeinstellungen stehen als belegte Vorgabe aus BY07 und werden
+   nur noch abgehakt; die Lichtmaske zeigt Knopf und Bild-Nummer, die Werte sind eingeklappt.
+   Ko-Registrierung und die Geländeschätzung sind entfallen — das DGM1 ist genauer.
 
-- **Oberstand** trägt jetzt **Parzelle, Azimut und Distanz** je Baum und verortet damit die
-  Fläche. **Schnellerfassung** (Parzelle und Baumart bleiben stehen, Eingabetaste springt
-  weiter), kompakte Liste statt einer Karte je Baum — es sind 60 bis 80 Bäume je Fläche.
-- **Fortschrittsanzeige** je Mittelpunkt mit Schwellen (unter 15 Bäume zu wenig, ab 20 trägt es).
-- **Kontrollbäume**: Haken plus Entfernung vom *anderen* Mittelpunkt. Daraus wird die Lage rein
-  über Kreisbögen bestimmt — die einzige Möglichkeit, die angenommene Kompassgenauigkeit (3°)
-  im Feld nachzuprüfen. Ziel im Pilotversuch: rund zehn Stück.
-- **Ko-Registrierung** (Bogenschnitt, Passpunktbäume) bleibt als Rückfallebene erhalten, ist
-  aber als überholt gekennzeichnet. Gerät, **Nordbezug**, Gegenkurs-Test und die Klammer A→B
-  gelten weiterhin und werden dort erfasst.
-- Der Export führt die neuen Spalten mit.
+Geometrisch geändert: **eine Breite je Parzelle** statt außen und innen (so wird im Feld
+gemessen), **Trennstreifen mit Länge und Breite**, **Ansichtsdrehung** der Skizze.
 
-Ältere Sicherungen werden beim Laden ergänzt (fehlende Felder werden leer angelegt), es geht
-nichts verloren.
+Aufnahmen aus Fassung 1 und 2 werden beim ersten Start übernommen; geprüft an der echten
+BY07-Aufnahme vom 07.09.2026 — 33 Felder, keines verloren. Was aus den entfallenen
+Abschnitten stammt, wird an die Bemerkung angehängt statt weggeworfen.
 
-Fassung 2.0.0 (08.09.2026): gebaut nach dem ersten Feldtag auf **BY07** am 07.09.2026.
+Frühere Fassungen: 2.1.2 (12.09., Codelisten gegen die Projektmasken abgeglichen) ·
+2.1.0 (10.09., Verortung über den Oberstand) · 2.0.0 (08.09., offline und installierbar,
+nach dem ersten Feldtag auf BY07).
+
+Der Stand vor dem Umbau ist als Git-Markierung `fassung-2.1.2-vor-umbau` erhalten:
+
+```bash
+git checkout fassung-2.1.2-vor-umbau -- .
+```
