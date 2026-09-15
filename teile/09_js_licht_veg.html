@@ -118,9 +118,9 @@ function punktOeffnen(pid){
         : '<div class="info" style="font-size:13px">Im Regelfall bleibt das hier leer: Die sieben '
           + 'Schwellenwerte werden gemeinsam am Rechner ausgewertet.</div>')
     +  '<div class="reihe">'
-    +    '<div><label>ISF (%)</label><input type="number" id="p_isf" inputmode="numeric" value="'+(d.isf!==undefined?d.isf:"")+'"></div>'
-    +    '<div><label>DSF (%)</label><input type="number" id="p_dsf" inputmode="numeric" value="'+(d.dsf!==undefined?d.dsf:"")+'"></div>'
-    +    '<div><label>TSF (%)</label><input type="number" id="p_tsf" inputmode="numeric" value="'+(d.tsf!==undefined?d.tsf:"")+'"></div>'
+    +    '<div><label>ISF (%)</label><input type="number" step="0.01" id="p_isf" inputmode="decimal" value="'+(d.isf!==undefined?d.isf:"")+'"></div>'
+    +    '<div><label>DSF (%)</label><input type="number" step="0.01" id="p_dsf" inputmode="decimal" value="'+(d.dsf!==undefined?d.dsf:"")+'"></div>'
+    +    '<div><label>TSF (%)</label><input type="number" step="0.01" id="p_tsf" inputmode="decimal" value="'+(d.tsf!==undefined?d.tsf:"")+'"></div>'
     +  '</div>'
     +  '<div id="pPruefung"></div>'
     +  '<div class="reihe">'
@@ -227,7 +227,7 @@ function pBisher(ausser){
   Object.keys(D.punkte).forEach(k => {
     if(k === ausser) return;
     const d = D.punkte[k];
-    const p = pBerechnen(Number(d.isf), Number(d.dsf), Number(d.tsf));
+    const p = pBerechnen(zahl(d.isf), zahl(d.dsf), zahl(d.tsf));
     if(p !== null && p > -0.5 && p < 1.5) werte.push(p);
   });
   if(!werte.length) return null;
@@ -240,9 +240,9 @@ function pruefungZeigen(){
   if(!box) return;
   const feld = id => document.getElementById(id);
   if(!feld("p_isf")) return;
-  const isf = Number(feld("p_isf").value);
-  const dsf = Number(feld("p_dsf").value);
-  const tsf = Number(feld("p_tsf").value);
+  const isf = zahl(feld("p_isf").value);
+  const dsf = zahl(feld("p_dsf").value);
+  const tsf = zahl(feld("p_tsf").value);
   const meldungen = [];
 
   [["ISF",isf],["DSF",dsf],["TSF",tsf]].forEach(([n,v]) => {

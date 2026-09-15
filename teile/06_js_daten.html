@@ -22,8 +22,8 @@
    die Baumarten- und Pflanzenlisten, die Punktdefinition.
    ===================================================================== */
 
-const FASSUNG = "3.0.2";
-const STAND   = "14.09.2026";
+const FASSUNG = "3.0.3";
+const STAND   = "15.09.2026";
 
 /* ---------- Auswahllisten ----------
    Alles hier ist Vorschlag, nicht Vorschrift: jede Liste bekommt beim Aufbau
@@ -82,15 +82,21 @@ const BESTANDESTYPEN = [
 /* Herkünfte je Fläche — wörtlich aus Tabelle 1 des Abschlussberichts
    (BMBF 2219NR278, S. 14) und der Ergebnistabelle 2023. Die rumänische Herkunft ist
    auf allen Flächen dieselbe: St. George, PS-BR-CV82,B122-C320, Code 99999.
-   BY07 stammt aus der Ergebnistabelle (dort 82710), nicht aus Tabelle 1. */
+   BY07 stammt aus der Ergebnistabelle (dort 82710), nicht aus Tabelle 1.
+
+   ⚑ GEÄNDERT 15.09.2026: Der Schlüssel ist jetzt die KENNUNG (BY02), nicht mehr
+   der Anzeigename ("BY02 · Bischberg"). Vorher waren Anzeigetext und
+   Datenschlüssel dasselbe — ein ergänzter Ortsname oder ein Tippfehler, und die
+   Herkunft wurde nicht mehr gefunden, ohne jeden Hinweis. Das wäre spätestens
+   mit der freien Namenseingabe aufgeschlagen. */
 const HERKUENFTE = {
   "BY01":"091 82710 1042 (Übriges Süddeutschland)",
-  "BY02 · Bischberg":"091 82710 1042 (Übriges Süddeutschland)",
+  "BY02":"091 82710 1042 (Übriges Süddeutschland)",
   "BY03":"091 82710 1042",
   "BY04":"091 82710 1042 (Übriges Süddeutschland)",
   "BY05":"083 82710 0172",
   "BY06":"083 82710 0172 (Übriges Süddeutschland)",
-  "BY07 · Revier Lech (AELF Fürstenfeldbruck)":"82710 (Übriges Süddeutschland)",
+  "BY07":"82710 (Übriges Süddeutschland)",
   "BW01":"081 82709 1102 (Schwäbisch-Fränkischer Wald)",
   "BW02":"091 82710 1042 (Übriges Süddeutschland)",
   "BW03":"083 82708 1752 (Schwarzwald und Albtrauf)",
@@ -98,6 +104,13 @@ const HERKUENFTE = {
   "BW05":"091 82710 1042 (Übriges Süddeutschland)"
 };
 const RUMAENISCH = "99999 (PS-BR-CV82,B122-C320, St. George)";
+
+/* Kennung aus einem Flächennamen: "BY02 · Bischberg" → "BY02".
+   Verträgt Ortszusätze, Klammern und Tippfehler nach der Kennung. */
+function flaechenKennung(name){
+  const m = String(name || "").trim().match(/^(B[YW]\d{2})/i);
+  return m ? m[1].toUpperCase() : "";
+}
 
 /* ---------- Punktdefinition: 10 Messpunkte + zwei Wiederholungen ---------- */
 const PUNKTE = [
@@ -387,6 +400,16 @@ function zusammenfuehren(ziel, quelle){
         bericht.konflikte.push({pfad:pfad, hier:wertZ, dort:wertQ, gewinner:"hier"});
       }
       bericht.behalten++;
+    }else if(String(wertZ) !== String(wertQ)){
+      /* ⚑ ERGÄNZT 15.09.2026: Gleicher Zeitstempel, verschiedener Wert.
+         Vorher fiel dieser Fall durch alle Zweige: Der eigene Wert blieb
+         stehen und es wurde NICHTS gemeldet — genau das stille Entscheiden,
+         das Fassung 3 abschaffen sollte. Tritt auf, weil setzenMehrere()
+         allen Feldern einer Maske denselben Millisekunden-Stempel gibt, und
+         bei falsch gestellter Geräteuhr. Der eigene Wert bleibt (es gibt
+         keinen Grund, den fremden zu bevorzugen), aber er wird gemeldet. */
+      bericht.konflikte.push({pfad:pfad, hier:wertZ, dort:wertQ, gewinner:"hier (gleicher Zeitstempel)"});
+      bericht.behalten++;
     }
   });
 
@@ -426,9 +449,11 @@ function listeVereinigen(ziel, quelle, name){
    ihrem Inhalt — damit derselbe Baum nicht zweimal in der Liste landet. */
 function eintraegeVereinigen(a, b){
   const nach = {};
-  const aufnehmen = eintrag => {
+  const aufnehmen = (eintrag, platz) => {
     if(!eintrag || typeof eintrag !== "object") return;
-    const id = eintrag._id || inhaltsKennung(eintrag);
+    /* Platz in der Liste geht in die Ersatzkennung ein — sonst verschmelzen
+       zwei verschiedene Bäume mit zufällig gleichen Werten (15.09.2026). */
+    const id = eintrag._id || inhaltsKennung(eintrag, platz);
     if(!eintrag._id) eintrag._id = id;
     const alt = nach[id];
     if(!alt || (eintrag._t || 0) > (alt._t || 0)) nach[id] = eintrag;
@@ -438,11 +463,23 @@ function eintraegeVereinigen(a, b){
   return Object.keys(nach).map(k => nach[k]);
 }
 
-/* Kennung aus dem Inhalt — für Einträge, die vor Fassung 3 angelegt wurden. */
-function inhaltsKennung(o){
+/* Kennung aus dem Inhalt — für Einträge, die vor Fassung 3 angelegt wurden.
+
+   ⚑ GEÄNDERT 15.09.2026: Die Kennung entstand allein aus dem Inhalt. Damit
+   bekamen ZWEI VERSCHIEDENE Bäume mit zufällig gleichen Werten dieselbe
+   Kennung — und beim Vereinigen blieb nur einer übrig. Bei grober Aufnahme ist
+   das nicht unwahrscheinlich: gleiche Art, gleicher BHD, gleicher Azimut,
+   gleiche Distanz. Ein Baum verschwände lautlos aus der Liste.
+
+   Jetzt geht die POSITION in der Liste mit ein. Damit bleibt beides erhalten:
+   Dieselbe Sicherung zweimal eingelesen ergibt weiterhin keine Dubletten (die
+   Reihenfolge ist dieselbe), aber zwei gleich aussehende Bäume an
+   verschiedenen Stellen bleiben zwei Bäume. */
+function inhaltsKennung(o, platz){
   const roh = JSON.stringify(o, Object.keys(o).filter(k => k[0] !== "_").sort());
+  const mitPlatz = roh + "#" + (platz === undefined ? "" : platz);
   let h = 0;
-  for(let i = 0; i < roh.length; i++){ h = ((h << 5) - h + roh.charCodeAt(i)) | 0; }
+  for(let i = 0; i < mitPlatz.length; i++){ h = ((h << 5) - h + mitPlatz.charCodeAt(i)) | 0; }
   return "a" + Math.abs(h).toString(36);
 }
 
@@ -576,16 +613,30 @@ function standEinsortieren(fremd){
     if(treffer) zielId = treffer.id;
   }
 
+  /* ⚑ ERGÄNZT 15.09.2026: Beim Einsortieren wird D kurzzeitig auf einen
+     FREMDEN Datensatz umgebogen, damit flaecheSchreiben() und
+     listeAuffrischen() darauf arbeiten. Vorher stand das ohne Absicherung da:
+     Wirft eine der Funktionen einen Fehler — etwa weil der Speicher voll ist —,
+     bliebe D auf der fremden Fläche stehen, und jede weitere Eingabe landete
+     dort. Deshalb läuft der Wechsel jetzt durch aufD(), das D in jedem Fall
+     zurücksetzt. */
+  function aufD(datensatz, tun){
+    const merk = D;
+    try{ D = datensatz; return tun(); }
+    finally{ D = merk; }
+  }
+
   if(zielId){
-    const war = (D.id === zielId) ? D : flaecheLesen(zielId);
+    const eigene = (D.id === zielId);
+    const war = eigene ? D : flaecheLesen(zielId);
     const bericht = zusammenfuehren(war, fremd);
-    if(D.id === zielId){ D = war; }
-    else{
-      const merk = D;
-      D = war; flaecheSchreiben(); D = merk;
+    if(eigene){
+      D = war;
+      flaecheSchreiben();
+      listeAuffrischen();
+    }else{
+      aufD(war, () => { flaecheSchreiben(); listeAuffrischen(); });
     }
-    // Übersicht des Ziels auffrischen
-    const merk2 = D; D = war; listeAuffrischen(); D = merk2;
     return {art:"zusammengefuehrt", id:zielId, bericht:bericht};
   }
 
@@ -593,8 +644,7 @@ function standEinsortieren(fremd){
   const neu = Object.assign(leererDatensatz(), fremd);
   neu.id = fremd.id || ("f" + Date.now().toString(36) + Math.random().toString(36).slice(2,6));
   neu.fassung = 3;
-  const merk = D;
-  D = neu; ergaenzen(); flaecheSchreiben(); listeAuffrischen(); D = merk;
+  aufD(neu, () => { ergaenzen(); flaecheSchreiben(); listeAuffrischen(); });
   return {art:"neu", id:neu.id, bericht:{neu:Object.keys(neu.t||{}).length, erneuert:0, behalten:0, listen:(neu.oberstand||[]).length, konflikte:[]}};
 }
 
@@ -663,7 +713,7 @@ function ergaenzen(){
   if(!D.bedingungen) D.bedingungen = {};
   if(!Array.isArray(D.oberstand)) D.oberstand = [];
 
-  D.oberstand.forEach(b => {
+  D.oberstand.forEach((b, i) => {
     if(b.parzelle === undefined) b.parzelle = "A";
     if(b.azimut   === undefined) b.azimut   = "";
     if(b.dist     === undefined) b.dist     = "";
@@ -671,7 +721,7 @@ function ergaenzen(){
     if(b.kontrolle === undefined) b.kontrolle = false;
     if(b.k_dist2  === undefined) b.k_dist2  = "";
     if(b.k_azimut === undefined) b.k_azimut = "";
-    if(b._id      === undefined) b._id      = inhaltsKennung(b);
+    if(b._id      === undefined) b._id      = inhaltsKennung(b, i);
     if(b._t       === undefined) b._t       = 1;
   });
 }
@@ -782,8 +832,8 @@ function ausFassung2(alt){
       const v = av[pid] || {};
       n.veg.punkte[pid] = {
         einfach: v.einfach || {},
-        arten: (Array.isArray(v.arten) ? v.arten : []).map(a =>
-          Object.assign({_id: inhaltsKennung(a), _t: stempel}, a)),
+        arten: (Array.isArray(v.arten) ? v.arten : []).map((a, i) =>
+          Object.assign({_id: inhaltsKennung(a, i), _t: stempel}, a)),
         kronenschluss: v.kronenschluss || "",
         bem: v.bem || "",
         aufnehmer: v.aufnehmer || ""
@@ -798,8 +848,8 @@ function ausFassung2(alt){
   }
 
   // Oberstand
-  n.oberstand = (Array.isArray(alt.oberstand) ? alt.oberstand : []).map(b =>
-    Object.assign({_id: inhaltsKennung(b), _t: stempel, _g: "alt"}, b));
+  n.oberstand = (Array.isArray(alt.oberstand) ? alt.oberstand : []).map((b, i) =>
+    Object.assign({_id: inhaltsKennung(b, i), _t: stempel, _g: "alt"}, b));
 
   // Messbedingungen aus dem alten Geländeabschnitt
   if(alt.gelaende){

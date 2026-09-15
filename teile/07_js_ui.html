@@ -175,12 +175,40 @@ function feldBinden(id, zielName){
   if(istHaken){ el.checked = !!ziel[id]; }
   else{ el.value = (ziel[id] !== undefined && ziel[id] !== null) ? ziel[id] : ""; }
   el.addEventListener("change", () => {
+    stempelTimerLoeschen(el);
     setzen(pfad, istHaken ? el.checked : el.value);
   });
   /* Beim Tippen nur zwischenspeichern, ohne Stempel — der kommt beim
      Verlassen des Feldes. Sonst stünde nach jedem Buchstaben ein neuer
-     Stempel, und die Synchronisation liefe heiß. */
-  if(!istHaken) el.addEventListener("input", () => { zielObjekt(zielName)[id] = el.value; });
+     Stempel, und die Synchronisation liefe heiß.
+     ⚑ ERGÄNZT 15.09.2026: Ein Wert ohne Stempel wird beim Zusammenführen NIE
+     übertragen. Wer tippt und dann zur Kamera wechselt, hätte den Wert lokal,
+     aber auf keinem anderen Gerät. Deshalb bekommt jedes Feld nach zwei
+     Sekunden Tippruhe seinen Stempel — einmal je Feld, nicht je Buchstabe. */
+  if(!istHaken) el.addEventListener("input", () => {
+    zielObjekt(zielName)[id] = el.value;
+    stempelNachRuhe(el, pfad, () => el.value);
+  });
+}
+
+/* ---------- Stempel nach Tippruhe ----------
+   Hält je Eingabefeld einen Zeitgeber. Zwei Sekunden nach dem letzten
+   Tastendruck wird der Wert regulär über setzen() geschrieben — mit Stempel
+   und gespeichert. Feuert danach noch ein "change", schadet das nicht: Es
+   setzt denselben Wert noch einmal. */
+const STEMPEL_TIMER = new WeakMap();
+
+function stempelTimerLoeschen(el){
+  const t = STEMPEL_TIMER.get(el);
+  if(t){ clearTimeout(t); STEMPEL_TIMER.delete(el); }
+}
+
+function stempelNachRuhe(el, pfad, wertGeber){
+  stempelTimerLoeschen(el);
+  STEMPEL_TIMER.set(el, setTimeout(() => {
+    STEMPEL_TIMER.delete(el);
+    setzen(pfad, wertGeber());
+  }, 2000));
 }
 
 /* ---------- Auswahl mit Freitext ----------
@@ -226,8 +254,14 @@ function auswahlfelderAufbauen(){
       if(sel.value === FREI) txt.focus();
       nachAuswahl(id);
     });
-    txt.addEventListener("change", () => { setzen(zielPfad(zielName) + "." + id + "_frei", txt.value); });
-    txt.addEventListener("input",  () => { zielObjekt(zielName)[id+"_frei"] = txt.value; });
+    txt.addEventListener("change", () => {
+      stempelTimerLoeschen(txt);
+      setzen(zielPfad(zielName) + "." + id + "_frei", txt.value);
+    });
+    txt.addEventListener("input",  () => {
+      zielObjekt(zielName)[id+"_frei"] = txt.value;
+      stempelNachRuhe(txt, zielPfad(zielName) + "." + id + "_frei", () => txt.value);
+    });
   });
 }
 
@@ -357,8 +391,11 @@ function schlussgradErklaeren(){
 
 function herkunftVorschlagen(){
   const f = D.kopf.f_flaeche;
-  if(!f || f === FREI || !HERKUENFTE[f]) return;
-  const heimisch = HERKUENFTE[f];
+  /* Über die Kennung nachschlagen, nicht über den Anzeigenamen — siehe
+     Anmerkung bei HERKUENFTE (15.09.2026). */
+  const k = flaechenKennung(f);
+  if(!f || f === FREI || !k || !HERKUENFTE[k]) return;
+  const heimisch = HERKUENFTE[k];
   const leer = o => !o.pa_code && !o.pa_herkunft && !o.pb_code && !o.pb_herkunft;
   if(!leer(Object.assign({}, D.parzellen.A, D.parzellen.B))) return;
   nachfragen("Herkünfte aus dem Abschlussbericht übernehmen?",
@@ -368,12 +405,17 @@ function herkunftVorschlagen(){
     + "Die Nummern werden nur als Vorschlag in die Felder gesetzt.",
     "Eintragen",
     () => {
-      D.parzellen.A.pa_code = RUMAENISCH;
-      D.parzellen.B.pb_code = heimisch;
-      D.parzellen.A.pa_herkunft = D.parzellen.A.pa_herkunft || "rumänisch — im Feld prüfen";
-      D.parzellen.B.pb_herkunft = D.parzellen.B.pb_herkunft || "heimisch — im Feld prüfen";
+      /* ⚑ 15.09.2026: Früher wurde hier direkt auf D geschrieben — damit
+         bekamen die vier Felder KEINEN Zeitstempel und wären beim
+         Zusammenführen nie auf ein zweites Gerät gelangt. Jetzt über
+         setzenMehrere(). */
+      setzenMehrere({
+        "parzellen.A.pa_code":     RUMAENISCH,
+        "parzellen.B.pb_code":     heimisch,
+        "parzellen.A.pa_herkunft": D.parzellen.A.pa_herkunft || "rumänisch — im Feld prüfen",
+        "parzellen.B.pb_herkunft": D.parzellen.B.pb_herkunft || "heimisch — im Feld prüfen"
+      }, true);
       ["pa_code","pa_herkunft"].forEach(id => { const e=document.getElementById(id); if(e) e.value = D.parzellen.A[id]||""; });
       ["pb_code","pb_herkunft"].forEach(id => { const e=document.getElementById(id); if(e) e.value = D.parzellen.B[id]||""; });
-      speichern(true);
     });
 }

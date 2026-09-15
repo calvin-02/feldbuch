@@ -138,9 +138,35 @@ window.addEventListener("beforeunload", e => {
   if(hatDaten && SEIT_SICHERUNG > 0){ e.preventDefault(); e.returnValue = ""; }
 });
 
-/* Vor dem Wegschalten sofort schreiben, nicht erst nach 250 ms. */
+/* Vor dem Wegschalten sofort schreiben, nicht erst nach 250 ms.
+
+   ⚑ WICHTIG, gefunden am 15.09.2026: Das genügte NICHT. Eingabefelder geben
+   ihren Wert erst beim Verlassen ab (Ereignis "change"); beim Tippen landet er
+   nur im Arbeitsspeicher, OHNE Zeitstempel und ohne Speichern. Wer die
+   Bild-Nummer eintippt und dann zur Kamera wechselt, verliert sie doppelt:
+   nicht gespeichert — und selbst wenn ein anderer Vorgang zufällig speichert,
+   wird ein Feld ohne Zeitstempel beim Zusammenführen NIE übertragen
+   (zusammenfuehren() läuft nur über die Stempel). Auf dem eigenen Gerät sähe
+   alles richtig aus, auf dem zweiten fehlte der Wert.
+
+   Deshalb: erst das aktive Feld zum Abgeben zwingen (blur löst "change" aus,
+   und damit setzen() samt Stempel), dann schreiben. */
+function alleFelderAbgeben(){
+  const a = document.activeElement;
+  if(a && typeof a.blur === "function" && a !== document.body) a.blur();
+}
+
 document.addEventListener("visibilitychange", () => {
-  if(document.visibilityState === "hidden" && SPEICHER_TIMER) wirklichSpeichern();
+  if(document.visibilityState !== "hidden") return;
+  alleFelderAbgeben();
+  if(SPEICHER_TIMER) wirklichSpeichern();
+});
+
+/* pagehide fängt die Fälle ab, in denen visibilitychange zu spät kommt oder
+   ausbleibt — etwa wenn das Betriebssystem die Seite verwirft. */
+window.addEventListener("pagehide", () => {
+  alleFelderAbgeben();
+  if(SPEICHER_TIMER) wirklichSpeichern();
 });
 window.addEventListener("online",  technikZeigen);
 window.addEventListener("offline", technikZeigen);

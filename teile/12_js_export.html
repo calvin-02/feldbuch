@@ -86,7 +86,7 @@ function textFassung(){
   z.push("  Flächenkoordinate (nur Kachelauswahl): " + (D.kopf.f_gps_lat||"—") + " / "
          + (D.kopf.f_gps_lon||"—") + "  ± " + (D.kopf.f_gps_acc||"?") + " m");
   if(D.kopf.f_gps_lat && D.kopf.f_gps_lon){
-    const u = nachUTM32(Number(D.kopf.f_gps_lat), Number(D.kopf.f_gps_lon));
+    const u = nachUTM32(zahl(D.kopf.f_gps_lat), zahl(D.kopf.f_gps_lon));
     z.push("     UTM32: " + Math.round(u.ost) + " / " + Math.round(u.nord)
            + "   Kachel " + Math.floor(u.ost/1000) + "_" + Math.floor(u.nord/1000));
   }

@@ -771,8 +771,8 @@
    die Baumarten- und Pflanzenlisten, die Punktdefinition.
    ===================================================================== */
 
-const FASSUNG = "3.0.2";
-const STAND   = "14.09.2026";
+const FASSUNG = "3.0.3";
+const STAND   = "15.09.2026";
 
 /* ---------- Auswahllisten ----------
    Alles hier ist Vorschlag, nicht Vorschrift: jede Liste bekommt beim Aufbau
@@ -831,15 +831,21 @@ const BESTANDESTYPEN = [
 /* Herkünfte je Fläche — wörtlich aus Tabelle 1 des Abschlussberichts
    (BMBF 2219NR278, S. 14) und der Ergebnistabelle 2023. Die rumänische Herkunft ist
    auf allen Flächen dieselbe: St. George, PS-BR-CV82,B122-C320, Code 99999.
-   BY07 stammt aus der Ergebnistabelle (dort 82710), nicht aus Tabelle 1. */
+   BY07 stammt aus der Ergebnistabelle (dort 82710), nicht aus Tabelle 1.
+
+   ⚑ GEÄNDERT 15.09.2026: Der Schlüssel ist jetzt die KENNUNG (BY02), nicht mehr
+   der Anzeigename ("BY02 · Bischberg"). Vorher waren Anzeigetext und
+   Datenschlüssel dasselbe — ein ergänzter Ortsname oder ein Tippfehler, und die
+   Herkunft wurde nicht mehr gefunden, ohne jeden Hinweis. Das wäre spätestens
+   mit der freien Namenseingabe aufgeschlagen. */
 const HERKUENFTE = {
   "BY01":"091 82710 1042 (Übriges Süddeutschland)",
-  "BY02 · Bischberg":"091 82710 1042 (Übriges Süddeutschland)",
+  "BY02":"091 82710 1042 (Übriges Süddeutschland)",
   "BY03":"091 82710 1042",
   "BY04":"091 82710 1042 (Übriges Süddeutschland)",
   "BY05":"083 82710 0172",
   "BY06":"083 82710 0172 (Übriges Süddeutschland)",
-  "BY07 · Revier Lech (AELF Fürstenfeldbruck)":"82710 (Übriges Süddeutschland)",
+  "BY07":"82710 (Übriges Süddeutschland)",
   "BW01":"081 82709 1102 (Schwäbisch-Fränkischer Wald)",
   "BW02":"091 82710 1042 (Übriges Süddeutschland)",
   "BW03":"083 82708 1752 (Schwarzwald und Albtrauf)",
@@ -847,6 +853,13 @@ const HERKUENFTE = {
   "BW05":"091 82710 1042 (Übriges Süddeutschland)"
 };
 const RUMAENISCH = "99999 (PS-BR-CV82,B122-C320, St. George)";
+
+/* Kennung aus einem Flächennamen: "BY02 · Bischberg" → "BY02".
+   Verträgt Ortszusätze, Klammern und Tippfehler nach der Kennung. */
+function flaechenKennung(name){
+  const m = String(name || "").trim().match(/^(B[YW]\d{2})/i);
+  return m ? m[1].toUpperCase() : "";
+}
 
 /* ---------- Punktdefinition: 10 Messpunkte + zwei Wiederholungen ---------- */
 const PUNKTE = [
@@ -1136,6 +1149,16 @@ function zusammenfuehren(ziel, quelle){
         bericht.konflikte.push({pfad:pfad, hier:wertZ, dort:wertQ, gewinner:"hier"});
       }
       bericht.behalten++;
+    }else if(String(wertZ) !== String(wertQ)){
+      /* ⚑ ERGÄNZT 15.09.2026: Gleicher Zeitstempel, verschiedener Wert.
+         Vorher fiel dieser Fall durch alle Zweige: Der eigene Wert blieb
+         stehen und es wurde NICHTS gemeldet — genau das stille Entscheiden,
+         das Fassung 3 abschaffen sollte. Tritt auf, weil setzenMehrere()
+         allen Feldern einer Maske denselben Millisekunden-Stempel gibt, und
+         bei falsch gestellter Geräteuhr. Der eigene Wert bleibt (es gibt
+         keinen Grund, den fremden zu bevorzugen), aber er wird gemeldet. */
+      bericht.konflikte.push({pfad:pfad, hier:wertZ, dort:wertQ, gewinner:"hier (gleicher Zeitstempel)"});
+      bericht.behalten++;
     }
   });
 
@@ -1175,9 +1198,11 @@ function listeVereinigen(ziel, quelle, name){
    ihrem Inhalt — damit derselbe Baum nicht zweimal in der Liste landet. */
 function eintraegeVereinigen(a, b){
   const nach = {};
-  const aufnehmen = eintrag => {
+  const aufnehmen = (eintrag, platz) => {
     if(!eintrag || typeof eintrag !== "object") return;
-    const id = eintrag._id || inhaltsKennung(eintrag);
+    /* Platz in der Liste geht in die Ersatzkennung ein — sonst verschmelzen
+       zwei verschiedene Bäume mit zufällig gleichen Werten (15.09.2026). */
+    const id = eintrag._id || inhaltsKennung(eintrag, platz);
     if(!eintrag._id) eintrag._id = id;
     const alt = nach[id];
     if(!alt || (eintrag._t || 0) > (alt._t || 0)) nach[id] = eintrag;
@@ -1187,11 +1212,23 @@ function eintraegeVereinigen(a, b){
   return Object.keys(nach).map(k => nach[k]);
 }
 
-/* Kennung aus dem Inhalt — für Einträge, die vor Fassung 3 angelegt wurden. */
-function inhaltsKennung(o){
+/* Kennung aus dem Inhalt — für Einträge, die vor Fassung 3 angelegt wurden.
+
+   ⚑ GEÄNDERT 15.09.2026: Die Kennung entstand allein aus dem Inhalt. Damit
+   bekamen ZWEI VERSCHIEDENE Bäume mit zufällig gleichen Werten dieselbe
+   Kennung — und beim Vereinigen blieb nur einer übrig. Bei grober Aufnahme ist
+   das nicht unwahrscheinlich: gleiche Art, gleicher BHD, gleicher Azimut,
+   gleiche Distanz. Ein Baum verschwände lautlos aus der Liste.
+
+   Jetzt geht die POSITION in der Liste mit ein. Damit bleibt beides erhalten:
+   Dieselbe Sicherung zweimal eingelesen ergibt weiterhin keine Dubletten (die
+   Reihenfolge ist dieselbe), aber zwei gleich aussehende Bäume an
+   verschiedenen Stellen bleiben zwei Bäume. */
+function inhaltsKennung(o, platz){
   const roh = JSON.stringify(o, Object.keys(o).filter(k => k[0] !== "_").sort());
+  const mitPlatz = roh + "#" + (platz === undefined ? "" : platz);
   let h = 0;
-  for(let i = 0; i < roh.length; i++){ h = ((h << 5) - h + roh.charCodeAt(i)) | 0; }
+  for(let i = 0; i < mitPlatz.length; i++){ h = ((h << 5) - h + mitPlatz.charCodeAt(i)) | 0; }
   return "a" + Math.abs(h).toString(36);
 }
 
@@ -1325,16 +1362,30 @@ function standEinsortieren(fremd){
     if(treffer) zielId = treffer.id;
   }
 
+  /* ⚑ ERGÄNZT 15.09.2026: Beim Einsortieren wird D kurzzeitig auf einen
+     FREMDEN Datensatz umgebogen, damit flaecheSchreiben() und
+     listeAuffrischen() darauf arbeiten. Vorher stand das ohne Absicherung da:
+     Wirft eine der Funktionen einen Fehler — etwa weil der Speicher voll ist —,
+     bliebe D auf der fremden Fläche stehen, und jede weitere Eingabe landete
+     dort. Deshalb läuft der Wechsel jetzt durch aufD(), das D in jedem Fall
+     zurücksetzt. */
+  function aufD(datensatz, tun){
+    const merk = D;
+    try{ D = datensatz; return tun(); }
+    finally{ D = merk; }
+  }
+
   if(zielId){
-    const war = (D.id === zielId) ? D : flaecheLesen(zielId);
+    const eigene = (D.id === zielId);
+    const war = eigene ? D : flaecheLesen(zielId);
     const bericht = zusammenfuehren(war, fremd);
-    if(D.id === zielId){ D = war; }
-    else{
-      const merk = D;
-      D = war; flaecheSchreiben(); D = merk;
+    if(eigene){
+      D = war;
+      flaecheSchreiben();
+      listeAuffrischen();
+    }else{
+      aufD(war, () => { flaecheSchreiben(); listeAuffrischen(); });
     }
-    // Übersicht des Ziels auffrischen
-    const merk2 = D; D = war; listeAuffrischen(); D = merk2;
     return {art:"zusammengefuehrt", id:zielId, bericht:bericht};
   }
 
@@ -1342,8 +1393,7 @@ function standEinsortieren(fremd){
   const neu = Object.assign(leererDatensatz(), fremd);
   neu.id = fremd.id || ("f" + Date.now().toString(36) + Math.random().toString(36).slice(2,6));
   neu.fassung = 3;
-  const merk = D;
-  D = neu; ergaenzen(); flaecheSchreiben(); listeAuffrischen(); D = merk;
+  aufD(neu, () => { ergaenzen(); flaecheSchreiben(); listeAuffrischen(); });
   return {art:"neu", id:neu.id, bericht:{neu:Object.keys(neu.t||{}).length, erneuert:0, behalten:0, listen:(neu.oberstand||[]).length, konflikte:[]}};
 }
 
@@ -1412,7 +1462,7 @@ function ergaenzen(){
   if(!D.bedingungen) D.bedingungen = {};
   if(!Array.isArray(D.oberstand)) D.oberstand = [];
 
-  D.oberstand.forEach(b => {
+  D.oberstand.forEach((b, i) => {
     if(b.parzelle === undefined) b.parzelle = "A";
     if(b.azimut   === undefined) b.azimut   = "";
     if(b.dist     === undefined) b.dist     = "";
@@ -1420,7 +1470,7 @@ function ergaenzen(){
     if(b.kontrolle === undefined) b.kontrolle = false;
     if(b.k_dist2  === undefined) b.k_dist2  = "";
     if(b.k_azimut === undefined) b.k_azimut = "";
-    if(b._id      === undefined) b._id      = inhaltsKennung(b);
+    if(b._id      === undefined) b._id      = inhaltsKennung(b, i);
     if(b._t       === undefined) b._t       = 1;
   });
 }
@@ -1531,8 +1581,8 @@ function ausFassung2(alt){
       const v = av[pid] || {};
       n.veg.punkte[pid] = {
         einfach: v.einfach || {},
-        arten: (Array.isArray(v.arten) ? v.arten : []).map(a =>
-          Object.assign({_id: inhaltsKennung(a), _t: stempel}, a)),
+        arten: (Array.isArray(v.arten) ? v.arten : []).map((a, i) =>
+          Object.assign({_id: inhaltsKennung(a, i), _t: stempel}, a)),
         kronenschluss: v.kronenschluss || "",
         bem: v.bem || "",
         aufnehmer: v.aufnehmer || ""
@@ -1547,8 +1597,8 @@ function ausFassung2(alt){
   }
 
   // Oberstand
-  n.oberstand = (Array.isArray(alt.oberstand) ? alt.oberstand : []).map(b =>
-    Object.assign({_id: inhaltsKennung(b), _t: stempel, _g: "alt"}, b));
+  n.oberstand = (Array.isArray(alt.oberstand) ? alt.oberstand : []).map((b, i) =>
+    Object.assign({_id: inhaltsKennung(b, i), _t: stempel, _g: "alt"}, b));
 
   // Messbedingungen aus dem alten Geländeabschnitt
   if(alt.gelaende){
@@ -1802,12 +1852,40 @@ function feldBinden(id, zielName){
   if(istHaken){ el.checked = !!ziel[id]; }
   else{ el.value = (ziel[id] !== undefined && ziel[id] !== null) ? ziel[id] : ""; }
   el.addEventListener("change", () => {
+    stempelTimerLoeschen(el);
     setzen(pfad, istHaken ? el.checked : el.value);
   });
   /* Beim Tippen nur zwischenspeichern, ohne Stempel — der kommt beim
      Verlassen des Feldes. Sonst stünde nach jedem Buchstaben ein neuer
-     Stempel, und die Synchronisation liefe heiß. */
-  if(!istHaken) el.addEventListener("input", () => { zielObjekt(zielName)[id] = el.value; });
+     Stempel, und die Synchronisation liefe heiß.
+     ⚑ ERGÄNZT 15.09.2026: Ein Wert ohne Stempel wird beim Zusammenführen NIE
+     übertragen. Wer tippt und dann zur Kamera wechselt, hätte den Wert lokal,
+     aber auf keinem anderen Gerät. Deshalb bekommt jedes Feld nach zwei
+     Sekunden Tippruhe seinen Stempel — einmal je Feld, nicht je Buchstabe. */
+  if(!istHaken) el.addEventListener("input", () => {
+    zielObjekt(zielName)[id] = el.value;
+    stempelNachRuhe(el, pfad, () => el.value);
+  });
+}
+
+/* ---------- Stempel nach Tippruhe ----------
+   Hält je Eingabefeld einen Zeitgeber. Zwei Sekunden nach dem letzten
+   Tastendruck wird der Wert regulär über setzen() geschrieben — mit Stempel
+   und gespeichert. Feuert danach noch ein "change", schadet das nicht: Es
+   setzt denselben Wert noch einmal. */
+const STEMPEL_TIMER = new WeakMap();
+
+function stempelTimerLoeschen(el){
+  const t = STEMPEL_TIMER.get(el);
+  if(t){ clearTimeout(t); STEMPEL_TIMER.delete(el); }
+}
+
+function stempelNachRuhe(el, pfad, wertGeber){
+  stempelTimerLoeschen(el);
+  STEMPEL_TIMER.set(el, setTimeout(() => {
+    STEMPEL_TIMER.delete(el);
+    setzen(pfad, wertGeber());
+  }, 2000));
 }
 
 /* ---------- Auswahl mit Freitext ----------
@@ -1853,8 +1931,14 @@ function auswahlfelderAufbauen(){
       if(sel.value === FREI) txt.focus();
       nachAuswahl(id);
     });
-    txt.addEventListener("change", () => { setzen(zielPfad(zielName) + "." + id + "_frei", txt.value); });
-    txt.addEventListener("input",  () => { zielObjekt(zielName)[id+"_frei"] = txt.value; });
+    txt.addEventListener("change", () => {
+      stempelTimerLoeschen(txt);
+      setzen(zielPfad(zielName) + "." + id + "_frei", txt.value);
+    });
+    txt.addEventListener("input",  () => {
+      zielObjekt(zielName)[id+"_frei"] = txt.value;
+      stempelNachRuhe(txt, zielPfad(zielName) + "." + id + "_frei", () => txt.value);
+    });
   });
 }
 
@@ -1984,8 +2068,11 @@ function schlussgradErklaeren(){
 
 function herkunftVorschlagen(){
   const f = D.kopf.f_flaeche;
-  if(!f || f === FREI || !HERKUENFTE[f]) return;
-  const heimisch = HERKUENFTE[f];
+  /* Über die Kennung nachschlagen, nicht über den Anzeigenamen — siehe
+     Anmerkung bei HERKUENFTE (15.09.2026). */
+  const k = flaechenKennung(f);
+  if(!f || f === FREI || !k || !HERKUENFTE[k]) return;
+  const heimisch = HERKUENFTE[k];
   const leer = o => !o.pa_code && !o.pa_herkunft && !o.pb_code && !o.pb_herkunft;
   if(!leer(Object.assign({}, D.parzellen.A, D.parzellen.B))) return;
   nachfragen("Herkünfte aus dem Abschlussbericht übernehmen?",
@@ -1995,13 +2082,18 @@ function herkunftVorschlagen(){
     + "Die Nummern werden nur als Vorschlag in die Felder gesetzt.",
     "Eintragen",
     () => {
-      D.parzellen.A.pa_code = RUMAENISCH;
-      D.parzellen.B.pb_code = heimisch;
-      D.parzellen.A.pa_herkunft = D.parzellen.A.pa_herkunft || "rumänisch — im Feld prüfen";
-      D.parzellen.B.pb_herkunft = D.parzellen.B.pb_herkunft || "heimisch — im Feld prüfen";
+      /* ⚑ 15.09.2026: Früher wurde hier direkt auf D geschrieben — damit
+         bekamen die vier Felder KEINEN Zeitstempel und wären beim
+         Zusammenführen nie auf ein zweites Gerät gelangt. Jetzt über
+         setzenMehrere(). */
+      setzenMehrere({
+        "parzellen.A.pa_code":     RUMAENISCH,
+        "parzellen.B.pb_code":     heimisch,
+        "parzellen.A.pa_herkunft": D.parzellen.A.pa_herkunft || "rumänisch — im Feld prüfen",
+        "parzellen.B.pb_herkunft": D.parzellen.B.pb_herkunft || "heimisch — im Feld prüfen"
+      }, true);
       ["pa_code","pa_herkunft"].forEach(id => { const e=document.getElementById(id); if(e) e.value = D.parzellen.A[id]||""; });
       ["pb_code","pb_herkunft"].forEach(id => { const e=document.getElementById(id); if(e) e.value = D.parzellen.B[id]||""; });
-      speichern(true);
     });
 }
 
@@ -2620,9 +2712,9 @@ function punktOeffnen(pid){
         : '<div class="info" style="font-size:13px">Im Regelfall bleibt das hier leer: Die sieben '
           + 'Schwellenwerte werden gemeinsam am Rechner ausgewertet.</div>')
     +  '<div class="reihe">'
-    +    '<div><label>ISF (%)</label><input type="number" id="p_isf" inputmode="numeric" value="'+(d.isf!==undefined?d.isf:"")+'"></div>'
-    +    '<div><label>DSF (%)</label><input type="number" id="p_dsf" inputmode="numeric" value="'+(d.dsf!==undefined?d.dsf:"")+'"></div>'
-    +    '<div><label>TSF (%)</label><input type="number" id="p_tsf" inputmode="numeric" value="'+(d.tsf!==undefined?d.tsf:"")+'"></div>'
+    +    '<div><label>ISF (%)</label><input type="number" step="0.01" id="p_isf" inputmode="decimal" value="'+(d.isf!==undefined?d.isf:"")+'"></div>'
+    +    '<div><label>DSF (%)</label><input type="number" step="0.01" id="p_dsf" inputmode="decimal" value="'+(d.dsf!==undefined?d.dsf:"")+'"></div>'
+    +    '<div><label>TSF (%)</label><input type="number" step="0.01" id="p_tsf" inputmode="decimal" value="'+(d.tsf!==undefined?d.tsf:"")+'"></div>'
     +  '</div>'
     +  '<div id="pPruefung"></div>'
     +  '<div class="reihe">'
@@ -2729,7 +2821,7 @@ function pBisher(ausser){
   Object.keys(D.punkte).forEach(k => {
     if(k === ausser) return;
     const d = D.punkte[k];
-    const p = pBerechnen(Number(d.isf), Number(d.dsf), Number(d.tsf));
+    const p = pBerechnen(zahl(d.isf), zahl(d.dsf), zahl(d.tsf));
     if(p !== null && p > -0.5 && p < 1.5) werte.push(p);
   });
   if(!werte.length) return null;
@@ -2742,9 +2834,9 @@ function pruefungZeigen(){
   if(!box) return;
   const feld = id => document.getElementById(id);
   if(!feld("p_isf")) return;
-  const isf = Number(feld("p_isf").value);
-  const dsf = Number(feld("p_dsf").value);
-  const tsf = Number(feld("p_tsf").value);
+  const isf = zahl(feld("p_isf").value);
+  const dsf = zahl(feld("p_dsf").value);
+  const tsf = zahl(feld("p_tsf").value);
   const meldungen = [];
 
   [["ISF",isf],["DSF",dsf],["TSF",tsf]].forEach(([n,v]) => {
@@ -3898,7 +3990,7 @@ function kontrolleAufbauen(){
   // Wiederholbarkeit, wenn Werte da sind
   const w1 = D.punkte["W1"], w2 = D.punkte["W2"];
   if(w1 && w2 && w1.isf !== "" && w2.isf !== "" && w1.isf != null && w2.isf != null){
-    const d = Math.abs(Number(w1.isf) - Number(w2.isf));
+    const d = Math.abs(zahl(w1.isf) - zahl(w2.isf));
     box.innerHTML +=
       '<div class="info '+(d <= 2 ? "gut" : "warnung")+'" style="margin:6px 0">'+
       'Wiederholbarkeit ISF: <b>' + d.toFixed(1) + ' Prozentpunkte</b> Unterschied zwischen W-1 und W-2. ' +
@@ -3995,7 +4087,7 @@ function textFassung(){
   z.push("  Flächenkoordinate (nur Kachelauswahl): " + (D.kopf.f_gps_lat||"—") + " / "
          + (D.kopf.f_gps_lon||"—") + "  ± " + (D.kopf.f_gps_acc||"?") + " m");
   if(D.kopf.f_gps_lat && D.kopf.f_gps_lon){
-    const u = nachUTM32(Number(D.kopf.f_gps_lat), Number(D.kopf.f_gps_lon));
+    const u = nachUTM32(zahl(D.kopf.f_gps_lat), zahl(D.kopf.f_gps_lon));
     z.push("     UTM32: " + Math.round(u.ost) + " / " + Math.round(u.nord)
            + "   Kachel " + Math.floor(u.ost/1000) + "_" + Math.floor(u.nord/1000));
   }
@@ -4863,9 +4955,35 @@ window.addEventListener("beforeunload", e => {
   if(hatDaten && SEIT_SICHERUNG > 0){ e.preventDefault(); e.returnValue = ""; }
 });
 
-/* Vor dem Wegschalten sofort schreiben, nicht erst nach 250 ms. */
+/* Vor dem Wegschalten sofort schreiben, nicht erst nach 250 ms.
+
+   ⚑ WICHTIG, gefunden am 15.09.2026: Das genügte NICHT. Eingabefelder geben
+   ihren Wert erst beim Verlassen ab (Ereignis "change"); beim Tippen landet er
+   nur im Arbeitsspeicher, OHNE Zeitstempel und ohne Speichern. Wer die
+   Bild-Nummer eintippt und dann zur Kamera wechselt, verliert sie doppelt:
+   nicht gespeichert — und selbst wenn ein anderer Vorgang zufällig speichert,
+   wird ein Feld ohne Zeitstempel beim Zusammenführen NIE übertragen
+   (zusammenfuehren() läuft nur über die Stempel). Auf dem eigenen Gerät sähe
+   alles richtig aus, auf dem zweiten fehlte der Wert.
+
+   Deshalb: erst das aktive Feld zum Abgeben zwingen (blur löst "change" aus,
+   und damit setzen() samt Stempel), dann schreiben. */
+function alleFelderAbgeben(){
+  const a = document.activeElement;
+  if(a && typeof a.blur === "function" && a !== document.body) a.blur();
+}
+
 document.addEventListener("visibilitychange", () => {
-  if(document.visibilityState === "hidden" && SPEICHER_TIMER) wirklichSpeichern();
+  if(document.visibilityState !== "hidden") return;
+  alleFelderAbgeben();
+  if(SPEICHER_TIMER) wirklichSpeichern();
+});
+
+/* pagehide fängt die Fälle ab, in denen visibilitychange zu spät kommt oder
+   ausbleibt — etwa wenn das Betriebssystem die Seite verwirft. */
+window.addEventListener("pagehide", () => {
+  alleFelderAbgeben();
+  if(SPEICHER_TIMER) wirklichSpeichern();
 });
 window.addEventListener("online",  technikZeigen);
 window.addEventListener("offline", technikZeigen);

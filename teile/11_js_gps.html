@@ -510,7 +510,7 @@ function kontrolleAufbauen(){
   // Wiederholbarkeit, wenn Werte da sind
   const w1 = D.punkte["W1"], w2 = D.punkte["W2"];
   if(w1 && w2 && w1.isf !== "" && w2.isf !== "" && w1.isf != null && w2.isf != null){
-    const d = Math.abs(Number(w1.isf) - Number(w2.isf));
+    const d = Math.abs(zahl(w1.isf) - zahl(w2.isf));
     box.innerHTML +=
       '<div class="info '+(d <= 2 ? "gut" : "warnung")+'" style="margin:6px 0">'+
       'Wiederholbarkeit ISF: <b>' + d.toFixed(1) + ' Prozentpunkte</b> Unterschied zwischen W-1 und W-2. ' +
