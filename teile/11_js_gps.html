@@ -467,7 +467,16 @@ function kontrolleAufbauen(){
     [q.g.gemessen, "Längen und Breiten beider Parzellen gemessen"],
     [!isNaN(zahl(D.kopf.f_trenn_l)), "Trennstreifen — Länge gemessen"],
     [!isNaN(zahl(D.kopf.f_trenn_b)), "Trennstreifen — Breite gemessen"],
-    [!isNaN(zahl(D.schema.s_achse)), "Azimut der Längsachse A→B eingetragen"],
+    [D.schema.s_achse_quelle === "gemessen",
+     "Azimut der Längsachse A→B <b>gemessen</b>"
+     + (isNaN(zahl(D.schema.s_achse))
+        ? " — fehlt ganz"
+        : (D.schema.s_achse_quelle === "gemessen"
+           ? " (" + Math.round(zahl(D.schema.s_achse)) + "°)"
+           : " — eingetragen sind " + Math.round(zahl(D.schema.s_achse))
+             + "°, aber nur aus der Lage abgeleitet (45°-Raster). "
+             + "<b>Zwei Minuten: von Marke A nach Marke B peilen.</b> Auf BY07 lag die "
+             + "abgeleitete Richtung 32,5° daneben."))],
     [nummernA >= 5 && nummernB >= 5, "Punktnummern in der Skizze vergeben (A: "+nummernA+"/5, B: "+nummernB+"/5)"],
     [!!(D.parzellen.A.pa_herkunft && D.parzellen.B.pb_herkunft), "Herkunft je Parzelle eingetragen"],
     [!!(wertVon("parzA","pa_lage") && wertVon("parzB","pb_lage")), "Lage je Parzelle eingetragen"],

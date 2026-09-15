@@ -19,6 +19,7 @@
     Liegt A im Süden und B im Norden, sind das <b>0°</b>. Aus dieser einen Zahl leitet die App
     alle Himmelsrichtungen und Soll-Azimute ab. <b>Sie beschreibt das Gelände, nicht das Bild.</b>
   </div>
+  <div id="achsHinweis"></div>
 
   <div class="feld" data-auswahl="s_eingang" data-ziel="schema" data-liste="EINGANG"
        data-label="Eingang / Tor liegt im"></div>
@@ -41,10 +42,23 @@
 
   <div class="skizzeRahmen" id="skizzeRahmen"></div>
 
+  <div class="info achtung" style="font-size:13px">
+    <b>Die Skizze ist ein Schema, keine Karte.</b> Sie zeichnet die Fläche immer als zwei saubere
+    Rechtecke, und die Himmelsrichtungen an den Kanten sind auf Sektoren gerundet.
+    <b>Genau ist nur die Zahl im Feld „Azimut der Längsachse" oben</b> — und die auch nur, wenn
+    sie gemessen wurde. Alles Weitere (der wirkliche Zaunverlauf, schiefe Ecken, die genaue Lage
+    im Gelände) kommt später aus den Koordinaten der Messpunkte, nicht aus dieser Zeichnung.
+    <b>Sie ist zum Wiedererkennen und Nummerieren da.</b>
+  </div>
+
   <div class="info gut" style="font-size:13px">
-    <b>Antippen zum Nummerieren.</b> Tipp einen Kreis an und wähle die Nummer 1 bis 5.
-    Der Kreis in der Mitte ist der Parzellenmittelpunkt (der markierte Pfosten) — er ist selbst
-    ein Messpunkt. Die Buchstaben A und B lassen sich antippen und tauschen.
+    <b>Antippen zum Nummerieren.</b> Tipp einen Kreis an und wähle die Nummer 1 bis 5 — ist eine
+    Nummer schon woanders vergeben, <b>tauschen die beiden Punkte</b>, statt dass sie doppelt
+    existiert. Der Kreis in der Mitte ist der Parzellenmittelpunkt (der markierte Pfosten) und
+    selbst ein Messpunkt.
+    <br><b>Die Buchstaben A und B antippen tauscht die Parzellen</b> — mit Herkunft,
+    Registernummer, Maßen, Lage, Punktnummern <b>und der Achsrichtung</b> (sie dreht sich dabei
+    um 180°, weil sie als „von A nach B" festgelegt ist).
   </div>
 
   <label>Wie die Punkte im Feld gezählt wurden</label>

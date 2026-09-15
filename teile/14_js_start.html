@@ -38,13 +38,17 @@ function alles(){
   ["f_tsf_formel","f_p_geraet"].forEach(id => { anhaengen(id,"input",pFormelPruefen); anhaengen(id,"change",pFormelPruefen); });
   PARZ_A_FELDER.concat(PARZ_B_FELDER, ["f_trenn_l","f_trenn_b"]).forEach(id =>
     anhaengen(id, "change", () => { geometrieAnzeigen(); skizzeZeichnen(); }));
-  anhaengen("s_achse", "change", skizzeZeichnen);
+  /* Wer die Achse selbst eintippt, hat sie gemessen — das unterscheidet sie
+     von der aus der Lage abgeleiteten Näherung (45°-Raster, auf BY07 32,5°
+     daneben). Der Hinweis unter dem Feld sagt, welche von beiden gilt. */
+  anhaengen("s_achse", "change", achseVonHand);
   anhaengen("k_nordbezug", "change", kompassHinweis);
   anhaengen("g_abfahrt", "change", dauerZeigen);
   anhaengen("w_parzelle", "change", wtaHerkunftZeigen);
 
   utmZeigen();
   kompassHinweis();
+  achsHinweisZeigen();
   schlussgradErklaeren();
   datumPruefen();
   pFormelPruefen();

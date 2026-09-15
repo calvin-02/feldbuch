@@ -154,10 +154,68 @@ function achseAusLage(still){
   }
   // Liegt A im Süden, zeigt A→B nach Norden (0°). Allgemein: Gegenrichtung der Lage von A.
   const az = (LAGE_AZIMUT[lageA] + 180) % 360;
-  setzen("schema.s_achse", String(az), true);
+  setzenMehrere({"schema.s_achse": String(az), "schema.s_achse_quelle": "lage"}, true);
   const el = document.getElementById("s_achse");
   if(el) el.value = az;
   skizzeZeichnen();
+  achsHinweisZeigen();
+}
+
+/* =====================================================================
+   WOHER KOMMT DIE ACHSRICHTUNG? — der Hinweis, der am 09.09. gefehlt hat
+
+   Aus der "Lage im Gatter" abgeleitet, stammt die Zahl aus acht
+   Himmelsrichtungen und liegt damit auf einem 45°-Raster. Wie grob das ist,
+   zeigt die eigene Fläche:
+
+       BY07: tatsächliche Achse 327,5°
+             aus "A liegt im Süden" abgeleitet: 0°
+             Abweichung: 32,5°
+
+   Bis Fassung 2 schrieb die App die abgeleitete Zahl ins Feld, und danach
+   sah sie aus wie eine gemessene. Jetzt unterscheidet sie beides — und
+   schlägt die Messung vor, statt nur zu warnen.
+   ===================================================================== */
+function achseVonHand(){
+  /* Wird gerufen, wenn jemand die Zahl selbst eintippt: dann gilt sie als
+     gemessen, nicht als abgeleitet. */
+  if(D.schema.s_achse_quelle !== "gemessen"){
+    setzen("schema.s_achse_quelle", "gemessen");
+  }
+  skizzeZeichnen();
+  achsHinweisZeigen();
+}
+
+function achsHinweisZeigen(){
+  const box = document.getElementById("achsHinweis");
+  if(!box) return;
+  const a = zahl(D.schema.s_achse);
+  const quelle = D.schema.s_achse_quelle || "";
+
+  if(isNaN(a)){
+    box.innerHTML = '<div class="p-anzeige p-warn"><b>Die Achsrichtung fehlt noch.</b> '
+      + 'Ohne sie kennt die App keine Himmelsrichtung — weder in der Skizze noch für die '
+      + 'Soll-Azimute der Messpunkte.</div>';
+    return;
+  }
+
+  if(quelle === "gemessen"){
+    box.innerHTML = '<div class="p-anzeige p-ok"><b>' + Math.round(a) + '° — als gemessen '
+      + 'festgehalten.</b> Damit rechnet die Auswertung. Gegenprobe im Feld: Rückpeilung von B '
+      + 'nach A muss ' + Math.round((a + 180) % 360) + '° ergeben (± ein paar Grad).</div>';
+    return;
+  }
+
+  box.innerHTML = '<div class="p-anzeige p-warn">'
+    + '<b>' + Math.round(a) + '° ist eine grobe Näherung</b> — abgeleitet aus der Lage im '
+    + 'Gatter, und die kennt nur acht Himmelsrichtungen. <b>Das Raster ist 45° breit.</b>'
+    + '<br><br><b>Wie grob das ist, zeigt die eigene Fläche:</b> Auf BY07 liegt die Achse in '
+    + 'Wirklichkeit bei <b>327,5°</b>. Aus „A liegt im Süden" leitet die App <b>0°</b> ab — '
+    + '<b>32,5° daneben.</b> Aufgefallen ist das erst bei der Auswertung im September.'
+    + '<br><br><b>Zwei Minuten, und es ist erledigt:</b> Stell dich auf die Marke von '
+    + 'Mittelpunkt <b>A</b>, peile den Pfosten von <b>B</b> an, lies den Azimut ab und trag ihn '
+    + 'oben ein. Dann gilt er als gemessen. <i>(Nordmarke benutzen — Stativ und Zaun verziehen '
+    + 'den Kompass.)</i></div>';
 }
 
 /* =====================================================================
@@ -350,10 +408,25 @@ function skizzeZeichnen(){
   sollTabelleAufbauen();
 }
 
+/* Parzellen tauschen.
+
+   ⚑ DIE ACHSE MUSS MITDREHEN. Die Achsrichtung ist als "vom Mittelpunkt A
+   zum Mittelpunkt B" definiert. Tauschen die beiden ihre Buchstaben, zeigt
+   dieselbe Strecke in die Gegenrichtung — die Achse wird um 180° gedreht.
+
+   Bis zum 15.09.2026 fehlte das: Nach einem Tausch standen Himmelsrichtungen
+   und Nordpfeil genau verkehrt herum, ohne dass irgendetwas darauf hinwies.
+   Gefunden von Calvin beim Durchsehen der Prüfseite. */
 function parzellenTausch(){
+  const alteAchse = zahl(D.schema.s_achse);
+  const achseText = isNaN(alteAchse) ? ""
+    : "<br><br>Die <b>Achsrichtung dreht sich dabei mit</b>: von " + Math.round(alteAchse)
+      + "° auf " + Math.round((alteAchse + 180) % 360) + "°. Sie ist als „von A nach B"
+      + " festgelegt, und diese Richtung kehrt sich beim Tausch um.";
   nachfragen("Parzellen A und B tauschen?",
-    "Buchstaben, Herkünfte, Maße und Punktnummern werden zwischen A und B vertauscht. "
-    + "Nutze das, wenn sich herausstellt, dass die Zuordnung andersherum ist.",
+    "Buchstaben, Herkünfte, Registernummern, Maße, Lage und Punktnummern werden zwischen A "
+    + "und B vertauscht. Nutze das, wenn sich herausstellt, dass die Zuordnung andersherum ist."
+    + achseText,
     "Tauschen",
     () => {
       const a = D.parzellen.A, b = D.parzellen.B;
@@ -365,8 +438,16 @@ function parzellenTausch(){
       Object.keys(neuB).forEach(k => D.t["parzellen.B."+k] = jetzt);
       const n = D.schema.nummern; const h = n.A; n.A = n.B; n.B = h;
       D.t["schema.nummern"] = jetzt;
+      if(!isNaN(alteAchse)){
+        D.schema.s_achse = String((alteAchse + 180) % 360);
+        D.t["schema.s_achse"] = jetzt;
+        const el = document.getElementById("s_achse");
+        if(el) el.value = D.schema.s_achse;
+      }
       speichern(true); alles();
-      balkenZeigen("A und B sind getauscht. Herkünfte gegenlesen!");
+      balkenZeigen("A und B sind getauscht"
+        + (isNaN(alteAchse) ? "" : ", die Achse steht jetzt auf " + Math.round((alteAchse+180)%360) + "°")
+        + ". <b>Herkünfte gegenlesen!</b>");
       setTimeout(() => balkenZeigen(""), 8000);
     }, true);
 }
