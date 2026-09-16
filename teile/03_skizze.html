@@ -18,8 +18,18 @@
     Die Richtung, in die du blickst, wenn du <b>vom Mittelpunkt A zum Mittelpunkt B</b> schaust.
     Liegt A im Süden und B im Norden, sind das <b>0°</b>. Aus dieser einen Zahl leitet die App
     alle Himmelsrichtungen und Soll-Azimute ab. <b>Sie beschreibt das Gelände, nicht das Bild.</b>
+    <br><b>Keine Sicht von A nach B?</b> Von B nach A peilen, 180° abziehen und das in der
+    Bemerkung zur Skizze vermerken.
   </div>
   <div id="achsHinweis"></div>
+
+  <label>Abstand Mittelpunkt A → B (m) <span class="hint">— mit dem Vertex gemessen, Pfosten zu Pfosten</span></label>
+  <input type="number" step="0.1" id="s_pfosten" inputmode="decimal" placeholder="z. B. 53,4">
+  <div class="info" style="font-size:13px">
+    <b>Die feste Klammer zwischen beiden Parzellen, eine Minute Arbeit.</b> Auf BY07 wurde dieser
+    Abstand nur aus den Parzellenmaßen <i>errechnet</i> — gemessen hätte ihn unabhängig belegt.
+  </div>
+  <div id="pfostenHinweis"></div>
 
   <div class="feld" data-auswahl="s_eingang" data-ziel="schema" data-liste="EINGANG"
        data-label="Eingang / Tor liegt im"></div>

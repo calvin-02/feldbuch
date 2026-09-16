@@ -56,17 +56,24 @@ function textFassung(){
   z.push("");
 
   z.push("GERÄTEEINSTELLUNGEN");
-  z.push("  Geprüft, unverändert, fotografiert: " + jaNein(D.kopf.f_geraet_ok));
+  z.push("  Alle Menüseiten fotografiert (vorher/nachher): " + jaNein(D.kopf.f_geraet_ok));
+  z.push("  VORGEFUNDEN: DSF " + (D.kopf.f_vorg_von||"—") + " bis " + (D.kopf.f_vorg_bis||"—")
+         + " | Ort " + (D.kopf.f_vorg_breite||"—") + " / " + (D.kopf.f_vorg_laenge||"—")
+         + " | Bildwinkel " + (D.kopf.f_vorg_winkel||"—"));
+  z.push("  EINGESTELLT: DSF " + (D.kopf.f_periode_von||"—") + " bis " + (D.kopf.f_periode_bis||"—")
+         + " | Ort " + (D.kopf.f_breite||"—") + " / " + (D.kopf.f_laenge||"—")
+         + " | Bildwinkel " + (D.kopf.f_bildwinkel||"—")
+         + "   (Soll seit 16.09.2026: " + GERAET_SOLL.von + "–" + GERAET_SOLL.bis + ", Ort der Fläche, "
+         + GERAET_SOLL.winkel + "°)");
   if(D.kopf.f_geraet_abweichung) z.push("  ABWEICHUNG: " + D.kopf.f_geraet_abweichung);
   z.push("  Modell " + (D.kopf.f_geraet||"Solariscope SOL 300B [Vorgabe aus BY07]")
          + "  Nr. " + (D.kopf.f_serie||"—"));
   z.push("  Atmosphärische Durchlässigkeit: " + (D.kopf.f_atm||"60 [BY07]") + " %"
          + "   Schwellwerte: " + (D.kopf.f_schwellen||"7 [BY07]"));
-  z.push("  DSF-Zeitspanne: " + (D.kopf.f_periode_von||"1.4. [BY07]") + " bis "
-         + (D.kopf.f_periode_bis||"30.9. [BY07]"));
+
   z.push("  TSF-Formel: " + (D.kopf.f_tsf_formel||"60:40 [BY07]")
          + "   -> p = " + (D.kopf.f_p_geraet||"0,60 [BY07]"));
-  z.push("  Bildwinkel Openness/GapFraction: " + (D.kopf.f_bildwinkel||"60 [BY07]") + " °");
+
   z.push("");
 
   z.push("PARZELLEN");
@@ -93,6 +100,8 @@ function textFassung(){
   z.push("");
 
   z.push("SKIZZE");
+  z.push("  Abstand Mittelpunkt A->B, gemessen: " + (D.schema.s_pfosten||"—") + " m"
+         + "   (aus den Maßen: " + rund(q.abstandAB,1) + " m)");
   z.push("  Azimut Längsachse A->B: " + (D.schema.s_achse||"—") + " °"
          + "   Eingang: " + w("schema","s_eingang"));
   z.push("  Ansichtsdrehung der Skizze: " + drehung() + " ° (nur Darstellung)");
@@ -111,6 +120,8 @@ function textFassung(){
     if(!d){ z.push("  " + p.id + ": —"); return; }
     let zeile = "  " + p.id + ": " + (d.zeit||"--:--")
       + "  Bild " + (d.bild || "FEHLT")
+      + (d.bild2 ? "  Wdh.-Bild " + d.bild2 : "")
+      + (d.platz ? "  Pflanzplatz " + d.platz : "")
       + (d.hoehe ? "  h=" + d.hoehe + " cm" : "");
     if(d.isf !== "" && d.isf != null){
       zeile += "  ISF " + d.isf + "  DSF " + (d.dsf||"—") + "  TSF " + (d.tsf||"—");

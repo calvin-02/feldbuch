@@ -4,6 +4,7 @@
    ===================================================================== */
 const KOPF_FELDER = ["f_datum","f_ankunft","f_team",
   "f_geraet_ok","f_geraet_abweichung",
+  "f_vorg_von","f_vorg_bis","f_vorg_winkel","f_vorg_breite","f_vorg_laenge",
   "f_geraet","f_serie","f_breite","f_laenge","f_atm","f_schwellen","f_kosinus",
   "f_periode_von","f_periode_bis","f_tsf_formel","f_p_geraet","f_bildwinkel","f_max_neigung",
   "f_trenn_l","f_trenn_b",
@@ -14,7 +15,7 @@ const PARZ_A_FELDER = ["pa_code","pa_herkunft","pa_laenge","pa_breite"];
 const PARZ_B_FELDER = ["pb_code","pb_herkunft","pb_laenge","pb_breite"];
 const BESTAND_FELDER = ["b_besonderheiten","b_schluss_text"];
 const BEDINGUNGEN_FELDER = ["g_himmel1","g_himmel2","g_himmel3","g_ok1","g_ok2","g_ok3","g_abfahrt"];
-const SCHEMA_FELDER = ["s_achse","s_regel","s_bem"];
+const SCHEMA_FELDER = ["s_achse","s_pfosten","s_regel","s_bem"];
 
 function anhaengen(id, ereignis, was){
   const el = document.getElementById(id);
@@ -37,11 +38,14 @@ function alles(){
   anhaengen("f_datum", "change", datumPruefen);
   ["f_tsf_formel","f_p_geraet"].forEach(id => { anhaengen(id,"input",pFormelPruefen); anhaengen(id,"change",pFormelPruefen); });
   PARZ_A_FELDER.concat(PARZ_B_FELDER, ["f_trenn_l","f_trenn_b"]).forEach(id =>
-    anhaengen(id, "change", () => { geometrieAnzeigen(); skizzeZeichnen(); }));
+    anhaengen(id, "change", () => { geometrieAnzeigen(); skizzeZeichnen(); pfostenHinweisZeigen(); }));
   /* Wer die Achse selbst eintippt, hat sie gemessen — das unterscheidet sie
      von der aus der Lage abgeleiteten Näherung (45°-Raster, auf BY07 32,5°
      daneben). Der Hinweis unter dem Feld sagt, welche von beiden gilt. */
   anhaengen("s_achse", "change", achseVonHand);
+  anhaengen("s_pfosten", "change", pfostenHinweisZeigen);
+  ["f_periode_von","f_periode_bis","f_bildwinkel","f_breite","f_laenge"].forEach(id =>
+    anhaengen(id, "change", geraetSollPruefen));
   anhaengen("k_nordbezug", "change", kompassHinweis);
   anhaengen("g_abfahrt", "change", dauerZeigen);
   anhaengen("w_parzelle", "change", wtaHerkunftZeigen);
@@ -49,6 +53,8 @@ function alles(){
   utmZeigen();
   kompassHinweis();
   achsHinweisZeigen();
+  pfostenHinweisZeigen();
+  geraetSollPruefen();
   schlussgradErklaeren();
   datumPruefen();
   pFormelPruefen();
@@ -154,6 +160,7 @@ window.addEventListener("beforeunload", e => {
 function alleFelderAbgeben(){
   const a = document.activeElement;
   if(a && typeof a.blur === "function" && a !== document.body) a.blur();
+  stempelAlleSofort();
 }
 
 document.addEventListener("visibilitychange", () => {

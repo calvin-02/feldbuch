@@ -68,6 +68,7 @@ function kopfAktualisieren(){
 
 /* ---------- Navigation ---------- */
 function zeigeAbschnitt(ziel){
+  alleFelderAbgeben();   // 16.09.2026: Wartende Eingaben schreiben, bevor der Abschnitt wechselt
   document.querySelectorAll("nav button").forEach(x =>
     x.classList.toggle("aktiv", x.dataset.ziel === ziel));
   document.querySelectorAll("section").forEach(x =>
@@ -196,19 +197,33 @@ function feldBinden(id, zielName){
    Tastendruck wird der Wert regulär über setzen() geschrieben — mit Stempel
    und gespeichert. Feuert danach noch ein "change", schadet das nicht: Es
    setzt denselben Wert noch einmal. */
-const STEMPEL_TIMER = new WeakMap();
+/* ⚑ 16.09.2026: Map statt WeakMap, und je Feld auch die Schreibfunktion —
+   damit stempelAlleSofort() vor einem Neuaufbau der Maske ALLE noch
+   wartenden Eingaben schreiben kann. Vorher gingen Buchstaben aus den letzten
+   zwei Sekunden verloren, wenn sich die Maske neu aufbaute (etwa nach der
+   GPS-Messung) und das Feld dabei kein "change" gemeldet hatte. */
+const STEMPEL_TIMER = new Map();
 
 function stempelTimerLoeschen(el){
-  const t = STEMPEL_TIMER.get(el);
-  if(t){ clearTimeout(t); STEMPEL_TIMER.delete(el); }
+  const e = STEMPEL_TIMER.get(el);
+  if(e){ clearTimeout(e.timer); STEMPEL_TIMER.delete(el); }
 }
 
 function stempelNachRuhe(el, pfad, wertGeber){
+  tippRuhe(el, () => setzen(pfad, wertGeber()));
+}
+
+/* Allgemein: nach zwei Sekunden Tippruhe "schreibe" ausführen — auch für Felder,
+   die nicht über einen Pfad, sondern über eine eigene Funktion schreiben
+   (Artenliste der Vegetation). */
+function tippRuhe(el, schreibe){
   stempelTimerLoeschen(el);
-  STEMPEL_TIMER.set(el, setTimeout(() => {
-    STEMPEL_TIMER.delete(el);
-    setzen(pfad, wertGeber());
-  }, 2000));
+  const schreiben = () => { STEMPEL_TIMER.delete(el); schreibe(); };
+  STEMPEL_TIMER.set(el, { timer: setTimeout(schreiben, 2000), schreiben: schreiben });
+}
+
+function stempelAlleSofort(){
+  Array.from(STEMPEL_TIMER.values()).forEach(e => { clearTimeout(e.timer); e.schreiben(); });
 }
 
 /* ---------- Auswahl mit Freitext ----------
@@ -389,6 +404,71 @@ function schlussgradErklaeren(){
   else box.style.display = "none";
 }
 
+/* ---------- Geräteeinstellungen: Sollwerte (16.09.2026) ----------
+   Der Knopf trägt die festgelegten Werte ein — über setzenMehrere(), also mit
+   Zeitstempel. Gedrückt wird er erst, wenn das Gerät wirklich so eingestellt
+   ist; die Prüfung darunter sagt, ob die Felder zum Soll passen. */
+function geraetSollEintragen(){
+  const ort = FLAECHEN_ORT[flaechenKennung(D.kopf.f_flaeche)];
+  const paare = {
+    "kopf.f_periode_von": GERAET_SOLL.von,
+    "kopf.f_periode_bis": GERAET_SOLL.bis,
+    "kopf.f_bildwinkel":  GERAET_SOLL.winkel
+  };
+  if(ort){
+    paare["kopf.f_breite"] = String(ort[0]);
+    paare["kopf.f_laenge"] = String(ort[1]);
+  }
+  setzenMehrere(paare, true);
+  ["f_periode_von","f_periode_bis","f_bildwinkel","f_breite","f_laenge"].forEach(id => {
+    const e = document.getElementById(id);
+    if(e) e.value = (D.kopf[id] !== undefined && D.kopf[id] !== null) ? D.kopf[id] : "";
+  });
+  geraetSollPruefen();
+  if(!ort){
+    balkenZeigen("Für diese Fläche ist kein Ort hinterlegt — Breite und Länge von Hand eintragen.");
+    setTimeout(() => balkenZeigen(""), 5000);
+  }
+}
+
+/* "1.4.", "01.04", "1. 4." → "1.4." — damit Schreibweisen nicht als Abweichung gelten. */
+function tagMonat(v){
+  const m = String(v || "").match(/(\d{1,2})\s*\.\s*(\d{1,2})/);
+  return m ? (+m[1]) + "." + (+m[2]) + "." : "";
+}
+
+function geraetSollPruefen(){
+  const box = document.getElementById("geraetSollHinweis");
+  const zust = document.getElementById("geraetSollZust");
+  if(!box) return;
+  const k = D.kopf;
+  const leer = v => v === undefined || v === null || String(v).trim() === "";
+  if(["f_periode_von","f_periode_bis","f_bildwinkel","f_breite","f_laenge"].every(id => leer(k[id]))){
+    box.innerHTML = '<div class="p-anzeige p-warn">Noch nichts eingetragen. Erst am Gerät einstellen, '
+      + 'dann den Knopf oben drücken.</div>';
+    if(zust) zust.textContent = "offen";
+    return;
+  }
+  const abw = [];
+  if(tagMonat(k.f_periode_von) !== GERAET_SOLL.von) abw.push("DSF von " + (k.f_periode_von || "—") + " statt " + GERAET_SOLL.von);
+  if(tagMonat(k.f_periode_bis) !== GERAET_SOLL.bis) abw.push("DSF bis " + (k.f_periode_bis || "—") + " statt " + GERAET_SOLL.bis);
+  if(zahl(k.f_bildwinkel) !== Number(GERAET_SOLL.winkel)) abw.push("Bildwinkel " + (k.f_bildwinkel || "—") + " statt " + GERAET_SOLL.winkel + "°");
+  const ort = FLAECHEN_ORT[flaechenKennung(k.f_flaeche)];
+  if(ort){
+    const db = Math.abs(zahl(k.f_breite) - ort[0]), dl = Math.abs(zahl(k.f_laenge) - ort[1]);
+    if(!(db <= 0.05 && dl <= 0.05))
+      abw.push("Ort " + (k.f_breite || "—") + " / " + (k.f_laenge || "—") + " statt etwa "
+               + ort[0].toFixed(2) + " / " + ort[1].toFixed(2));
+  }
+  if(abw.length){
+    box.innerHTML = '<div class="p-anzeige p-warn"><b>Weicht vom Soll ab:</b> ' + abw.join(" · ")
+      + ' — ist das am Gerät wirklich so eingestellt? Dann in der Bemerkung zum Gerät begründen.</div>';
+    if(zust) zust.textContent = "weicht ab";
+  }else{
+    box.innerHTML = '<div class="p-anzeige p-ok">Entspricht dem Soll.</div>';
+    if(zust) zust.textContent = "Soll";
+  }
+}
 function herkunftVorschlagen(){
   const f = D.kopf.f_flaeche;
   /* Über die Kennung nachschlagen, nicht über den Anzeigenamen — siehe

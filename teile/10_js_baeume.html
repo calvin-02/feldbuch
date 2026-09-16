@@ -156,7 +156,7 @@ function obSchnellAufbauen(){
         BAUMARTEN.map(([c,n]) => '<option value="'+c+'"'+(OB_ART===c?" selected":"")+'>'+n+'</option>').join("")+
       '</select>'+
       '<div class="reihe">'+
-        '<div><label class="pflicht">Azimut (°)</label>'+
+        '<div><label class="pflicht">Azimut (°) <span class="hint">Pfosten → Baum</span></label>'+
           '<input type="number" inputmode="numeric" id="obAz" onkeydown="obTaste(event)"></div>'+
         '<div><label class="pflicht">Distanz (m)</label>'+
           '<input type="number" step="0.1" inputmode="decimal" id="obDist" onkeydown="obTaste(event)"></div>'+

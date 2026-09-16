@@ -33,21 +33,53 @@
 
   <h3>Geräteeinstellungen</h3>
   <div class="info gut" style="font-size:13px">
-    <b>Seit dem Feldtag auf BY07 sind die Einstellungen belegt</b> (zwei Displayfotos vom
-    07.09.2026). Sie stehen unten schon eingetragen. <b>Zu tun ist nur: nachsehen, ob sie
-    noch so am Gerät stehen, und abfotografieren.</b>
+    <b>Festgelegt am 16.09.2026 (Martens), gilt für alle Flächen:</b>
+    DSF-Zeitraum <b>1. April – 30. September</b> · Breite/Länge <b>der Fläche</b> · Bildwinkel <b>60°</b>.
+    <br><b>Vorgehen:</b> ① <b>alle Menüseiten</b> so fotografieren, wie vorgefunden ·
+    ② Werte ablesen und unten bei <i>vorgefunden</i> eintragen · ③ am Gerät einstellen ·
+    ④ alle Seiten <b>noch einmal</b> fotografieren.
   </div>
+
+  <div class="karte">
+    <div class="kopf"><span>vorgefunden</span><span class="zust">vor dem Einstellen</span></div>
+    <div class="reihe">
+      <div><label>DSF von</label><input id="f_vorg_von" placeholder="z. B. 1.5."></div>
+      <div><label>bis</label><input id="f_vorg_bis" placeholder="z. B. 30.9."></div>
+      <div><label>Bildwinkel (°)</label><input type="number" step="1" id="f_vorg_winkel" inputmode="numeric"></div>
+    </div>
+    <div class="reihe">
+      <div><label>Breite (°N)</label><input id="f_vorg_breite" inputmode="decimal" placeholder="z. B. 48,1"></div>
+      <div><label>Länge (°O)</label><input id="f_vorg_laenge" inputmode="decimal"></div>
+    </div>
+  </div>
+
+  <div class="karte">
+    <div class="kopf"><span>eingestellt</span><span class="zust" id="geraetSollZust">Soll</span></div>
+    <button class="knopf zweit klein" style="margin-top:0" onclick="geraetSollEintragen()">Sollwerte für diese Fläche eintragen</button>
+    <div class="reihe">
+      <div><label>DSF von</label><input id="f_periode_von" placeholder="1.4."></div>
+      <div><label>bis</label><input id="f_periode_bis" placeholder="30.9."></div>
+      <div><label>Bildwinkel (°)</label><input type="number" step="1" id="f_bildwinkel" inputmode="numeric" placeholder="60"></div>
+    </div>
+    <div class="reihe">
+      <div><label>Breite (°N)</label><input type="number" step="0.001" id="f_breite" inputmode="decimal"></div>
+      <div><label>Länge (°O)</label><input type="number" step="0.001" id="f_laenge" inputmode="decimal"></div>
+    </div>
+    <div id="geraetSollHinweis"></div>
+  </div>
+
   <div class="haken"><input type="checkbox" id="f_geraet_ok">
-    <label for="f_geraet_ok"><b>Einstellungen geprüft, unverändert, fotografiert</b></label></div>
+    <label for="f_geraet_ok"><b>Alle Menüseiten fotografiert — vorher und nachher</b></label></div>
   <div class="info achtung" style="font-size:13px">
-    Die Geräteeinstellungen von 2021 sind verloren — das ist der Grund, warum der Vergleich
-    mit der Altmessung nur mit Vorbehalt geht. <b>Dieser Fehler darf sich nicht wiederholen:
-    fotografieren, nicht nur abhaken.</b>
+    Die Geräteeinstellungen von 2021/22 sind nicht dokumentiert — deshalb geht der Vergleich
+    mit der Altmessung nur mit Vorbehalt. <b>Fotografieren, nicht nur abhaken.</b>
   </div>
 
   <details class="klapp" id="geraetKlapp">
-    <summary>Abweichung gefunden? Hier stehen die Werte einzeln</summary>
+    <summary>Weitere Einstellungen <span class="hint">— Modell, Durchlässigkeit, Schwellwerte, p</span></summary>
     <div class="klappinhalt">
+      <div class="info" style="font-size:13px">Die Platzhalter zeigen die Werte von BY07 (Foto vom 07.09.2026).
+        <b>Nur eintragen, wenn das Gerät etwas anderes zeigt.</b></div>
       <div class="reihe">
         <div><label>Gerätemodell</label><input id="f_geraet" placeholder="Solariscope SOL 300B"></div>
         <div><label>Serien-Nr.</label><input id="f_serie"></div>
@@ -58,35 +90,24 @@
       </div>
       <div class="haken"><input type="checkbox" id="f_kosinus"><label for="f_kosinus">Kosinus-Gewichtung eingeschaltet</label></div>
       <div class="reihe">
-        <div><label>DSF-Zeitspanne von</label><input id="f_periode_von" placeholder="1.4."></div>
-        <div><label>bis</label><input id="f_periode_bis" placeholder="30.9."></div>
-      </div>
-      <div class="reihe">
         <div><label>TSF-Formel</label><input id="f_tsf_formel" placeholder="60:40"></div>
         <div><label>Direktanteil p</label><input id="f_p_geraet" placeholder="0,60"></div>
       </div>
       <div id="pFormelHinweis"></div>
       <div class="reihe">
-        <div><label>Bildwinkel Openness / GapF (°)</label><input type="number" step="1" id="f_bildwinkel" inputmode="numeric" placeholder="60"></div>
         <div><label>Max. Neigung Fernauslösung (°)</label><input type="number" step="0.1" id="f_max_neigung" inputmode="decimal" placeholder="2,9"></div>
-      </div>
-      <label>Breite (°N) / Länge (°O) im Gerät <span class="hint">— das Gerät rechnet damit die Sonnenbahn</span></label>
-      <div class="reihe">
-        <div><input type="number" step="0.001" id="f_breite" inputmode="decimal" placeholder="47.9"></div>
-        <div><input type="number" step="0.001" id="f_laenge" inputmode="decimal" placeholder="10.8"></div>
       </div>
     </div>
   </details>
 
-  <label>Abweichung gegenüber BY07 <span class="hint">— leer lassen, wenn alles gleich ist</span></label>
+  <label>Sonst abweichend <span class="hint">— Bemerkung zum Gerät</span></label>
   <input id="f_geraet_abweichung" placeholder="z. B. Durchlässigkeit stand auf 65">
-
   <h3>Parzellen und Maße</h3>
   <div class="info gut" style="font-size:13px">
     <b>Festlegung dieser Arbeit:</b> <b>Parzelle A ist die südliche</b>, B die nördliche.
     Der Buchstabe ist nur ein Etikett — maßgeblich sind <b>Lage</b> und <b>Herkunft</b>.
-    <b>Die Herkunft dreht sich zwischen den Flächen um</b> (BY07: A rumänisch · BY02: A heimisch)
-    und ist nie aus dem Buchstaben ableitbar.
+    <b>Die Herkunft dreht sich zwischen den Flächen um</b> (auf BY07 ist A rumänisch; für BY02
+    widersprechen sich die Unterlagen) und ist nie aus dem Buchstaben ableitbar — <b>maßgeblich ist das Schild</b>.
   </div>
 
   <div class="karte">

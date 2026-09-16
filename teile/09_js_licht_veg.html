@@ -71,7 +71,37 @@ function punktListeAufbauen(){
   }
 }
 
-function punktOeffnen(pid){
+/* Welche Felder der Punktmaske wohin gehören. ⚑ 16.09.2026: Bis Fassung 3.0.3
+   wurden diese Felder NUR beim Knopf "Speichern und zurück" geschrieben. Baute
+   sich die Maske vorher neu auf — nach "gemessen" oder nach der 45-s-GPS-Messung —,
+   war eine getippte Bild-Nummer weg. Jetzt schreibt jedes Feld selbst, mit
+   Zeitstempel: beim Verlassen und nach zwei Sekunden Tippruhe. */
+const PUNKT_FELDER = {
+  p_bild:"bild", p_bild2:"bild2", p_platz:"platz",
+  p_isf:"isf", p_dsf:"dsf", p_tsf:"tsf", p_lai:"lai", p_elad:"elad", p_open:"open",
+  p_winkel:"winkel", p_schwelle:"schwelle",
+  p_zeit:"zeit", p_hoehe:"hoehe", p_himmel:"himmel", p_aufnehmer:"aufnehmer",
+  p_nord:"nord", p_horiz:"horiz", p_bem:"bem"
+};
+
+function punktFelderBinden(pid){
+  Object.keys(PUNKT_FELDER).forEach(id => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    const pfad = "punkte." + pid + "." + PUNKT_FELDER[id];
+    const haken = el.type === "checkbox";
+    el.addEventListener("change", () => {
+      stempelTimerLoeschen(el);
+      setzen(pfad, haken ? el.checked : el.value);
+      if(id === "p_zeit" || id === "p_bild") kopfAktualisieren();
+    });
+    if(!haken && el.tagName !== "SELECT")
+      el.addEventListener("input", () => stempelNachRuhe(el, pfad, () => el.value));
+  });
+}
+
+function punktOeffnen(pid, lageHalten){
+  const scrollY = window.scrollY;
   const p = PUNKTE.find(x => x.id === pid);
   const d = D.punkte[pid] || {};
   const box = document.getElementById("punktListe");
@@ -79,7 +109,7 @@ function punktOeffnen(pid){
   const optionen = (liste, gewaehlt) => liste.map(t =>
     '<option'+((gewaehlt||"")===t?" selected":"")+'>'+t+'</option>').join("");
 
-  let h = '<button class="knopf zweit klein" onclick="punktListeAufbauen()">&larr; zurück zur Übersicht</button>'
+  let h = '<button class="knopf zweit klein" onclick="alleFelderAbgeben();punktListeAufbauen()">&larr; zurück zur Übersicht</button>'
     + '<h3>'+p.name+'</h3>'
     + (p.info ? '<div class="info" style="font-size:13px">'+p.info+'</div>' : '');
 
@@ -90,6 +120,15 @@ function punktOeffnen(pid){
     +  (d.zeit ? 'Zeit erneuern ('+d.zeit+')' : 'gemessen — Uhrzeit eintragen')+'</button>'
     +  '<label>Bild-Nr. am Gerät <span class="hint">— die einzige Verbindung zwischen Bild und Punkt</span></label>'
     +  '<input id="p_bild" value="'+(d.bild||"")+'" placeholder="Nummer ablesen" inputmode="numeric">'
+    +  '<div class="reihe">'
+    +    '<div><label>Reihe / Platz <span class="hint">— nächster Pflanzplatz</span></label>'
+    +      '<input id="p_platz" value="'+(d.platz||"").replace(/"/g,"&quot;")+'" placeholder="z. B. R7 P12"></div>'
+    +    '<div><label>2. Bild-Nr. <span class="hint">— Wiederholung</span></label>'
+    +      '<input id="p_bild2" value="'+(d.bild2||"")+'" placeholder="nur an 2–3 Punkten" inputmode="numeric"></div>'
+    +  '</div>'
+    +  '<div class="info" style="font-size:13px"><b>Eine Aufnahme mit 60°.</b> Das Gerät speichert die '
+    +  '<b>Abweichung von Nord</b> („Angle"): <b>±5° sind in Ordnung, 19° nicht</b> — dann neu ausrichten. '
+    +  'Die Neigung hält der Auslöser selbst in Grenzen.</div>'
     +  '</div>';
 
   /* --- GPS: zwei Serien --- */
@@ -148,7 +187,7 @@ function punktOeffnen(pid){
     +  '<div class="haken"><input type="checkbox" id="p_nord"'+(d.nord?" checked":"")+'>'
     +  '<label for="p_nord">nach Norden ausgerichtet</label></div>'
     +  '<div class="haken"><input type="checkbox" id="p_horiz"'+(d.horiz?" checked":"")+'>'
-    +  '<label for="p_horiz">horizontiert (Gerät meldet keine Überneigung)</label></div>'
+    +  '<label for="p_horiz">horizontiert</label></div>'
     +  '</div></details>';
 
   h += '<label>Bemerkung</label><textarea id="p_bem">'+(d.bem||"")+'</textarea>'
@@ -161,7 +200,8 @@ function punktOeffnen(pid){
     if(el) el.addEventListener("input", pruefungZeigen);
   });
   pruefungZeigen();
-  window.scrollTo(0,0);
+  punktFelderBinden(pid);
+  window.scrollTo(0, lageHalten ? scrollY : 0);
 }
 
 /* Anzeige einer GPS-Serie im Punkt */
@@ -182,10 +222,10 @@ function gpsSerieBlock(pid, nr, g){
 function punktGemessen(pid){
   const n = new Date();
   const zeit = String(n.getHours()).padStart(2,"0")+":"+String(n.getMinutes()).padStart(2,"0");
+  alleFelderAbgeben();
   setzen("punkte."+pid+".zeit", zeit, true);
-  const el = document.getElementById("p_zeit");
-  if(el) el.value = zeit;
-  punktOeffnen(pid);
+  punktOeffnen(pid, true);
+  kopfAktualisieren();
 }
 
 function punktSpeichern(pid){
@@ -196,6 +236,8 @@ function punktSpeichern(pid){
   setzeWenn("zeit", g("p_zeit"));
   setzeWenn("hoehe", g("p_hoehe"));
   setzeWenn("bild", g("p_bild"));
+  setzeWenn("bild2", g("p_bild2"));
+  setzeWenn("platz", g("p_platz"));
   setzeWenn("winkel", g("p_winkel"));
   setzeWenn("schwelle", g("p_schwelle"));
   setzeWenn("isf", g("p_isf"));
@@ -334,7 +376,8 @@ function vegListeAufbauen(){
   });
 }
 
-function vegOeffnen(pid){
+function vegOeffnen(pid, lageHalten){
+  const scrollY = window.scrollY;
   const p = VEG_PUNKTE.find(x => x.id === pid);
   if(!D.veg.punkte) D.veg.punkte = {};
   if(!D.veg.punkte[pid]) D.veg.punkte[pid] = {einfach:{}, arten:[], kronenschluss:"", bem:"", aufnehmer:""};
@@ -345,11 +388,12 @@ function vegOeffnen(pid){
   const opt = (liste, gewaehlt) => '<option value=""></option>' +
     liste.map(t => '<option'+((gewaehlt||"")===t?" selected":"")+'>'+t+'</option>').join("");
 
-  let inhalt = '<button class="knopf zweit klein" onclick="vegListeAufbauen()">&larr; zurück zur Übersicht</button>'+
+  let inhalt = '<button class="knopf zweit klein" onclick="alleFelderAbgeben();vegListeAufbauen()">&larr; zurück zur Übersicht</button>'+
     '<h3>Vegetation — '+p.name+'</h3>'+
     '<label>Aufgenommen von</label>'+
     '<input list="personenliste" value="'+(v.aufnehmer||"")+'" placeholder="Name" '+
-      'onchange="vegSetzen(\''+pid+'\',\'aufnehmer\',this.value)">';
+      'oninput="tippRuhe(this,()=>vegSetzen(\''+pid+'\',\'aufnehmer\',this.value))" '+
+      'onchange="stempelTimerLoeschen(this);vegSetzen(\''+pid+'\',\'aufnehmer\',this.value)">';
 
   inhalt += '<h4>Verfahren 1 — vereinfacht (Projektstandard 2021/22)</h4>'+
     '<div class="info" style="font-size:13px">Je Schicht Deckungsgrad und mittlere Höhe. '+
@@ -365,7 +409,8 @@ function vegOeffnen(pid){
       '</div>'+
       '<label>eigene Angabe <span class="hint">falls keine Klasse passt</span></label>'+
       '<input value="'+(v.einfach[s.k+"_frei"]||"")+'" placeholder="frei formulieren" '+
-        'onchange="vegEinfachSetzen(\''+pid+'\',\''+s.k+'_frei\',this.value)">'+
+        'oninput="tippRuhe(this,()=>vegEinfachSetzen(\''+pid+'\',\''+s.k+'_frei\',this.value))" '+
+        'onchange="stempelTimerLoeschen(this);vegEinfachSetzen(\''+pid+'\',\''+s.k+'_frei\',this.value)">'+
       '</div>';
   });
 
@@ -382,8 +427,9 @@ function vegOeffnen(pid){
     arten.forEach(([a,i]) => {
       inhalt += '<div style="border-top:1px solid var(--rand); padding-top:8px; margin-top:8px">'+
         '<label>Art</label>'+
-        '<input list="pflanzenliste" value="'+(a.art||"").replace(/"/g,"&quot;")+'" placeholder="deutscher Name" '+
-          'onchange="artSetzen(\''+pid+'\','+i+',\'art\',this.value)">'+
+        '<input list="pflanzenliste" id="art_'+i+'" value="'+(a.art||"").replace(/"/g,"&quot;")+'" placeholder="deutscher Name" '+
+          'oninput="tippRuhe(this,()=>artSetzen(\''+pid+'\','+i+',\'art\',this.value))" '+
+          'onchange="stempelTimerLoeschen(this);artSetzen(\''+pid+'\','+i+',\'art\',this.value)">'+
         '<div class="reihe">'+
           '<div><label>Artmächtigkeit</label><select onchange="artSetzen(\''+pid+'\','+i+',\'am\',this.value)">'+
             ARTMAECHTIGKEIT.map(([w,t]) => '<option value="'+w+'"'+((a.am||"")===w?" selected":"")+'>'+(w?w+" — "+t:"—")+'</option>').join("")+
@@ -401,20 +447,31 @@ function vegOeffnen(pid){
   });
 
   inhalt += '<label>Bemerkung zum Punkt</label>'+
-    '<textarea onchange="vegSetzen(\''+pid+'\',\'bem\',this.value)">'+(v.bem||"")+'</textarea>'+
-    '<button class="knopf" onclick="vegListeAufbauen()">Fertig</button>';
+    '<textarea oninput="tippRuhe(this,()=>vegSetzen(\''+pid+'\',\'bem\',this.value))" '+
+      'onchange="stempelTimerLoeschen(this);vegSetzen(\''+pid+'\',\'bem\',this.value)">'+(v.bem||"")+'</textarea>'+
+    '<button class="knopf" onclick="alleFelderAbgeben();vegListeAufbauen()">Fertig</button>';
 
   box.innerHTML = inhalt;
   autoAus(box);
-  window.scrollTo(0,0);
+  window.scrollTo(0, lageHalten ? scrollY : 0);
 }
 
 function vegEinfachSetzen(pid, feld, wert){ setzen("veg.punkte."+pid+".einfach."+feld, wert); }
 function vegSetzen(pid, feld, wert){ setzen("veg.punkte."+pid+"."+feld, wert); }
 
+/* ⚑ 16.09.2026: Nach "+ Art" sprang die Seite nach oben, und man musste bei jeder
+   Art wieder zur Schicht hinunterscrollen. Jetzt bleibt die Lage stehen, und das
+   Namensfeld der neuen Art bekommt den Zeiger — mittig im Bild. */
 function artAnlegen(pid, schicht){
+  alleFelderAbgeben();
   D.veg.punkte[pid].arten.push(neuerEintrag({schicht:schicht, art:"", am:"", soz:""}));
-  speichern(true); vegOeffnen(pid);
+  speichern(true);
+  vegOeffnen(pid, true);
+  const neu = document.getElementById("art_" + (D.veg.punkte[pid].arten.length - 1));
+  if(neu){
+    neu.scrollIntoView({block:"center"});
+    neu.focus({preventScroll:true});
+  }
 }
 function artSetzen(pid, i, feld, wert){
   const a = D.veg.punkte[pid].arten[i];
@@ -424,6 +481,7 @@ function artSetzen(pid, i, feld, wert){
   speichern();
 }
 function artLoeschen(pid, i){
+  alleFelderAbgeben();
   D.veg.punkte[pid].arten.splice(i,1);
-  speichern(true); vegOeffnen(pid);
+  speichern(true); vegOeffnen(pid, true);
 }

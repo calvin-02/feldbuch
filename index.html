@@ -253,21 +253,53 @@
 
   <h3>Geräteeinstellungen</h3>
   <div class="info gut" style="font-size:13px">
-    <b>Seit dem Feldtag auf BY07 sind die Einstellungen belegt</b> (zwei Displayfotos vom
-    07.09.2026). Sie stehen unten schon eingetragen. <b>Zu tun ist nur: nachsehen, ob sie
-    noch so am Gerät stehen, und abfotografieren.</b>
+    <b>Festgelegt am 16.09.2026 (Martens), gilt für alle Flächen:</b>
+    DSF-Zeitraum <b>1. April – 30. September</b> · Breite/Länge <b>der Fläche</b> · Bildwinkel <b>60°</b>.
+    <br><b>Vorgehen:</b> ① <b>alle Menüseiten</b> so fotografieren, wie vorgefunden ·
+    ② Werte ablesen und unten bei <i>vorgefunden</i> eintragen · ③ am Gerät einstellen ·
+    ④ alle Seiten <b>noch einmal</b> fotografieren.
   </div>
+
+  <div class="karte">
+    <div class="kopf"><span>vorgefunden</span><span class="zust">vor dem Einstellen</span></div>
+    <div class="reihe">
+      <div><label>DSF von</label><input id="f_vorg_von" placeholder="z. B. 1.5."></div>
+      <div><label>bis</label><input id="f_vorg_bis" placeholder="z. B. 30.9."></div>
+      <div><label>Bildwinkel (°)</label><input type="number" step="1" id="f_vorg_winkel" inputmode="numeric"></div>
+    </div>
+    <div class="reihe">
+      <div><label>Breite (°N)</label><input id="f_vorg_breite" inputmode="decimal" placeholder="z. B. 48,1"></div>
+      <div><label>Länge (°O)</label><input id="f_vorg_laenge" inputmode="decimal"></div>
+    </div>
+  </div>
+
+  <div class="karte">
+    <div class="kopf"><span>eingestellt</span><span class="zust" id="geraetSollZust">Soll</span></div>
+    <button class="knopf zweit klein" style="margin-top:0" onclick="geraetSollEintragen()">Sollwerte für diese Fläche eintragen</button>
+    <div class="reihe">
+      <div><label>DSF von</label><input id="f_periode_von" placeholder="1.4."></div>
+      <div><label>bis</label><input id="f_periode_bis" placeholder="30.9."></div>
+      <div><label>Bildwinkel (°)</label><input type="number" step="1" id="f_bildwinkel" inputmode="numeric" placeholder="60"></div>
+    </div>
+    <div class="reihe">
+      <div><label>Breite (°N)</label><input type="number" step="0.001" id="f_breite" inputmode="decimal"></div>
+      <div><label>Länge (°O)</label><input type="number" step="0.001" id="f_laenge" inputmode="decimal"></div>
+    </div>
+    <div id="geraetSollHinweis"></div>
+  </div>
+
   <div class="haken"><input type="checkbox" id="f_geraet_ok">
-    <label for="f_geraet_ok"><b>Einstellungen geprüft, unverändert, fotografiert</b></label></div>
+    <label for="f_geraet_ok"><b>Alle Menüseiten fotografiert — vorher und nachher</b></label></div>
   <div class="info achtung" style="font-size:13px">
-    Die Geräteeinstellungen von 2021 sind verloren — das ist der Grund, warum der Vergleich
-    mit der Altmessung nur mit Vorbehalt geht. <b>Dieser Fehler darf sich nicht wiederholen:
-    fotografieren, nicht nur abhaken.</b>
+    Die Geräteeinstellungen von 2021/22 sind nicht dokumentiert — deshalb geht der Vergleich
+    mit der Altmessung nur mit Vorbehalt. <b>Fotografieren, nicht nur abhaken.</b>
   </div>
 
   <details class="klapp" id="geraetKlapp">
-    <summary>Abweichung gefunden? Hier stehen die Werte einzeln</summary>
+    <summary>Weitere Einstellungen <span class="hint">— Modell, Durchlässigkeit, Schwellwerte, p</span></summary>
     <div class="klappinhalt">
+      <div class="info" style="font-size:13px">Die Platzhalter zeigen die Werte von BY07 (Foto vom 07.09.2026).
+        <b>Nur eintragen, wenn das Gerät etwas anderes zeigt.</b></div>
       <div class="reihe">
         <div><label>Gerätemodell</label><input id="f_geraet" placeholder="Solariscope SOL 300B"></div>
         <div><label>Serien-Nr.</label><input id="f_serie"></div>
@@ -278,35 +310,24 @@
       </div>
       <div class="haken"><input type="checkbox" id="f_kosinus"><label for="f_kosinus">Kosinus-Gewichtung eingeschaltet</label></div>
       <div class="reihe">
-        <div><label>DSF-Zeitspanne von</label><input id="f_periode_von" placeholder="1.4."></div>
-        <div><label>bis</label><input id="f_periode_bis" placeholder="30.9."></div>
-      </div>
-      <div class="reihe">
         <div><label>TSF-Formel</label><input id="f_tsf_formel" placeholder="60:40"></div>
         <div><label>Direktanteil p</label><input id="f_p_geraet" placeholder="0,60"></div>
       </div>
       <div id="pFormelHinweis"></div>
       <div class="reihe">
-        <div><label>Bildwinkel Openness / GapF (°)</label><input type="number" step="1" id="f_bildwinkel" inputmode="numeric" placeholder="60"></div>
         <div><label>Max. Neigung Fernauslösung (°)</label><input type="number" step="0.1" id="f_max_neigung" inputmode="decimal" placeholder="2,9"></div>
-      </div>
-      <label>Breite (°N) / Länge (°O) im Gerät <span class="hint">— das Gerät rechnet damit die Sonnenbahn</span></label>
-      <div class="reihe">
-        <div><input type="number" step="0.001" id="f_breite" inputmode="decimal" placeholder="47.9"></div>
-        <div><input type="number" step="0.001" id="f_laenge" inputmode="decimal" placeholder="10.8"></div>
       </div>
     </div>
   </details>
 
-  <label>Abweichung gegenüber BY07 <span class="hint">— leer lassen, wenn alles gleich ist</span></label>
+  <label>Sonst abweichend <span class="hint">— Bemerkung zum Gerät</span></label>
   <input id="f_geraet_abweichung" placeholder="z. B. Durchlässigkeit stand auf 65">
-
   <h3>Parzellen und Maße</h3>
   <div class="info gut" style="font-size:13px">
     <b>Festlegung dieser Arbeit:</b> <b>Parzelle A ist die südliche</b>, B die nördliche.
     Der Buchstabe ist nur ein Etikett — maßgeblich sind <b>Lage</b> und <b>Herkunft</b>.
-    <b>Die Herkunft dreht sich zwischen den Flächen um</b> (BY07: A rumänisch · BY02: A heimisch)
-    und ist nie aus dem Buchstaben ableitbar.
+    <b>Die Herkunft dreht sich zwischen den Flächen um</b> (auf BY07 ist A rumänisch; für BY02
+    widersprechen sich die Unterlagen) und ist nie aus dem Buchstaben ableitbar — <b>maßgeblich ist das Schild</b>.
   </div>
 
   <div class="karte">
@@ -441,8 +462,18 @@
     Die Richtung, in die du blickst, wenn du <b>vom Mittelpunkt A zum Mittelpunkt B</b> schaust.
     Liegt A im Süden und B im Norden, sind das <b>0°</b>. Aus dieser einen Zahl leitet die App
     alle Himmelsrichtungen und Soll-Azimute ab. <b>Sie beschreibt das Gelände, nicht das Bild.</b>
+    <br><b>Keine Sicht von A nach B?</b> Von B nach A peilen, 180° abziehen und das in der
+    Bemerkung zur Skizze vermerken.
   </div>
   <div id="achsHinweis"></div>
+
+  <label>Abstand Mittelpunkt A → B (m) <span class="hint">— mit dem Vertex gemessen, Pfosten zu Pfosten</span></label>
+  <input type="number" step="0.1" id="s_pfosten" inputmode="decimal" placeholder="z. B. 53,4">
+  <div class="info" style="font-size:13px">
+    <b>Die feste Klammer zwischen beiden Parzellen, eine Minute Arbeit.</b> Auf BY07 wurde dieser
+    Abstand nur aus den Parzellenmaßen <i>errechnet</i> — gemessen hätte ihn unabhängig belegt.
+  </div>
+  <div id="pfostenHinweis"></div>
 
   <div class="feld" data-auswahl="s_eingang" data-ziel="schema" data-liste="EINGANG"
        data-label="Eingang / Tor liegt im"></div>
@@ -590,6 +621,17 @@
     Im Uhrzeigersinn arbeiten, damit keiner doppelt und keiner gar nicht erfasst wird.
     <b>Auch unterständige Bäume aufnehmen</b> — sie gehören zum Projekt und stören die
     Verortung nicht; die Auswertung wählt selbst aus.
+  </div>
+  <div class="info achtung" style="font-size:13px">
+    <b>Der Azimut zeigt VOM Pfosten ZUM Baum.</b> Wer allein am Baum steht und zum Pfosten
+    zurückpeilt, muss <b>180° dazu- oder abziehen</b>, bevor er tippt — sonst landet der Baum
+    spiegelbildlich auf der anderen Seite.
+    <br><b>Vertex an die dem Pfosten zugewandte Stammseite halten.</b> Den halben BHD rechnet die
+    Auswertung dazu.
+    <br><b>Die Parzelle oben richtig umschalten</b> — eine falsche Zuordnung verschiebt den Baum
+    um rund 50 m. Das ist der eine Fehler, der wirklich schadet.
+    <br><i>Höhe: nicht nötig. Nur wenn am Ende Zeit bleibt, an 15–20 Bäumen über die ganze
+    Durchmesserspanne — für eine Höhenkurve.</i>
   </div>
 
   <details class="klapp">
@@ -771,8 +813,8 @@
    die Baumarten- und Pflanzenlisten, die Punktdefinition.
    ===================================================================== */
 
-const FASSUNG = "3.0.3";
-const STAND   = "15.09.2026";
+const FASSUNG = "3.0.4";
+const STAND   = "16.09.2026";
 
 /* ---------- Auswahllisten ----------
    Alles hier ist Vorschlag, nicht Vorschrift: jede Liste bekommt beim Aufbau
@@ -785,6 +827,29 @@ const FLAECHEN = ["BY01","BY02 · Bischberg","BY03","BY04","BY05","BY06",
                   "BW01","BW02","BW03","BW04","BW05"];
 
 const LAGEN = ["Süd","Nord","West","Ost","Südwest","Nordost","Südost","Nordwest"];
+
+/* ---------------------------------------------------------------------
+   Geräteeinstellungen — SOLLWERTE, festgelegt am 16.09.2026 (Martens):
+   DSF-Zeitraum 1. April bis 30. September für ALLE Flächen, Breite/Länge
+   der jeweiligen Fläche, Bildwinkel 60°.
+   Vorher standen hier die Werte von BY07 als "belegte Vorgabe zum Abhaken".
+   Das war falsch: Bamberg lief mit Zeitraum ab 1. Mai und Breite 48,1° bei
+   einer Fläche auf 49,9° (SITZUNGSSTAND Kap. 1x-E, 1z-B).
+   --------------------------------------------------------------------- */
+const GERAET_SOLL = { von: "1.4.", bis: "30.9.", winkel: "60" };
+
+/* Ort je Fläche für das Gerät (Grad, drei Nachkommastellen genügen für die
+   Sonnenbahn). Mittel der Parzellenmittelpunkte der Projektaufnahme 2021
+   (2021_OBERSTANDSDATEN_AGGREGIERT.xlsx, Blatt KOORDINATEN_AGG), berechnet
+   in Prototyp/Daten/Flaechenpunkte_Quellen.csv. BY06: die beiden Punkte
+   liegen 221 m auseinander — für die Sonnenbahn ohne Belang. */
+const FLAECHEN_ORT = {
+  "BY01":[48.700,10.503], "BY02":[49.894,10.802], "BY03":[49.595,10.444],
+  "BY04":[50.228,10.650], "BY05":[47.771,11.233], "BY06":[48.031,10.239],
+  "BY07":[47.896,10.807],
+  "BW01":[49.065, 9.808], "BW02":[49.343, 9.473], "BW03":[48.288, 7.927],
+  "BW04":[48.074, 8.769], "BW05":[48.923,10.291]
+};
 
 const FORMEN = ["nach den gemessenen Maßen","Quadrat (ca. 50 × 50 m)","Rechteck lang (ca. 25 × 100 m)"];
 
@@ -1745,6 +1810,7 @@ function kopfAktualisieren(){
 
 /* ---------- Navigation ---------- */
 function zeigeAbschnitt(ziel){
+  alleFelderAbgeben();   // 16.09.2026: Wartende Eingaben schreiben, bevor der Abschnitt wechselt
   document.querySelectorAll("nav button").forEach(x =>
     x.classList.toggle("aktiv", x.dataset.ziel === ziel));
   document.querySelectorAll("section").forEach(x =>
@@ -1873,19 +1939,33 @@ function feldBinden(id, zielName){
    Tastendruck wird der Wert regulär über setzen() geschrieben — mit Stempel
    und gespeichert. Feuert danach noch ein "change", schadet das nicht: Es
    setzt denselben Wert noch einmal. */
-const STEMPEL_TIMER = new WeakMap();
+/* ⚑ 16.09.2026: Map statt WeakMap, und je Feld auch die Schreibfunktion —
+   damit stempelAlleSofort() vor einem Neuaufbau der Maske ALLE noch
+   wartenden Eingaben schreiben kann. Vorher gingen Buchstaben aus den letzten
+   zwei Sekunden verloren, wenn sich die Maske neu aufbaute (etwa nach der
+   GPS-Messung) und das Feld dabei kein "change" gemeldet hatte. */
+const STEMPEL_TIMER = new Map();
 
 function stempelTimerLoeschen(el){
-  const t = STEMPEL_TIMER.get(el);
-  if(t){ clearTimeout(t); STEMPEL_TIMER.delete(el); }
+  const e = STEMPEL_TIMER.get(el);
+  if(e){ clearTimeout(e.timer); STEMPEL_TIMER.delete(el); }
 }
 
 function stempelNachRuhe(el, pfad, wertGeber){
+  tippRuhe(el, () => setzen(pfad, wertGeber()));
+}
+
+/* Allgemein: nach zwei Sekunden Tippruhe "schreibe" ausführen — auch für Felder,
+   die nicht über einen Pfad, sondern über eine eigene Funktion schreiben
+   (Artenliste der Vegetation). */
+function tippRuhe(el, schreibe){
   stempelTimerLoeschen(el);
-  STEMPEL_TIMER.set(el, setTimeout(() => {
-    STEMPEL_TIMER.delete(el);
-    setzen(pfad, wertGeber());
-  }, 2000));
+  const schreiben = () => { STEMPEL_TIMER.delete(el); schreibe(); };
+  STEMPEL_TIMER.set(el, { timer: setTimeout(schreiben, 2000), schreiben: schreiben });
+}
+
+function stempelAlleSofort(){
+  Array.from(STEMPEL_TIMER.values()).forEach(e => { clearTimeout(e.timer); e.schreiben(); });
 }
 
 /* ---------- Auswahl mit Freitext ----------
@@ -2066,6 +2146,71 @@ function schlussgradErklaeren(){
   else box.style.display = "none";
 }
 
+/* ---------- Geräteeinstellungen: Sollwerte (16.09.2026) ----------
+   Der Knopf trägt die festgelegten Werte ein — über setzenMehrere(), also mit
+   Zeitstempel. Gedrückt wird er erst, wenn das Gerät wirklich so eingestellt
+   ist; die Prüfung darunter sagt, ob die Felder zum Soll passen. */
+function geraetSollEintragen(){
+  const ort = FLAECHEN_ORT[flaechenKennung(D.kopf.f_flaeche)];
+  const paare = {
+    "kopf.f_periode_von": GERAET_SOLL.von,
+    "kopf.f_periode_bis": GERAET_SOLL.bis,
+    "kopf.f_bildwinkel":  GERAET_SOLL.winkel
+  };
+  if(ort){
+    paare["kopf.f_breite"] = String(ort[0]);
+    paare["kopf.f_laenge"] = String(ort[1]);
+  }
+  setzenMehrere(paare, true);
+  ["f_periode_von","f_periode_bis","f_bildwinkel","f_breite","f_laenge"].forEach(id => {
+    const e = document.getElementById(id);
+    if(e) e.value = (D.kopf[id] !== undefined && D.kopf[id] !== null) ? D.kopf[id] : "";
+  });
+  geraetSollPruefen();
+  if(!ort){
+    balkenZeigen("Für diese Fläche ist kein Ort hinterlegt — Breite und Länge von Hand eintragen.");
+    setTimeout(() => balkenZeigen(""), 5000);
+  }
+}
+
+/* "1.4.", "01.04", "1. 4." → "1.4." — damit Schreibweisen nicht als Abweichung gelten. */
+function tagMonat(v){
+  const m = String(v || "").match(/(\d{1,2})\s*\.\s*(\d{1,2})/);
+  return m ? (+m[1]) + "." + (+m[2]) + "." : "";
+}
+
+function geraetSollPruefen(){
+  const box = document.getElementById("geraetSollHinweis");
+  const zust = document.getElementById("geraetSollZust");
+  if(!box) return;
+  const k = D.kopf;
+  const leer = v => v === undefined || v === null || String(v).trim() === "";
+  if(["f_periode_von","f_periode_bis","f_bildwinkel","f_breite","f_laenge"].every(id => leer(k[id]))){
+    box.innerHTML = '<div class="p-anzeige p-warn">Noch nichts eingetragen. Erst am Gerät einstellen, '
+      + 'dann den Knopf oben drücken.</div>';
+    if(zust) zust.textContent = "offen";
+    return;
+  }
+  const abw = [];
+  if(tagMonat(k.f_periode_von) !== GERAET_SOLL.von) abw.push("DSF von " + (k.f_periode_von || "—") + " statt " + GERAET_SOLL.von);
+  if(tagMonat(k.f_periode_bis) !== GERAET_SOLL.bis) abw.push("DSF bis " + (k.f_periode_bis || "—") + " statt " + GERAET_SOLL.bis);
+  if(zahl(k.f_bildwinkel) !== Number(GERAET_SOLL.winkel)) abw.push("Bildwinkel " + (k.f_bildwinkel || "—") + " statt " + GERAET_SOLL.winkel + "°");
+  const ort = FLAECHEN_ORT[flaechenKennung(k.f_flaeche)];
+  if(ort){
+    const db = Math.abs(zahl(k.f_breite) - ort[0]), dl = Math.abs(zahl(k.f_laenge) - ort[1]);
+    if(!(db <= 0.05 && dl <= 0.05))
+      abw.push("Ort " + (k.f_breite || "—") + " / " + (k.f_laenge || "—") + " statt etwa "
+               + ort[0].toFixed(2) + " / " + ort[1].toFixed(2));
+  }
+  if(abw.length){
+    box.innerHTML = '<div class="p-anzeige p-warn"><b>Weicht vom Soll ab:</b> ' + abw.join(" · ")
+      + ' — ist das am Gerät wirklich so eingestellt? Dann in der Bemerkung zum Gerät begründen.</div>';
+    if(zust) zust.textContent = "weicht ab";
+  }else{
+    box.innerHTML = '<div class="p-anzeige p-ok">Entspricht dem Soll.</div>';
+    if(zust) zust.textContent = "Soll";
+  }
+}
 function herkunftVorschlagen(){
   const f = D.kopf.f_flaeche;
   /* Über die Kennung nachschlagen, nicht über den Anzeigenamen — siehe
@@ -2316,6 +2461,29 @@ function achsHinweisZeigen(){
     + 'den Kompass.)</i></div>';
 }
 
+/* ---------- Gemessener Pfostenabstand gegen die Parzellenmaße (16.09.2026) ----------
+   Zwei unabhängige Wege zur selben Strecke: direkt mit dem Vertex, und aus
+   halber Länge A + Trennstreifen + halber Länge B. Weichen sie um mehr als
+   2 m ab, stimmt eines der Maße nicht — das soll im Feld auffallen. */
+function pfostenHinweisZeigen(){
+  const box = document.getElementById("pfostenHinweis");
+  if(!box) return;
+  const m = zahl(D.schema.s_pfosten);
+  if(isNaN(m)){ box.innerHTML = ""; return; }
+  const q = geometrie();
+  if(!q.g.gemessen || isNaN(q.abstandAB)){
+    box.innerHTML = '<div class="p-anzeige p-ok">' + rund(m,1) + ' m gemessen. Der Vergleich mit den '
+      + 'Parzellenmaßen erscheint, sobald Längen und Trennstreifen eingetragen sind.</div>';
+    return;
+  }
+  const d = m - q.abstandAB;
+  const gut = Math.abs(d) <= 2;
+  box.innerHTML = '<div class="p-anzeige ' + (gut ? 'p-ok' : 'p-warn') + '">Gemessen <b>' + rund(m,1)
+    + ' m</b>, aus den Maßen errechnet <b>' + rund(q.abstandAB,1) + ' m</b> — Differenz '
+    + (d >= 0 ? '+' : '') + rund(d,1) + ' m. '
+    + (gut ? 'Passt.' : '<b>Mehr als 2 m:</b> Ein Maß stimmt nicht — Parzellenlänge oder Trennstreifen nachmessen.')
+    + '</div>';
+}
 /* =====================================================================
    ANSICHTSDREHUNG
 
@@ -2665,7 +2833,37 @@ function punktListeAufbauen(){
   }
 }
 
-function punktOeffnen(pid){
+/* Welche Felder der Punktmaske wohin gehören. ⚑ 16.09.2026: Bis Fassung 3.0.3
+   wurden diese Felder NUR beim Knopf "Speichern und zurück" geschrieben. Baute
+   sich die Maske vorher neu auf — nach "gemessen" oder nach der 45-s-GPS-Messung —,
+   war eine getippte Bild-Nummer weg. Jetzt schreibt jedes Feld selbst, mit
+   Zeitstempel: beim Verlassen und nach zwei Sekunden Tippruhe. */
+const PUNKT_FELDER = {
+  p_bild:"bild", p_bild2:"bild2", p_platz:"platz",
+  p_isf:"isf", p_dsf:"dsf", p_tsf:"tsf", p_lai:"lai", p_elad:"elad", p_open:"open",
+  p_winkel:"winkel", p_schwelle:"schwelle",
+  p_zeit:"zeit", p_hoehe:"hoehe", p_himmel:"himmel", p_aufnehmer:"aufnehmer",
+  p_nord:"nord", p_horiz:"horiz", p_bem:"bem"
+};
+
+function punktFelderBinden(pid){
+  Object.keys(PUNKT_FELDER).forEach(id => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    const pfad = "punkte." + pid + "." + PUNKT_FELDER[id];
+    const haken = el.type === "checkbox";
+    el.addEventListener("change", () => {
+      stempelTimerLoeschen(el);
+      setzen(pfad, haken ? el.checked : el.value);
+      if(id === "p_zeit" || id === "p_bild") kopfAktualisieren();
+    });
+    if(!haken && el.tagName !== "SELECT")
+      el.addEventListener("input", () => stempelNachRuhe(el, pfad, () => el.value));
+  });
+}
+
+function punktOeffnen(pid, lageHalten){
+  const scrollY = window.scrollY;
   const p = PUNKTE.find(x => x.id === pid);
   const d = D.punkte[pid] || {};
   const box = document.getElementById("punktListe");
@@ -2673,7 +2871,7 @@ function punktOeffnen(pid){
   const optionen = (liste, gewaehlt) => liste.map(t =>
     '<option'+((gewaehlt||"")===t?" selected":"")+'>'+t+'</option>').join("");
 
-  let h = '<button class="knopf zweit klein" onclick="punktListeAufbauen()">&larr; zurück zur Übersicht</button>'
+  let h = '<button class="knopf zweit klein" onclick="alleFelderAbgeben();punktListeAufbauen()">&larr; zurück zur Übersicht</button>'
     + '<h3>'+p.name+'</h3>'
     + (p.info ? '<div class="info" style="font-size:13px">'+p.info+'</div>' : '');
 
@@ -2684,6 +2882,15 @@ function punktOeffnen(pid){
     +  (d.zeit ? 'Zeit erneuern ('+d.zeit+')' : 'gemessen — Uhrzeit eintragen')+'</button>'
     +  '<label>Bild-Nr. am Gerät <span class="hint">— die einzige Verbindung zwischen Bild und Punkt</span></label>'
     +  '<input id="p_bild" value="'+(d.bild||"")+'" placeholder="Nummer ablesen" inputmode="numeric">'
+    +  '<div class="reihe">'
+    +    '<div><label>Reihe / Platz <span class="hint">— nächster Pflanzplatz</span></label>'
+    +      '<input id="p_platz" value="'+(d.platz||"").replace(/"/g,"&quot;")+'" placeholder="z. B. R7 P12"></div>'
+    +    '<div><label>2. Bild-Nr. <span class="hint">— Wiederholung</span></label>'
+    +      '<input id="p_bild2" value="'+(d.bild2||"")+'" placeholder="nur an 2–3 Punkten" inputmode="numeric"></div>'
+    +  '</div>'
+    +  '<div class="info" style="font-size:13px"><b>Eine Aufnahme mit 60°.</b> Das Gerät speichert die '
+    +  '<b>Abweichung von Nord</b> („Angle"): <b>±5° sind in Ordnung, 19° nicht</b> — dann neu ausrichten. '
+    +  'Die Neigung hält der Auslöser selbst in Grenzen.</div>'
     +  '</div>';
 
   /* --- GPS: zwei Serien --- */
@@ -2742,7 +2949,7 @@ function punktOeffnen(pid){
     +  '<div class="haken"><input type="checkbox" id="p_nord"'+(d.nord?" checked":"")+'>'
     +  '<label for="p_nord">nach Norden ausgerichtet</label></div>'
     +  '<div class="haken"><input type="checkbox" id="p_horiz"'+(d.horiz?" checked":"")+'>'
-    +  '<label for="p_horiz">horizontiert (Gerät meldet keine Überneigung)</label></div>'
+    +  '<label for="p_horiz">horizontiert</label></div>'
     +  '</div></details>';
 
   h += '<label>Bemerkung</label><textarea id="p_bem">'+(d.bem||"")+'</textarea>'
@@ -2755,7 +2962,8 @@ function punktOeffnen(pid){
     if(el) el.addEventListener("input", pruefungZeigen);
   });
   pruefungZeigen();
-  window.scrollTo(0,0);
+  punktFelderBinden(pid);
+  window.scrollTo(0, lageHalten ? scrollY : 0);
 }
 
 /* Anzeige einer GPS-Serie im Punkt */
@@ -2776,10 +2984,10 @@ function gpsSerieBlock(pid, nr, g){
 function punktGemessen(pid){
   const n = new Date();
   const zeit = String(n.getHours()).padStart(2,"0")+":"+String(n.getMinutes()).padStart(2,"0");
+  alleFelderAbgeben();
   setzen("punkte."+pid+".zeit", zeit, true);
-  const el = document.getElementById("p_zeit");
-  if(el) el.value = zeit;
-  punktOeffnen(pid);
+  punktOeffnen(pid, true);
+  kopfAktualisieren();
 }
 
 function punktSpeichern(pid){
@@ -2790,6 +2998,8 @@ function punktSpeichern(pid){
   setzeWenn("zeit", g("p_zeit"));
   setzeWenn("hoehe", g("p_hoehe"));
   setzeWenn("bild", g("p_bild"));
+  setzeWenn("bild2", g("p_bild2"));
+  setzeWenn("platz", g("p_platz"));
   setzeWenn("winkel", g("p_winkel"));
   setzeWenn("schwelle", g("p_schwelle"));
   setzeWenn("isf", g("p_isf"));
@@ -2928,7 +3138,8 @@ function vegListeAufbauen(){
   });
 }
 
-function vegOeffnen(pid){
+function vegOeffnen(pid, lageHalten){
+  const scrollY = window.scrollY;
   const p = VEG_PUNKTE.find(x => x.id === pid);
   if(!D.veg.punkte) D.veg.punkte = {};
   if(!D.veg.punkte[pid]) D.veg.punkte[pid] = {einfach:{}, arten:[], kronenschluss:"", bem:"", aufnehmer:""};
@@ -2939,11 +3150,12 @@ function vegOeffnen(pid){
   const opt = (liste, gewaehlt) => '<option value=""></option>' +
     liste.map(t => '<option'+((gewaehlt||"")===t?" selected":"")+'>'+t+'</option>').join("");
 
-  let inhalt = '<button class="knopf zweit klein" onclick="vegListeAufbauen()">&larr; zurück zur Übersicht</button>'+
+  let inhalt = '<button class="knopf zweit klein" onclick="alleFelderAbgeben();vegListeAufbauen()">&larr; zurück zur Übersicht</button>'+
     '<h3>Vegetation — '+p.name+'</h3>'+
     '<label>Aufgenommen von</label>'+
     '<input list="personenliste" value="'+(v.aufnehmer||"")+'" placeholder="Name" '+
-      'onchange="vegSetzen(\''+pid+'\',\'aufnehmer\',this.value)">';
+      'oninput="tippRuhe(this,()=>vegSetzen(\''+pid+'\',\'aufnehmer\',this.value))" '+
+      'onchange="stempelTimerLoeschen(this);vegSetzen(\''+pid+'\',\'aufnehmer\',this.value)">';
 
   inhalt += '<h4>Verfahren 1 — vereinfacht (Projektstandard 2021/22)</h4>'+
     '<div class="info" style="font-size:13px">Je Schicht Deckungsgrad und mittlere Höhe. '+
@@ -2959,7 +3171,8 @@ function vegOeffnen(pid){
       '</div>'+
       '<label>eigene Angabe <span class="hint">falls keine Klasse passt</span></label>'+
       '<input value="'+(v.einfach[s.k+"_frei"]||"")+'" placeholder="frei formulieren" '+
-        'onchange="vegEinfachSetzen(\''+pid+'\',\''+s.k+'_frei\',this.value)">'+
+        'oninput="tippRuhe(this,()=>vegEinfachSetzen(\''+pid+'\',\''+s.k+'_frei\',this.value))" '+
+        'onchange="stempelTimerLoeschen(this);vegEinfachSetzen(\''+pid+'\',\''+s.k+'_frei\',this.value)">'+
       '</div>';
   });
 
@@ -2976,8 +3189,9 @@ function vegOeffnen(pid){
     arten.forEach(([a,i]) => {
       inhalt += '<div style="border-top:1px solid var(--rand); padding-top:8px; margin-top:8px">'+
         '<label>Art</label>'+
-        '<input list="pflanzenliste" value="'+(a.art||"").replace(/"/g,"&quot;")+'" placeholder="deutscher Name" '+
-          'onchange="artSetzen(\''+pid+'\','+i+',\'art\',this.value)">'+
+        '<input list="pflanzenliste" id="art_'+i+'" value="'+(a.art||"").replace(/"/g,"&quot;")+'" placeholder="deutscher Name" '+
+          'oninput="tippRuhe(this,()=>artSetzen(\''+pid+'\','+i+',\'art\',this.value))" '+
+          'onchange="stempelTimerLoeschen(this);artSetzen(\''+pid+'\','+i+',\'art\',this.value)">'+
         '<div class="reihe">'+
           '<div><label>Artmächtigkeit</label><select onchange="artSetzen(\''+pid+'\','+i+',\'am\',this.value)">'+
             ARTMAECHTIGKEIT.map(([w,t]) => '<option value="'+w+'"'+((a.am||"")===w?" selected":"")+'>'+(w?w+" — "+t:"—")+'</option>').join("")+
@@ -2995,20 +3209,31 @@ function vegOeffnen(pid){
   });
 
   inhalt += '<label>Bemerkung zum Punkt</label>'+
-    '<textarea onchange="vegSetzen(\''+pid+'\',\'bem\',this.value)">'+(v.bem||"")+'</textarea>'+
-    '<button class="knopf" onclick="vegListeAufbauen()">Fertig</button>';
+    '<textarea oninput="tippRuhe(this,()=>vegSetzen(\''+pid+'\',\'bem\',this.value))" '+
+      'onchange="stempelTimerLoeschen(this);vegSetzen(\''+pid+'\',\'bem\',this.value)">'+(v.bem||"")+'</textarea>'+
+    '<button class="knopf" onclick="alleFelderAbgeben();vegListeAufbauen()">Fertig</button>';
 
   box.innerHTML = inhalt;
   autoAus(box);
-  window.scrollTo(0,0);
+  window.scrollTo(0, lageHalten ? scrollY : 0);
 }
 
 function vegEinfachSetzen(pid, feld, wert){ setzen("veg.punkte."+pid+".einfach."+feld, wert); }
 function vegSetzen(pid, feld, wert){ setzen("veg.punkte."+pid+"."+feld, wert); }
 
+/* ⚑ 16.09.2026: Nach "+ Art" sprang die Seite nach oben, und man musste bei jeder
+   Art wieder zur Schicht hinunterscrollen. Jetzt bleibt die Lage stehen, und das
+   Namensfeld der neuen Art bekommt den Zeiger — mittig im Bild. */
 function artAnlegen(pid, schicht){
+  alleFelderAbgeben();
   D.veg.punkte[pid].arten.push(neuerEintrag({schicht:schicht, art:"", am:"", soz:""}));
-  speichern(true); vegOeffnen(pid);
+  speichern(true);
+  vegOeffnen(pid, true);
+  const neu = document.getElementById("art_" + (D.veg.punkte[pid].arten.length - 1));
+  if(neu){
+    neu.scrollIntoView({block:"center"});
+    neu.focus({preventScroll:true});
+  }
 }
 function artSetzen(pid, i, feld, wert){
   const a = D.veg.punkte[pid].arten[i];
@@ -3018,8 +3243,9 @@ function artSetzen(pid, i, feld, wert){
   speichern();
 }
 function artLoeschen(pid, i){
+  alleFelderAbgeben();
   D.veg.punkte[pid].arten.splice(i,1);
-  speichern(true); vegOeffnen(pid);
+  speichern(true); vegOeffnen(pid, true);
 }
 
 /* =====================================================================
@@ -3179,7 +3405,7 @@ function obSchnellAufbauen(){
         BAUMARTEN.map(([c,n]) => '<option value="'+c+'"'+(OB_ART===c?" selected":"")+'>'+n+'</option>').join("")+
       '</select>'+
       '<div class="reihe">'+
-        '<div><label class="pflicht">Azimut (°)</label>'+
+        '<div><label class="pflicht">Azimut (°) <span class="hint">Pfosten → Baum</span></label>'+
           '<input type="number" inputmode="numeric" id="obAz" onkeydown="obTaste(event)"></div>'+
         '<div><label class="pflicht">Distanz (m)</label>'+
           '<input type="number" step="0.1" inputmode="decimal" id="obDist" onkeydown="obTaste(event)"></div>'+
@@ -3649,7 +3875,8 @@ function gpsPunktBeenden(pid, serie){
           + "Unter dichtem Schirm normal — die zweite Serie im Winter gleicht es aus."
         : ""), "ok");
 
-  punktOeffnen(pid);
+  alleFelderAbgeben();
+  punktOeffnen(pid, true);
   setTimeout(() => {
     const m = document.getElementById("gpsPunktMeldung");
     if(m) m.innerHTML = "Serie " + serie + " gespeichert.";
@@ -3938,7 +4165,12 @@ function kontrolleAufbauen(){
      + (mitBild.length < PUNKTE.length
         ? " — <b>die Bild-Nummer ist die einzige Verbindung zwischen Datei und Punkt.</b>"
         : "")],
-    [!!D.kopf.f_geraet_ok, "Geräteeinstellungen geprüft und <b>fotografiert</b>"],
+    [!!D.kopf.f_geraet_ok, "Alle Menüseiten des Geräts <b>fotografiert</b> — vorher und nachher"],
+    [tagMonat(D.kopf.f_periode_von) === GERAET_SOLL.von && tagMonat(D.kopf.f_periode_bis) === GERAET_SOLL.bis
+       && !isNaN(zahl(D.kopf.f_breite)) && !isNaN(zahl(D.kopf.f_laenge)),
+     "Gerät eingestellt und eingetragen: <b>DSF-Zeitraum 1.4.–30.9.</b> und <b>Ort der Fläche</b>"
+     + " (eingetragen: " + (D.kopf.f_periode_von || "—") + "–" + (D.kopf.f_periode_bis || "—")
+     + ", " + (D.kopf.f_breite || "—") + " / " + (D.kopf.f_laenge || "—") + ")"],
     [!!(D.punkte["W1"] && D.punkte["W2"]), "Wiederholungsmessung W-1 und W-2 vorhanden"]
   ];
 
@@ -3947,6 +4179,7 @@ function kontrolleAufbauen(){
     [q.g.gemessen, "Längen und Breiten beider Parzellen gemessen"],
     [!isNaN(zahl(D.kopf.f_trenn_l)), "Trennstreifen — Länge gemessen"],
     [!isNaN(zahl(D.kopf.f_trenn_b)), "Trennstreifen — Breite gemessen"],
+    [!isNaN(zahl(D.schema.s_pfosten)), "Abstand Mittelpunkt A → B mit dem Vertex gemessen"],
     [D.schema.s_achse_quelle === "gemessen",
      "Azimut der Längsachse A→B <b>gemessen</b>"
      + (isNaN(zahl(D.schema.s_achse))
@@ -4057,17 +4290,24 @@ function textFassung(){
   z.push("");
 
   z.push("GERÄTEEINSTELLUNGEN");
-  z.push("  Geprüft, unverändert, fotografiert: " + jaNein(D.kopf.f_geraet_ok));
+  z.push("  Alle Menüseiten fotografiert (vorher/nachher): " + jaNein(D.kopf.f_geraet_ok));
+  z.push("  VORGEFUNDEN: DSF " + (D.kopf.f_vorg_von||"—") + " bis " + (D.kopf.f_vorg_bis||"—")
+         + " | Ort " + (D.kopf.f_vorg_breite||"—") + " / " + (D.kopf.f_vorg_laenge||"—")
+         + " | Bildwinkel " + (D.kopf.f_vorg_winkel||"—"));
+  z.push("  EINGESTELLT: DSF " + (D.kopf.f_periode_von||"—") + " bis " + (D.kopf.f_periode_bis||"—")
+         + " | Ort " + (D.kopf.f_breite||"—") + " / " + (D.kopf.f_laenge||"—")
+         + " | Bildwinkel " + (D.kopf.f_bildwinkel||"—")
+         + "   (Soll seit 16.09.2026: " + GERAET_SOLL.von + "–" + GERAET_SOLL.bis + ", Ort der Fläche, "
+         + GERAET_SOLL.winkel + "°)");
   if(D.kopf.f_geraet_abweichung) z.push("  ABWEICHUNG: " + D.kopf.f_geraet_abweichung);
   z.push("  Modell " + (D.kopf.f_geraet||"Solariscope SOL 300B [Vorgabe aus BY07]")
          + "  Nr. " + (D.kopf.f_serie||"—"));
   z.push("  Atmosphärische Durchlässigkeit: " + (D.kopf.f_atm||"60 [BY07]") + " %"
          + "   Schwellwerte: " + (D.kopf.f_schwellen||"7 [BY07]"));
-  z.push("  DSF-Zeitspanne: " + (D.kopf.f_periode_von||"1.4. [BY07]") + " bis "
-         + (D.kopf.f_periode_bis||"30.9. [BY07]"));
+
   z.push("  TSF-Formel: " + (D.kopf.f_tsf_formel||"60:40 [BY07]")
          + "   -> p = " + (D.kopf.f_p_geraet||"0,60 [BY07]"));
-  z.push("  Bildwinkel Openness/GapFraction: " + (D.kopf.f_bildwinkel||"60 [BY07]") + " °");
+
   z.push("");
 
   z.push("PARZELLEN");
@@ -4094,6 +4334,8 @@ function textFassung(){
   z.push("");
 
   z.push("SKIZZE");
+  z.push("  Abstand Mittelpunkt A->B, gemessen: " + (D.schema.s_pfosten||"—") + " m"
+         + "   (aus den Maßen: " + rund(q.abstandAB,1) + " m)");
   z.push("  Azimut Längsachse A->B: " + (D.schema.s_achse||"—") + " °"
          + "   Eingang: " + w("schema","s_eingang"));
   z.push("  Ansichtsdrehung der Skizze: " + drehung() + " ° (nur Darstellung)");
@@ -4112,6 +4354,8 @@ function textFassung(){
     if(!d){ z.push("  " + p.id + ": —"); return; }
     let zeile = "  " + p.id + ": " + (d.zeit||"--:--")
       + "  Bild " + (d.bild || "FEHLT")
+      + (d.bild2 ? "  Wdh.-Bild " + d.bild2 : "")
+      + (d.platz ? "  Pflanzplatz " + d.platz : "")
       + (d.hoehe ? "  h=" + d.hoehe + " cm" : "");
     if(d.isf !== "" && d.isf != null){
       zeile += "  ISF " + d.isf + "  DSF " + (d.dsf||"—") + "  TSF " + (d.tsf||"—");
@@ -4821,6 +5065,7 @@ window.addEventListener("online", () => {
    ===================================================================== */
 const KOPF_FELDER = ["f_datum","f_ankunft","f_team",
   "f_geraet_ok","f_geraet_abweichung",
+  "f_vorg_von","f_vorg_bis","f_vorg_winkel","f_vorg_breite","f_vorg_laenge",
   "f_geraet","f_serie","f_breite","f_laenge","f_atm","f_schwellen","f_kosinus",
   "f_periode_von","f_periode_bis","f_tsf_formel","f_p_geraet","f_bildwinkel","f_max_neigung",
   "f_trenn_l","f_trenn_b",
@@ -4831,7 +5076,7 @@ const PARZ_A_FELDER = ["pa_code","pa_herkunft","pa_laenge","pa_breite"];
 const PARZ_B_FELDER = ["pb_code","pb_herkunft","pb_laenge","pb_breite"];
 const BESTAND_FELDER = ["b_besonderheiten","b_schluss_text"];
 const BEDINGUNGEN_FELDER = ["g_himmel1","g_himmel2","g_himmel3","g_ok1","g_ok2","g_ok3","g_abfahrt"];
-const SCHEMA_FELDER = ["s_achse","s_regel","s_bem"];
+const SCHEMA_FELDER = ["s_achse","s_pfosten","s_regel","s_bem"];
 
 function anhaengen(id, ereignis, was){
   const el = document.getElementById(id);
@@ -4854,11 +5099,14 @@ function alles(){
   anhaengen("f_datum", "change", datumPruefen);
   ["f_tsf_formel","f_p_geraet"].forEach(id => { anhaengen(id,"input",pFormelPruefen); anhaengen(id,"change",pFormelPruefen); });
   PARZ_A_FELDER.concat(PARZ_B_FELDER, ["f_trenn_l","f_trenn_b"]).forEach(id =>
-    anhaengen(id, "change", () => { geometrieAnzeigen(); skizzeZeichnen(); }));
+    anhaengen(id, "change", () => { geometrieAnzeigen(); skizzeZeichnen(); pfostenHinweisZeigen(); }));
   /* Wer die Achse selbst eintippt, hat sie gemessen — das unterscheidet sie
      von der aus der Lage abgeleiteten Näherung (45°-Raster, auf BY07 32,5°
      daneben). Der Hinweis unter dem Feld sagt, welche von beiden gilt. */
   anhaengen("s_achse", "change", achseVonHand);
+  anhaengen("s_pfosten", "change", pfostenHinweisZeigen);
+  ["f_periode_von","f_periode_bis","f_bildwinkel","f_breite","f_laenge"].forEach(id =>
+    anhaengen(id, "change", geraetSollPruefen));
   anhaengen("k_nordbezug", "change", kompassHinweis);
   anhaengen("g_abfahrt", "change", dauerZeigen);
   anhaengen("w_parzelle", "change", wtaHerkunftZeigen);
@@ -4866,6 +5114,8 @@ function alles(){
   utmZeigen();
   kompassHinweis();
   achsHinweisZeigen();
+  pfostenHinweisZeigen();
+  geraetSollPruefen();
   schlussgradErklaeren();
   datumPruefen();
   pFormelPruefen();
@@ -4971,6 +5221,7 @@ window.addEventListener("beforeunload", e => {
 function alleFelderAbgeben(){
   const a = document.activeElement;
   if(a && typeof a.blur === "function" && a !== document.body) a.blur();
+  stempelAlleSofort();
 }
 
 document.addEventListener("visibilitychange", () => {

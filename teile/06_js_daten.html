@@ -22,8 +22,8 @@
    die Baumarten- und Pflanzenlisten, die Punktdefinition.
    ===================================================================== */
 
-const FASSUNG = "3.0.3";
-const STAND   = "15.09.2026";
+const FASSUNG = "3.0.4";
+const STAND   = "16.09.2026";
 
 /* ---------- Auswahllisten ----------
    Alles hier ist Vorschlag, nicht Vorschrift: jede Liste bekommt beim Aufbau
@@ -36,6 +36,29 @@ const FLAECHEN = ["BY01","BY02 · Bischberg","BY03","BY04","BY05","BY06",
                   "BW01","BW02","BW03","BW04","BW05"];
 
 const LAGEN = ["Süd","Nord","West","Ost","Südwest","Nordost","Südost","Nordwest"];
+
+/* ---------------------------------------------------------------------
+   Geräteeinstellungen — SOLLWERTE, festgelegt am 16.09.2026 (Martens):
+   DSF-Zeitraum 1. April bis 30. September für ALLE Flächen, Breite/Länge
+   der jeweiligen Fläche, Bildwinkel 60°.
+   Vorher standen hier die Werte von BY07 als "belegte Vorgabe zum Abhaken".
+   Das war falsch: Bamberg lief mit Zeitraum ab 1. Mai und Breite 48,1° bei
+   einer Fläche auf 49,9° (SITZUNGSSTAND Kap. 1x-E, 1z-B).
+   --------------------------------------------------------------------- */
+const GERAET_SOLL = { von: "1.4.", bis: "30.9.", winkel: "60" };
+
+/* Ort je Fläche für das Gerät (Grad, drei Nachkommastellen genügen für die
+   Sonnenbahn). Mittel der Parzellenmittelpunkte der Projektaufnahme 2021
+   (2021_OBERSTANDSDATEN_AGGREGIERT.xlsx, Blatt KOORDINATEN_AGG), berechnet
+   in Prototyp/Daten/Flaechenpunkte_Quellen.csv. BY06: die beiden Punkte
+   liegen 221 m auseinander — für die Sonnenbahn ohne Belang. */
+const FLAECHEN_ORT = {
+  "BY01":[48.700,10.503], "BY02":[49.894,10.802], "BY03":[49.595,10.444],
+  "BY04":[50.228,10.650], "BY05":[47.771,11.233], "BY06":[48.031,10.239],
+  "BY07":[47.896,10.807],
+  "BW01":[49.065, 9.808], "BW02":[49.343, 9.473], "BW03":[48.288, 7.927],
+  "BW04":[48.074, 8.769], "BW05":[48.923,10.291]
+};
 
 const FORMEN = ["nach den gemessenen Maßen","Quadrat (ca. 50 × 50 m)","Rechteck lang (ca. 25 × 100 m)"];
 

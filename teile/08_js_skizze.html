@@ -218,6 +218,29 @@ function achsHinweisZeigen(){
     + 'den Kompass.)</i></div>';
 }
 
+/* ---------- Gemessener Pfostenabstand gegen die Parzellenmaße (16.09.2026) ----------
+   Zwei unabhängige Wege zur selben Strecke: direkt mit dem Vertex, und aus
+   halber Länge A + Trennstreifen + halber Länge B. Weichen sie um mehr als
+   2 m ab, stimmt eines der Maße nicht — das soll im Feld auffallen. */
+function pfostenHinweisZeigen(){
+  const box = document.getElementById("pfostenHinweis");
+  if(!box) return;
+  const m = zahl(D.schema.s_pfosten);
+  if(isNaN(m)){ box.innerHTML = ""; return; }
+  const q = geometrie();
+  if(!q.g.gemessen || isNaN(q.abstandAB)){
+    box.innerHTML = '<div class="p-anzeige p-ok">' + rund(m,1) + ' m gemessen. Der Vergleich mit den '
+      + 'Parzellenmaßen erscheint, sobald Längen und Trennstreifen eingetragen sind.</div>';
+    return;
+  }
+  const d = m - q.abstandAB;
+  const gut = Math.abs(d) <= 2;
+  box.innerHTML = '<div class="p-anzeige ' + (gut ? 'p-ok' : 'p-warn') + '">Gemessen <b>' + rund(m,1)
+    + ' m</b>, aus den Maßen errechnet <b>' + rund(q.abstandAB,1) + ' m</b> — Differenz '
+    + (d >= 0 ? '+' : '') + rund(d,1) + ' m. '
+    + (gut ? 'Passt.' : '<b>Mehr als 2 m:</b> Ein Maß stimmt nicht — Parzellenlänge oder Trennstreifen nachmessen.')
+    + '</div>';
+}
 /* =====================================================================
    ANSICHTSDREHUNG
 
