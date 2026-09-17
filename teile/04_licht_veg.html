@@ -10,6 +10,18 @@
     Ziel merken — und das Gerät danach ausrichten. <b>Ein Fehler hier ist nicht herausrechenbar:</b>
     Er steckt direkt im Messwert.
   </div>
+  <label>Am Solariskop heißt Parzelle A <span class="hint">— einmal je Fläche, vor der ersten Messung</span></label>
+  <select id="s_pz_a">
+    <option value="">— noch nicht festgelegt —</option>
+    <option value="PZ1">PZ1 (dann ist B = PZ2)</option>
+    <option value="PZ2">PZ2 (dann ist B = PZ1)</option>
+  </select>
+  <div class="info" style="font-size:13px">
+    <b>Das Gerät benennt seine Bilder selbst</b>, etwa <i>PZ1_POS3</i>. Damit ein Bild später dem
+    richtigen Punkt zugeordnet wird, muss feststehen, <b>welche Parzelle am Gerät PZ1 heißt</b> — und
+    dass <b>POS</b> dieselbe Nummer trägt wie der Punkt in der Skizze. Die App zeigt an jedem Punkt,
+    wie das Bild heißen muss.
+  </div>
   <div id="gpsStand"></div>
   <div id="punktListe"></div>
 </section>
@@ -142,13 +154,26 @@
     <div><div class="feld" data-auswahl="k_dist_geraet" data-ziel="kopf" data-liste="DISTANZGERAET"
          data-label="Entfernung gemessen mit"></div></div>
   </div>
-  <label>Nordbezug des Kompasses</label>
-  <select id="k_nordbezug">
-    <option value="">— wählen —</option>
-    <option value="geografisch">geografisch Nord (wahres Nord)</option>
-    <option value="magnetisch">magnetisch Nord</option>
-    <option value="unbekannt">unbekannt</option>
-  </select>
+  <div class="reihe">
+    <div><label>Einheit der Azimute</label>
+      <select id="k_einheit">
+        <option value="">— wählen —</option>
+        <option value="grad">Grad (0–360)</option>
+        <option value="gon">Gon (0–400)</option>
+      </select></div>
+    <div><label>Nordbezug des Kompasses</label>
+      <select id="k_nordbezug">
+        <option value="">— wählen —</option>
+        <option value="geografisch">geografisch Nord (wahres Nord)</option>
+        <option value="magnetisch">magnetisch Nord</option>
+        <option value="unbekannt">unbekannt</option>
+      </select></div>
+  </div>
+  <div class="info" style="font-size:13px">
+    <b>Getippt wird, was das Gerät zeigt</b> — in Gon keine Umrechnung im Kopf. Die App speichert
+    den Wert <b>mit seiner Einheit</b> und rechnet erst bei der Auswertung um (Grad = Gon × 0,9).
+    Jeder Baum behält die Einheit, mit der er erfasst wurde.
+  </div>
   <div id="k_geraetHinweis"></div>
 
   <h3>Schnellerfassung</h3>

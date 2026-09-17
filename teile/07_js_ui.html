@@ -28,6 +28,7 @@ function speicherWarnungZeigen(){
   document.body.insertBefore(div, document.body.firstChild);
 }
 
+let BALKEN_ERINNERUNG = false;   // steht der Balken gerade wegen der Sicherungserinnerung?
 function erinnerungPruefen(){
   const el = document.getElementById("sicherungHinweis");
   if(!el) return;
@@ -36,10 +37,16 @@ function erinnerungPruefen(){
     el.style.display = "block";
     el.textContent = "Seit der letzten Sicherung wurden " + SEIT_SICHERUNG
       + " Änderungen erfasst. Jetzt wäre ein guter Moment zum Sichern.";
-    if(SEIT_SICHERUNG >= 25) balkenZeigen("Seit " + SEIT_SICHERUNG + " Änderungen nicht gesichert — unter „Daten“ kopieren.");
+    if(SEIT_SICHERUNG >= 25){
+      balkenZeigen("Seit " + SEIT_SICHERUNG + " Änderungen nicht gesichert — unter „Daten“ kopieren.");
+      BALKEN_ERINNERUNG = true;
+    }
   }else{
     el.style.display = "none";
-    balkenZeigen("");
+    /* ⚑ 17.09.2026: Nur die EIGENE Erinnerung wegnehmen. Vorher löschte jedes
+       Speichern den Balken — auch Meldungen wie „Fläche gewechselt“ verschwanden
+       damit beim nächsten Tastendruck, bevor man sie lesen konnte. */
+    if(BALKEN_ERINNERUNG){ balkenZeigen(""); BALKEN_ERINNERUNG = false; }
   }
 }
 
@@ -47,7 +54,10 @@ function punktFertig(pid){
   const d = D.punkte[pid];
   if(!d) return false;
   const hatWerte = d.isf !== "" && d.isf != null && d.dsf !== "" && d.dsf != null;
-  const hatBeleg = !!(d.zeit && d.bild);     // Werte kommen später aus der Bildauswertung
+  /* ⚑ 17.09.2026: Die Bild-Nummer ist keine Pflicht mehr — das Solariskop benennt
+     seine Bilder selbst (PZ1_POS3). Belegt ist ein Punkt, sobald "gemessen"
+     gedrückt wurde. Die Uhrzeit wird dabei nie automatisch gesetzt. */
+  const hatBeleg = !!d.zeit;
   return hatWerte || hatBeleg;
 }
 
@@ -147,7 +157,7 @@ function flaecheLoeschenFrage(){
   const name = wertVon("kopf","f_flaeche") || "diese Fläche";
   const punkte = Object.keys(D.punkte||{}).length;
   nachfragen("Fläche „" + name + "“ löschen?",
-    "Gelöscht werden <b>" + punkte + " Messpunkte</b>, " + (D.oberstand||[]).length
+    "Gelöscht werden <b>" + punkte + " Messpunkte</b>, " + lebend(D.oberstand).length
     + " Bäume und alle übrigen Eingaben <b>dieser einen Fläche</b>. Die anderen Flächen "
     + "bleiben. <b>Das lässt sich nicht rückgängig machen.</b> Hast du vorher gesichert "
     + "oder synchronisiert?",
@@ -175,6 +185,14 @@ function feldBinden(id, zielName){
   const istHaken = el.type === "checkbox";
   if(istHaken){ el.checked = !!ziel[id]; }
   else{ el.value = (ziel[id] !== undefined && ziel[id] !== null) ? ziel[id] : ""; }
+  /* ⚑ 17.09.2026: NUR EINMAL ANMELDEN. alles() läuft bei jedem Flächenwechsel
+     und lief bis 3.0.4 nach JEDEM Abgleich — und hängte dabei jedes Mal neue
+     Zuhörer an dieselben Felder. Nach 100 Abgleichen löste eine Eingabe 100-mal
+     Speichern, Skizze und Prüfungen aus: langsamer und akkuzehrender über den
+     Tag. Die Zuhörer lesen Ziel und Pfad erst beim Auslösen, gelten also auch
+     nach einem Flächenwechsel richtig. */
+  if(el.dataset.gebunden === "1") return;
+  el.dataset.gebunden = "1";
   el.addEventListener("change", () => {
     stempelTimerLoeschen(el);
     setzen(pfad, istHaken ? el.checked : el.value);
@@ -317,6 +335,7 @@ function nachAuswahl(id){
 /* Personen-Listen neu füllen, wenn sich die Aufnahmegruppe ändert */
 function personenAktualisieren(){
   document.querySelectorAll('select[data-liste="PERSONEN"]').forEach(sel => {
+    if(sel === document.activeElement) return;   // offene Auswahl nicht zuklappen
     optionenFuellen(sel.id, "PERSONEN");
   });
   const dl = document.getElementById("personenliste");

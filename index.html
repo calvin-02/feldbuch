@@ -339,9 +339,19 @@
     <label>Herkunft <span class="hint">— wie auf dem Schild</span></label>
     <input id="pa_herkunft" placeholder="z. B. Rumänische Herkunft">
     <div class="reihe">
-      <div><label>Länge (m)</label><input type="number" step="0.1" id="pa_laenge" inputmode="decimal"></div>
-      <div><label>Breite (m)</label><input type="number" step="0.1" id="pa_breite" inputmode="decimal"></div>
+      <div><label id="lab_pa_laenge">Länge (m)</label><input type="number" step="0.01" id="pa_laenge" inputmode="decimal"></div>
+      <div><label id="lab_pa_breite">Breite (m)</label><input type="number" step="0.01" id="pa_breite" inputmode="decimal"></div>
     </div>
+    <details class="klapp">
+      <summary>Ungleichmäßige Parzelle <span class="hint">— Gegenseiten und Diagonale</span></summary>
+      <div class="klappinhalt">
+        <div class="reihe">
+          <div><label id="lab_pa_laenge2">Länge links (m)</label><input type="number" step="0.01" id="pa_laenge2" inputmode="decimal"></div>
+          <div><label id="lab_pa_breite2">Breite unten (m)</label><input type="number" step="0.01" id="pa_breite2" inputmode="decimal"></div>
+        </div>
+        <label id="lab_pa_diag">Diagonale (m)</label><input type="number" step="0.01" id="pa_diag" inputmode="decimal">
+      </div>
+    </details>
   </div>
 
   <div class="karte">
@@ -353,9 +363,27 @@
     <label>Herkunft <span class="hint">— wie auf dem Schild</span></label>
     <input id="pb_herkunft" placeholder="z. B. Heimische Herkunft">
     <div class="reihe">
-      <div><label>Länge (m)</label><input type="number" step="0.1" id="pb_laenge" inputmode="decimal"></div>
-      <div><label>Breite (m)</label><input type="number" step="0.1" id="pb_breite" inputmode="decimal"></div>
+      <div><label id="lab_pb_laenge">Länge (m)</label><input type="number" step="0.01" id="pb_laenge" inputmode="decimal"></div>
+      <div><label id="lab_pb_breite">Breite (m)</label><input type="number" step="0.01" id="pb_breite" inputmode="decimal"></div>
     </div>
+    <details class="klapp">
+      <summary>Ungleichmäßige Parzelle <span class="hint">— Gegenseiten und Diagonale</span></summary>
+      <div class="klappinhalt">
+        <div class="reihe">
+          <div><label id="lab_pb_laenge2">Länge links (m)</label><input type="number" step="0.01" id="pb_laenge2" inputmode="decimal"></div>
+          <div><label id="lab_pb_breite2">Breite unten (m)</label><input type="number" step="0.01" id="pb_breite2" inputmode="decimal"></div>
+        </div>
+        <label id="lab_pb_diag">Diagonale (m)</label><input type="number" step="0.01" id="pb_diag" inputmode="decimal">
+      </div>
+    </details>
+  </div>
+
+  <div class="info" style="font-size:13px">
+    <b>Welche Seite ist welche?</b> Die Felder nennen die Seiten nach den <b>Punktnummern aus der
+    Skizze</b> — „Seite 1–2" heißt: gemessen von der Ecke bei Punkt 1 zur Ecke bei Punkt 2, <b>Ecke
+    zu Ecke</b>. Deshalb zuerst in der Skizze nummerieren. Bei einer rechteckigen Parzelle genügen
+    Länge und Breite oben; bei einer ungleichmäßigen die Klappe öffnen und alle vier Seiten
+    eintragen, wenn möglich dazu <b>eine Diagonale</b> — vier Seiten allein legen die Form nicht fest.
   </div>
 
   <div class="karte">
@@ -454,7 +482,9 @@
 
   <div class="reihe">
     <div><label>Azimut der Längsachse A → B (°)</label>
-      <input type="number" step="1" id="s_achse" inputmode="numeric" placeholder="0 = A im Süden"></div>
+      <input type="number" step="0.1" id="s_achse" inputmode="decimal" placeholder="0 = A im Süden"></div>
+    <div><label>… oder in Gon</label>
+      <input type="number" step="0.1" id="s_achse_gon" inputmode="decimal" placeholder="Suunto"></div>
     <div><label>&nbsp;</label>
       <button class="knopf zweit" style="margin:0" onclick="achseAusLage()">aus der Lage</button></div>
   </div>
@@ -540,6 +570,18 @@
     verziehen den Kompass. Zwei Schritte weggehen, Nordrichtung bestimmen, ein <b>weit entferntes</b>
     Ziel merken — und das Gerät danach ausrichten. <b>Ein Fehler hier ist nicht herausrechenbar:</b>
     Er steckt direkt im Messwert.
+  </div>
+  <label>Am Solariskop heißt Parzelle A <span class="hint">— einmal je Fläche, vor der ersten Messung</span></label>
+  <select id="s_pz_a">
+    <option value="">— noch nicht festgelegt —</option>
+    <option value="PZ1">PZ1 (dann ist B = PZ2)</option>
+    <option value="PZ2">PZ2 (dann ist B = PZ1)</option>
+  </select>
+  <div class="info" style="font-size:13px">
+    <b>Das Gerät benennt seine Bilder selbst</b>, etwa <i>PZ1_POS3</i>. Damit ein Bild später dem
+    richtigen Punkt zugeordnet wird, muss feststehen, <b>welche Parzelle am Gerät PZ1 heißt</b> — und
+    dass <b>POS</b> dieselbe Nummer trägt wie der Punkt in der Skizze. Die App zeigt an jedem Punkt,
+    wie das Bild heißen muss.
   </div>
   <div id="gpsStand"></div>
   <div id="punktListe"></div>
@@ -673,13 +715,26 @@
     <div><div class="feld" data-auswahl="k_dist_geraet" data-ziel="kopf" data-liste="DISTANZGERAET"
          data-label="Entfernung gemessen mit"></div></div>
   </div>
-  <label>Nordbezug des Kompasses</label>
-  <select id="k_nordbezug">
-    <option value="">— wählen —</option>
-    <option value="geografisch">geografisch Nord (wahres Nord)</option>
-    <option value="magnetisch">magnetisch Nord</option>
-    <option value="unbekannt">unbekannt</option>
-  </select>
+  <div class="reihe">
+    <div><label>Einheit der Azimute</label>
+      <select id="k_einheit">
+        <option value="">— wählen —</option>
+        <option value="grad">Grad (0–360)</option>
+        <option value="gon">Gon (0–400)</option>
+      </select></div>
+    <div><label>Nordbezug des Kompasses</label>
+      <select id="k_nordbezug">
+        <option value="">— wählen —</option>
+        <option value="geografisch">geografisch Nord (wahres Nord)</option>
+        <option value="magnetisch">magnetisch Nord</option>
+        <option value="unbekannt">unbekannt</option>
+      </select></div>
+  </div>
+  <div class="info" style="font-size:13px">
+    <b>Getippt wird, was das Gerät zeigt</b> — in Gon keine Umrechnung im Kopf. Die App speichert
+    den Wert <b>mit seiner Einheit</b> und rechnet erst bei der Auswertung um (Grad = Gon × 0,9).
+    Jeder Baum behält die Einheit, mit der er erfasst wurde.
+  </div>
   <div id="k_geraetHinweis"></div>
 
   <h3>Schnellerfassung</h3>
@@ -813,8 +868,21 @@
    die Baumarten- und Pflanzenlisten, die Punktdefinition.
    ===================================================================== */
 
-const FASSUNG = "3.0.4";
-const STAND   = "16.09.2026";
+const FASSUNG = "3.1.0";
+const STAND   = "17.09.2026";
+
+/* ---------- Winkeleinheiten (17.09.2026) ----------
+   Die Suunto-Bussole zeigt Gon (Vollkreis 400), das Handy Grad (360).
+   GESPEICHERT WIRD IMMER DER ABGELESENE WERT MIT SEINER EINHEIT — nie still
+   umgerechnet. Sonst ist später nicht mehr zu erkennen, ob "200" Süd (Grad)
+   oder Südsüdwest (Gon) war. Umgerechnet wird nur für Anzeige und Prüfung. */
+const EINHEIT_VOLL = { grad: 360, gon: 400 };
+function einheitName(e){ return e === "gon" ? "gon" : "°"; }
+function inGrad(wert, einheit){
+  const w = zahl(wert);
+  if(isNaN(w)) return NaN;
+  return einheit === "gon" ? w * 0.9 : w;
+}
 
 /* ---------- Auswahllisten ----------
    Alles hier ist Vorschlag, nicht Vorschrift: jede Liste bekommt beim Aufbau
@@ -1192,6 +1260,9 @@ function zusammenfuehren(ziel, quelle){
 
   const tq = quelle.t || {};
   const tz = ziel.t   || {};
+  /* ⚑ 17.09.2026: Listen vorher festhalten — ob sich etwas geändert hat, zählt
+     sonst nur über die LÄNGE, und ein Löschvermerk ändert die Länge nicht. */
+  const listenVorher = JSON.stringify([ziel.oberstand || [], (ziel.veg && ziel.veg.punkte) || {}]);
 
   Object.keys(tq).forEach(pfad => {
     if(pfad.indexOf("oberstand") === 0) return;        // Listen unten gesondert
@@ -1244,9 +1315,30 @@ function zusammenfuehren(ziel, quelle){
     }
   });
 
-  ziel.geaendert = new Date().toISOString();
+  /* Welches Gerät wann geschrieben hat, wird vereinigt (vorher blieb nur die
+     eigene Liste stehen — die Herkunft eines Stands war damit nicht belegbar). */
+  if(!ziel.herkunft) ziel.herkunft = {};
+  Object.keys(quelle.herkunft || {}).forEach(g => {
+    if(!ziel.herkunft[g] || String(quelle.herkunft[g]) > String(ziel.herkunft[g]))
+      ziel.herkunft[g] = quelle.herkunft[g];
+  });
+
+  /* ⚑ 17.09.2026: "geändert" nur setzen, wenn wirklich etwas übernommen wurde.
+     Vorher bekam jeder Abgleich einen neuen Zeitpunkt — die Synchronisation
+     hätte dann jeden Stand erneut hochgeladen, auch ohne jede Änderung. */
+  const listenNachher = JSON.stringify([ziel.oberstand || [], (ziel.veg && ziel.veg.punkte) || {}]);
+  bericht.geaendert = (bericht.neu + bericht.erneuert) > 0 || listenVorher !== listenNachher;
+  if(bericht.geaendert) ziel.geaendert = new Date().toISOString();
   return bericht;
 }
+
+/* ---------- Löschvermerke (17.09.2026) ----------
+   Ein gelöschter Baum oder eine gelöschte Art wurde bis 3.0.4 aus der Liste
+   entfernt. Beim nächsten Abgleich kannte ihn das andere Gerät aber noch — und
+   das Vereinigen holte ihn zurück. Jetzt bleibt der Eintrag stehen, bekommt
+   _weg = true und einen neuen Zeitstempel; der jüngere Stand gewinnt, also die
+   Löschung. Angezeigt, gezählt und exportiert wird nur, was nicht _weg ist. */
+function lebend(liste){ return (liste || []).filter(e => e && !e._weg); }
 
 /* Eine Liste im Datensatz vereinigen (Oberstand). */
 function listeVereinigen(ziel, quelle, name){
@@ -1339,7 +1431,7 @@ function listeAuffrischen(){
     datum: D.kopf.f_datum || "",
     geaendert: D.geaendert || new Date().toISOString(),
     punkte: fertig,
-    baeume: (D.oberstand || []).length
+    baeume: lebend(D.oberstand).length
   };
   const i = l.findIndex(e => e.id === D.id);
   if(i >= 0) l[i] = eintrag; else l.push(eintrag);
@@ -1459,7 +1551,7 @@ function standEinsortieren(fremd){
   neu.id = fremd.id || ("f" + Date.now().toString(36) + Math.random().toString(36).slice(2,6));
   neu.fassung = 3;
   aufD(neu, () => { ergaenzen(); flaecheSchreiben(); listeAuffrischen(); });
-  return {art:"neu", id:neu.id, bericht:{neu:Object.keys(neu.t||{}).length, erneuert:0, behalten:0, listen:(neu.oberstand||[]).length, konflikte:[]}};
+  return {art:"neu", id:neu.id, bericht:{neu:Object.keys(neu.t||{}).length, erneuert:0, behalten:0, listen:lebend(neu.oberstand).length, konflikte:[], geaendert:true}};
 }
 
 /* =====================================================================
@@ -1770,6 +1862,7 @@ function speicherWarnungZeigen(){
   document.body.insertBefore(div, document.body.firstChild);
 }
 
+let BALKEN_ERINNERUNG = false;   // steht der Balken gerade wegen der Sicherungserinnerung?
 function erinnerungPruefen(){
   const el = document.getElementById("sicherungHinweis");
   if(!el) return;
@@ -1778,10 +1871,16 @@ function erinnerungPruefen(){
     el.style.display = "block";
     el.textContent = "Seit der letzten Sicherung wurden " + SEIT_SICHERUNG
       + " Änderungen erfasst. Jetzt wäre ein guter Moment zum Sichern.";
-    if(SEIT_SICHERUNG >= 25) balkenZeigen("Seit " + SEIT_SICHERUNG + " Änderungen nicht gesichert — unter „Daten“ kopieren.");
+    if(SEIT_SICHERUNG >= 25){
+      balkenZeigen("Seit " + SEIT_SICHERUNG + " Änderungen nicht gesichert — unter „Daten“ kopieren.");
+      BALKEN_ERINNERUNG = true;
+    }
   }else{
     el.style.display = "none";
-    balkenZeigen("");
+    /* ⚑ 17.09.2026: Nur die EIGENE Erinnerung wegnehmen. Vorher löschte jedes
+       Speichern den Balken — auch Meldungen wie „Fläche gewechselt“ verschwanden
+       damit beim nächsten Tastendruck, bevor man sie lesen konnte. */
+    if(BALKEN_ERINNERUNG){ balkenZeigen(""); BALKEN_ERINNERUNG = false; }
   }
 }
 
@@ -1789,7 +1888,10 @@ function punktFertig(pid){
   const d = D.punkte[pid];
   if(!d) return false;
   const hatWerte = d.isf !== "" && d.isf != null && d.dsf !== "" && d.dsf != null;
-  const hatBeleg = !!(d.zeit && d.bild);     // Werte kommen später aus der Bildauswertung
+  /* ⚑ 17.09.2026: Die Bild-Nummer ist keine Pflicht mehr — das Solariskop benennt
+     seine Bilder selbst (PZ1_POS3). Belegt ist ein Punkt, sobald "gemessen"
+     gedrückt wurde. Die Uhrzeit wird dabei nie automatisch gesetzt. */
+  const hatBeleg = !!d.zeit;
   return hatWerte || hatBeleg;
 }
 
@@ -1889,7 +1991,7 @@ function flaecheLoeschenFrage(){
   const name = wertVon("kopf","f_flaeche") || "diese Fläche";
   const punkte = Object.keys(D.punkte||{}).length;
   nachfragen("Fläche „" + name + "“ löschen?",
-    "Gelöscht werden <b>" + punkte + " Messpunkte</b>, " + (D.oberstand||[]).length
+    "Gelöscht werden <b>" + punkte + " Messpunkte</b>, " + lebend(D.oberstand).length
     + " Bäume und alle übrigen Eingaben <b>dieser einen Fläche</b>. Die anderen Flächen "
     + "bleiben. <b>Das lässt sich nicht rückgängig machen.</b> Hast du vorher gesichert "
     + "oder synchronisiert?",
@@ -1917,6 +2019,14 @@ function feldBinden(id, zielName){
   const istHaken = el.type === "checkbox";
   if(istHaken){ el.checked = !!ziel[id]; }
   else{ el.value = (ziel[id] !== undefined && ziel[id] !== null) ? ziel[id] : ""; }
+  /* ⚑ 17.09.2026: NUR EINMAL ANMELDEN. alles() läuft bei jedem Flächenwechsel
+     und lief bis 3.0.4 nach JEDEM Abgleich — und hängte dabei jedes Mal neue
+     Zuhörer an dieselben Felder. Nach 100 Abgleichen löste eine Eingabe 100-mal
+     Speichern, Skizze und Prüfungen aus: langsamer und akkuzehrender über den
+     Tag. Die Zuhörer lesen Ziel und Pfad erst beim Auslösen, gelten also auch
+     nach einem Flächenwechsel richtig. */
+  if(el.dataset.gebunden === "1") return;
+  el.dataset.gebunden = "1";
   el.addEventListener("change", () => {
     stempelTimerLoeschen(el);
     setzen(pfad, istHaken ? el.checked : el.value);
@@ -2059,6 +2169,7 @@ function nachAuswahl(id){
 /* Personen-Listen neu füllen, wenn sich die Aufnahmegruppe ändert */
 function personenAktualisieren(){
   document.querySelectorAll('select[data-liste="PERSONEN"]').forEach(sel => {
+    if(sel === document.activeElement) return;   // offene Auswahl nicht zuklappen
     optionenFuellen(sel.id, "PERSONEN");
   });
   const dl = document.getElementById("personenliste");
@@ -2274,14 +2385,41 @@ function herkunftVorschlagen(){
 const ECKEN = ["or","ur","ul","ol"];
 const ECKENNAME = {or:"oben rechts", ur:"unten rechts", ul:"unten links", ol:"oben links"};
 
+/* ⚑ 17.09.2026: UNGLEICHMÄSSIGE PARZELLEN (BY05). Je Parzelle bis zu vier Seiten:
+     laenge  = rechte Seite  (Ecke oben rechts – unten rechts)
+     laenge2 = linke Seite   (oben links – unten links)
+     breite  = obere Seite   (oben links – oben rechts)   — bei A die Seite zum Trennstreifen
+     breite2 = untere Seite  (unten links – unten rechts) — bei B die Seite zum Trennstreifen
+     diag    = Diagonale     (oben rechts – unten links)
+   "oben/rechts" im Flächensystem: Blick von A nach B, B liegt "oben". Angezeigt
+   werden die Seiten mit den Punktnummern aus der Skizze, weil so im Feld
+   gezählt wird ("von Punkt 1 bis 2").
+   GERECHNET WIRD MIT MITTELWERTEN. Vier Seiten legen ein Viereck nicht fest;
+   die genaue Form kommt aus den Koordinaten der Messpunkte. Für Skizze,
+   Sollabstände und Plausibilitätsgrenzen genügt das Mittel. */
 function masse(){
+  const P = D.parzellen, mw = (a,b) => isNaN(a) ? b : (isNaN(b) ? a : (a+b)/2);
+  const mx = (a,b) => isNaN(a) ? b : (isNaN(b) ? a : Math.max(a,b));
+  const s = {
+    La1: zahl(P.A.pa_laenge), La2: zahl(P.A.pa_laenge2), Wa1: zahl(P.A.pa_breite), Wa2: zahl(P.A.pa_breite2),
+    Lb1: zahl(P.B.pb_laenge), Lb2: zahl(P.B.pb_laenge2), Wb1: zahl(P.B.pb_breite), Wb2: zahl(P.B.pb_breite2)
+  };
+  const ungleich = (a,b) => !isNaN(a) && !isNaN(b) && Math.abs(a-b) > 1;
   const g = {
-    La: zahl(D.parzellen.A.pa_laenge),  Wa: zahl(D.parzellen.A.pa_breite),
-    Lb: zahl(D.parzellen.B.pb_laenge),  Wb: zahl(D.parzellen.B.pb_breite),
+    La: mw(s.La1,s.La2),  Wa: mw(s.Wa1,s.Wa2),
+    Lb: mw(s.Lb1,s.Lb2),  Wb: mw(s.Wb1,s.Wb2),
+    LaMax: mx(s.La1,s.La2), WaMax: mx(s.Wa1,s.Wa2),
+    LbMax: mx(s.Lb1,s.Lb2), WbMax: mx(s.Wb1,s.Wb2),
+    // die Seiten, die an den Trennstreifen grenzen
+    WaStreifen: isNaN(s.Wa1) ? s.Wa2 : s.Wa1,
+    WbStreifen: isNaN(s.Wb2) ? s.Wb1 : s.Wb2,
+    seiten: s,
+    ungleich: ungleich(s.La1,s.La2) || ungleich(s.Wa1,s.Wa2) || ungleich(s.Lb1,s.Lb2) || ungleich(s.Wb1,s.Wb2),
     T:  zahl(D.kopf.f_trenn_l),         Tb: zahl(D.kopf.f_trenn_b),
     achse: zahl(D.schema.s_achse),
     gemessen: true
   };
+  g.eigenGemessen = { A: !isNaN(g.La) && !isNaN(g.Wa), B: !isNaN(g.Lb) && !isNaN(g.Wb) };
   // Trennstreifen: ohne Angabe der Projektstandard, aber kenntlich gemacht
   if(isNaN(g.T)){ g.T = 3; g.gemessen = false; }
   // Gar nichts gemessen: Ersatzmaße nach der gewählten Grundform
@@ -2295,6 +2433,52 @@ function masse(){
   if(isNaN(g.Wb)){ g.Wb = g.Wa; g.gemessen = false; }
   if(isNaN(g.Tb)){ g.Tb = (g.Wa + g.Wb) / 2; g.tbGeschaetzt = true; }
   return g;
+}
+
+/* Die Diagonale prüfen — eine Prüfung, die scheitern kann: Sie teilt die Parzelle
+   in zwei Dreiecke (rechte Seite + untere Seite, obere Seite + linke Seite). In
+   jedem Dreieck muss die Diagonale kürzer sein als die Summe und länger als der
+   Unterschied der beiden anderen Seiten. Sonst gibt es dieses Viereck nicht,
+   und eines der Maße stimmt nicht. */
+function diagonalePruefen(pz){
+  const P = D.parzellen[pz], v = pz === "A" ? "pa_" : "pb_";
+  const d = zahl(P[v+"diag"]);
+  if(isNaN(d)) return null;
+  const r = zahl(P[v+"laenge"]), l = zahl(P[v+"laenge2"]);
+  const o = zahl(P[v+"breite"]), u = zahl(P[v+"breite2"]);
+  const rr = isNaN(r) ? l : r, ll = isNaN(l) ? r : l, oo = isNaN(o) ? u : o, uu = isNaN(u) ? o : u;
+  if([rr,ll,oo,uu].some(isNaN)) return null;
+  const passt = (a,b) => d < a + b && d > Math.abs(a - b);
+  const ok = passt(rr, uu) && passt(oo, ll);
+  // zusätzlich: Wie weit weicht sie vom Rechteck ab? (nur zur Orientierung)
+  const rechteck = Math.hypot((rr+ll)/2, (oo+uu)/2);
+  return { ok: ok, d: d, rechteck: rechteck };
+}
+
+/* Punktnummern der Ecken einer Parzelle, für die Beschriftung der Seiten */
+function eckNr(pz, ecke){
+  const n = ((D.schema.nummern || {})[pz] || {})[ecke];
+  return n || "?";
+}
+
+function seitenBeschriften(){
+  ["A","B"].forEach(pz => {
+    const v = pz === "A" ? "pa_" : "pb_";
+    const t = {
+      laenge:  ["Länge rechts",  eckNr(pz,"or") + "–" + eckNr(pz,"ur")],
+      laenge2: ["Länge links",   eckNr(pz,"ol") + "–" + eckNr(pz,"ul")],
+      breite:  ["Breite oben",   eckNr(pz,"ol") + "–" + eckNr(pz,"or")],
+      breite2: ["Breite unten",  eckNr(pz,"ul") + "–" + eckNr(pz,"ur")],
+      diag:    ["Diagonale",     eckNr(pz,"or") + "–" + eckNr(pz,"ul")]
+    };
+    Object.keys(t).forEach(k => {
+      const lab = document.getElementById("lab_" + v + k);
+      if(!lab) return;
+      const zumStreifen = (pz === "A" && k === "breite") || (pz === "B" && k === "breite2");
+      lab.innerHTML = (k === "diag" ? "Diagonale " : "Seite ") + t[k][1] + ' <span class="hint">' + (k === "diag" ? "optional" : t[k][0])
+        + (zumStreifen ? ", zum Trennstreifen" : "") + " (m)</span>";
+    });
+  });
 }
 
 function geometrie(){
@@ -2336,8 +2520,7 @@ function geometrie(){
 function geometrieAnzeigen(){
   const box = document.getElementById("geometrieAnzeige");
   if(!box) return;
-  const La = zahl(D.parzellen.A.pa_laenge), Wa = zahl(D.parzellen.A.pa_breite);
-  if(isNaN(La) || isNaN(Wa)){
+  if(!masse().eigenGemessen.A){
     box.innerHTML = '<div class="info" style="font-size:13px">Sobald Länge und Breite von Parzelle A '
       + 'eingetragen sind, rechnet die App hier Flächen, Satellitenabstände und den Sollabstand A→B aus.</div>';
     return;
@@ -2359,16 +2542,37 @@ function geometrieAnzeigen(){
     + '<p style="margin:8px 0 0"><b>Sollabstand Mittelpunkt A → Mittelpunkt B: '+rund(q.abstandAB,1)+' m.</b> '
     + 'Diese Zahl geht in die Verortung ein und lässt sich im Feld nachmessen.</p>';
 
+  if(q.g.ungleich){
+    h += '<div class="p-anzeige p-warn" style="margin-top:8px"><b>Ungleichmäßige Parzelle.</b> '
+      + 'Gerechnet wird mit den Mittelwerten der gegenüberliegenden Seiten (A ' + rund(q.g.La,1) + ' × '
+      + rund(q.g.Wa,1) + ' m, B ' + rund(q.g.Lb,1) + ' × ' + rund(q.g.Wb,1) + ' m) — Flächen und '
+      + 'Satellitenabstände sind Näherungen. <b>Eine Diagonale je Parzelle</b> hält die Form fest.</div>';
+  }
+  ["A","B"].forEach(pz => {
+    const dg = diagonalePruefen(pz);
+    if(!dg) return;
+    h += dg.ok
+      ? '<div class="p-anzeige p-ok" style="margin-top:8px">Diagonale ' + pz + ' (' + rund(dg.d,1)
+        + ' m) passt zu den vier Seiten. Ein Rechteck mit den Mittelwerten hätte ' + rund(dg.rechteck,1) + ' m.</div>'
+      : '<div class="p-anzeige p-warn" style="margin-top:8px"><b>Diagonale ' + pz + ' (' + rund(dg.d,1)
+        + ' m) passt nicht zu den Seiten</b> — ein solches Viereck gibt es nicht. '
+        + '<b>Solange du noch auf der Fläche stehst: Diagonale oder eine Seite nachmessen.</b></div>';
+  });
+
   // Prüfung: Passt die Trennstreifenbreite zu den Parzellenbreiten?
+  // ⚑ 17.09.2026: verglichen wird mit den Seiten, die AN den Streifen grenzen
+  // (A oben, B unten) — bei ungleichmäßigen Parzellen ist das nicht das Mittel.
   const Tb = zahl(D.kopf.f_trenn_b);
   if(!isNaN(Tb)){
-    const erwartet = (q.g.Wa + q.g.Wb) / 2;
+    const wa = isNaN(q.g.WaStreifen) ? q.g.Wa : q.g.WaStreifen;
+    const wb = isNaN(q.g.WbStreifen) ? q.g.Wb : q.g.WbStreifen;
+    const erwartet = (wa + wb) / 2;
     const abw = Math.abs(Tb - erwartet);
-    const groesser = Math.max(q.g.Wa, q.g.Wb);
+    const groesser = Math.max(wa, wb);
     if(abw > 0.15 * erwartet || Tb > groesser * 1.15){
       h += '<div class="p-anzeige p-warn" style="margin-top:8px"><b>Die Breite des Trennstreifens '
-        + 'passt nicht zu den Parzellen.</b> Gemessen ' + rund(Tb,1) + ' m, aus den Parzellenbreiten '
-        + 'erwartet etwa ' + rund(erwartet,1) + ' m (A ' + rund(q.g.Wa,1) + ' · B ' + rund(q.g.Wb,1) + '). '
+        + 'passt nicht zu den Parzellen.</b> Gemessen ' + rund(Tb,1) + ' m, aus den angrenzenden Seiten '
+        + 'erwartet etwa ' + rund(erwartet,1) + ' m (A ' + rund(wa,1) + ' · B ' + rund(wb,1) + '). '
         + '<b>Solange du noch auf der Fläche stehst: eines der drei Maße nachmessen.</b> '
         + 'Später ist nicht mehr zu klären, welches stimmt.</div>';
     }else{
@@ -2397,11 +2601,41 @@ function achseAusLage(still){
   }
   // Liegt A im Süden, zeigt A→B nach Norden (0°). Allgemein: Gegenrichtung der Lage von A.
   const az = (LAGE_AZIMUT[lageA] + 180) % 360;
-  setzenMehrere({"schema.s_achse": String(az), "schema.s_achse_quelle": "lage"}, true);
+  setzenMehrere({"schema.s_achse": String(az), "schema.s_achse_quelle": "lage", "schema.s_achse_gon": ""}, true);
   const el = document.getElementById("s_achse");
   if(el) el.value = az;
   skizzeZeichnen();
   achsHinweisZeigen();
+  achseGonZeigen();
+}
+
+/* ---------- Achse in Gon (17.09.2026) ----------
+   Mit der Suunto in Gon gepeilt: Der abgelesene Wert bleibt als s_achse_gon
+   stehen, die Rechnung bekommt Grad (× 0,9). Wer danach Grad direkt eintippt,
+   ersetzt die Gon-Angabe — beide nebeneinander könnten sich sonst widersprechen. */
+function achseAusGon(){
+  const el = document.getElementById("s_achse_gon");
+  if(!el) return;
+  stempelTimerLoeschen(el);
+  const g = zahl(el.value);
+  if(el.value.trim() === ""){ setzen("schema.s_achse_gon", ""); return; }
+  if(isNaN(g) || g < 0 || g > 400){
+    balkenZeigen("Achse in Gon: Werte von 0 bis 400."); setTimeout(() => balkenZeigen(""), 4000);
+    return;
+  }
+  const grad = Math.round(g * 0.9 * 10) / 10 % 360;
+  setzenMehrere({"schema.s_achse_gon": el.value, "schema.s_achse": String(grad),
+                 "schema.s_achse_quelle": "gemessen"}, true);
+  const a = document.getElementById("s_achse");
+  if(a) a.value = grad;
+  skizzeZeichnen();
+  achsHinweisZeigen();
+}
+
+function achseGonZeigen(){
+  const el = document.getElementById("s_achse_gon");
+  if(!el || el === document.activeElement) return;
+  el.value = D.schema.s_achse_gon || "";
 }
 
 /* =====================================================================
@@ -2425,6 +2659,8 @@ function achseVonHand(){
   if(D.schema.s_achse_quelle !== "gemessen"){
     setzen("schema.s_achse_quelle", "gemessen");
   }
+  if(D.schema.s_achse_gon){ setzen("schema.s_achse_gon", ""); }
+  achseGonZeigen();
   skizzeZeichnen();
   achsHinweisZeigen();
 }
@@ -2443,9 +2679,12 @@ function achsHinweisZeigen(){
   }
 
   if(quelle === "gemessen"){
-    box.innerHTML = '<div class="p-anzeige p-ok"><b>' + Math.round(a) + '° — als gemessen '
-      + 'festgehalten.</b> Damit rechnet die Auswertung. Gegenprobe im Feld: Rückpeilung von B '
-      + 'nach A muss ' + Math.round((a + 180) % 360) + '° ergeben (± ein paar Grad).</div>';
+    const gon = zahl(D.schema.s_achse_gon);
+    box.innerHTML = '<div class="p-anzeige p-ok"><b>' + rund(a,1) + '° — als gemessen '
+      + 'festgehalten</b>' + (isNaN(gon) ? '' : ' (abgelesen ' + D.schema.s_achse_gon + ' gon)')
+      + '. Damit rechnet die Auswertung. Gegenprobe im Feld: Rückpeilung von B nach A muss '
+      + (isNaN(gon) ? Math.round((a + 180) % 360) + '°' : rund((gon + 200) % 400, 1) + ' gon')
+      + ' ergeben (± ein paar ' + (isNaN(gon) ? 'Grad' : 'Gon') + ').</div>';
     return;
   }
 
@@ -2683,7 +2922,39 @@ function skizzeZeichnen(){
    Bis zum 15.09.2026 fehlte das: Nach einem Tausch standen Himmelsrichtungen
    und Nordpfeil genau verkehrt herum, ohne dass irgendetwas darauf hinwies.
    Gefunden von Calvin beim Durchsehen der Prüfseite. */
+/* ⚑ 17.09.2026, ZWEI FEHLER BEHOBEN:
+   (1) DIE ECKEN MÜSSEN MITDREHEN. Dreht die Achse um 180°, wird aus "oben
+       rechts" physisch "unten links" (und umgekehrt), aus "unten rechts"
+       "oben links". Die Punktnummern hingen aber an den alten Eckbezeichnungen
+       — nach einem Tausch lag Punkt 1 an der GEGENÜBERLIEGENDEN Ecke, und
+       dasselbe galt für rechte/linke und obere/untere Seite. Jetzt werden die
+       Nummern auf die gegenüberliegende Ecke und die Seiten auf die
+       gegenüberliegende Seite umgesetzt.
+   (2) NACH DER AUFNAHME GESPERRT. Messpunkte (A-S1 …), Vegetation, Oberstand
+       und Weißtannen hängen am BUCHSTABEN. Ein Tausch nach dem Messen hätte
+       alle diese Daten der falschen Parzelle zugeordnet. Geprüft an den Exporten
+       vom 17.09.: Auf BY05 und BY06 wurde nicht getauscht. */
+function tauschGesperrt(){
+  const punkte = Object.keys(D.punkte || {}).some(k => {
+    const p = D.punkte[k] || {};
+    return p.zeit || (p.gps1 && p.gps1.lat) || (p.gps2 && p.gps2.lat) || p.isf;
+  });
+  const veg = VEG_PUNKTE.some(p => vegHatDaten(p.id));
+  const ob  = lebend(D.oberstand).length > 0;
+  const wta = Object.keys((D.wta && D.wta.werte) || {}).some(k => { const w = D.wta.werte[k]; return w && (w.h || w.v); });
+  return punkte || veg || ob || wta;
+}
+
 function parzellenTausch(){
+  if(tauschGesperrt()){
+    nachfragen("Tauschen ist gesperrt",
+      "Auf dieser Fläche sind schon <b>Messpunkte, Vegetation, Bäume oder Tannen</b> erfasst. "
+      + "Sie hängen am Buchstaben A oder B — ein Tausch würde sie der <b>falschen Parzelle</b> "
+      + "zuordnen. Stimmt die Zuordnung wirklich nicht, bitte in der <b>Bemerkung zur Skizze</b> "
+      + "festhalten; korrigiert wird bei der Auswertung.",
+      "Verstanden", () => {}, false);
+    return;
+  }
   const alteAchse = zahl(D.schema.s_achse);
   const achseText = isNaN(alteAchse) ? ""
     : "<br><br>Die <b>Achsrichtung dreht sich dabei mit</b>: von " + Math.round(alteAchse)
@@ -2696,19 +2967,54 @@ function parzellenTausch(){
     "Tauschen",
     () => {
       const a = D.parzellen.A, b = D.parzellen.B;
-      const neuB = {}; Object.keys(a).forEach(k => { neuB[k.replace(/^pa_/,"pb_")] = a[k]; });
-      const neuA = {}; Object.keys(b).forEach(k => { neuA[k.replace(/^pb_/,"pa_")] = b[k]; });
+      /* Seiten auf die Gegenseite: rechts ↔ links, oben ↔ unten. Die Diagonale
+         (oben rechts – unten links) bleibt dieselbe Strecke. */
+      const gegen = {laenge:"laenge2", laenge2:"laenge", breite:"breite2", breite2:"breite"};
+      const umsetzen = (quelle, von, nach) => {
+        const ziel = {};
+        Object.keys(quelle).forEach(k => {
+          const rest = k.replace(von, "");
+          ziel[nach + (gegen[rest] || rest)] = quelle[k];
+        });
+        return ziel;
+      };
+      const neuB = umsetzen(a, /^pa_/, "pb_");
+      const neuA = umsetzen(b, /^pb_/, "pa_");
       const jetzt = Date.now();
+      /* Stempel auch für Felder, die es nach dem Tausch nicht mehr gibt — leer,
+         damit ein anderes Gerät sie beim Zusammenführen nicht zurückbringt. */
+      ["A","B"].forEach(pz => {
+        const v = pz === "A" ? "pa_" : "pb_";
+        ["code","herkunft","lage","lage_frei","laenge","laenge2","breite","breite2","diag"].forEach(f => {
+          const neu = (pz === "A" ? neuA : neuB);
+          if(neu[v+f] === undefined) neu[v+f] = "";
+          D.t["parzellen."+pz+"."+v+f] = jetzt;
+        });
+      });
       D.parzellen.A = neuA; D.parzellen.B = neuB;
-      Object.keys(neuA).forEach(k => D.t["parzellen.A."+k] = jetzt);
-      Object.keys(neuB).forEach(k => D.t["parzellen.B."+k] = jetzt);
-      const n = D.schema.nummern; const h = n.A; n.A = n.B; n.B = h;
-      D.t["schema.nummern"] = jetzt;
+      /* Nummern: Ecke auf die gegenüberliegende Ecke, Mittelpunkt bleibt. */
+      const ecke = {or:"ul", ul:"or", ur:"ol", ol:"ur", M:"M"};
+      const drehe = alt => { const neu = {}; Object.keys(alt || {}).forEach(k => { neu[ecke[k] || k] = alt[k]; }); return neu; };
+      const n = D.schema.nummern; const h = n.A; n.A = drehe(n.B); n.B = drehe(h);
+      /* Alle drei Stempel setzen: Ein anderes Gerät kennt die Nummern unter
+         "schema.nummern.A/B" — fehlte hier der Stempel, gewänne dort der alte Stand. */
+      D.t["schema.nummern"] = jetzt; D.t["schema.nummern.A"] = jetzt; D.t["schema.nummern.B"] = jetzt;
+      /* Welche Parzelle am Solariskop PZ1 heißt, gehört zur PHYSISCHEN Parzelle. */
+      if(D.schema.s_pz_a){
+        D.schema.s_pz_a = D.schema.s_pz_a === "PZ1" ? "PZ2" : "PZ1";
+        D.t["schema.s_pz_a"] = jetzt;
+        const pzEl = document.getElementById("s_pz_a"); if(pzEl) pzEl.value = D.schema.s_pz_a;
+      }
       if(!isNaN(alteAchse)){
         D.schema.s_achse = String((alteAchse + 180) % 360);
         D.t["schema.s_achse"] = jetzt;
         const el = document.getElementById("s_achse");
         if(el) el.value = D.schema.s_achse;
+        const gon = zahl(D.schema.s_achse_gon);
+        if(!isNaN(gon)){
+          D.schema.s_achse_gon = String(Math.round(((gon + 200) % 400) * 10) / 10);
+          D.t["schema.s_achse_gon"] = jetzt;
+        }
       }
       speichern(true); alles();
       balkenZeigen("A und B sind getauscht"
@@ -2736,6 +3042,8 @@ function nummerWaehlen(pz, ecke){
       D.t["schema.nummern." + pz] = Date.now();
       speichern(true);
       skizzeZeichnen();
+      seitenBeschriften();
+      lichtNeu();          // Bildnamen am Punkt hängen an den Nummern
     });
 }
 
@@ -2785,9 +3093,36 @@ function sollTabelleAufbauen(){
       Eintragen: Nur mit ISF-Werten fällt eine Gerätedrift noch im Feld auf.
    ===================================================================== */
 
+/* Welche Maske gerade offen ist. Der Abgleich baut offene Masken nicht mehr
+   neu auf (17.09.2026) — dafür muss er wissen, ob eine offen ist. */
+let PUNKT_OFFEN = "";
+let VEG_OFFEN = "";
+
+/* ---------- Bildname am Solariskop (17.09.2026) ----------
+   Das Gerät nennt ein Bild PZ<n>_POS<m>. PZ ist die Parzelle in der Zählung
+   des Geräts — welche davon A ist, wird je Fläche festgelegt (s_pz_a) und ist
+   nicht ableitbar. POS ist die Punktnummer: bei S1…S4 die Nummer selbst, beim
+   Mittelpunkt die Nummer, die ihm in der Skizze gegeben wurde (meist 5). */
+function bildName(pid){
+  const pzA = D.schema.s_pz_a;
+  if(pid === "W1" || pid === "W2" || !pzA) return "";
+  const parz = pid.charAt(0);
+  const pz = (parz === "A") ? pzA : (pzA === "PZ1" ? "PZ2" : "PZ1");
+  let pos = "";
+  if(/-S\d$/.test(pid)) pos = pid.slice(-1);
+  else if(/-M$/.test(pid)) pos = ((D.schema.nummern || {})[parz] || {}).M || "";
+  return pos ? pz + "_POS" + pos : "";
+}
+
+/* Licht neu zeichnen, ohne eine offene Maske zu schließen. */
+function lichtNeu(){
+  if(PUNKT_OFFEN) punktOeffnen(PUNKT_OFFEN, true); else punktListeAufbauen();
+}
+
 function punktListeAufbauen(){
   const box = document.getElementById("punktListe");
   if(!box) return;
+  PUNKT_OFFEN = "";
   box.innerHTML = "";
   PUNKTE.forEach(p => {
     const d = D.punkte[p.id] || {};
@@ -2798,11 +3133,13 @@ function punktListeAufbauen(){
 
     const k = document.createElement("div");
     k.className = "karte" + (fertig ? " fertig" : "");
+    const bn = bildName(p.id);
     let zeile = '<div class="marken">'
       + '<span class="marke '+(fertig?"an":"")+'">'+(d.zeit || "Zeit")+'</span>'
-      + '<span class="marke '+(d.bild?"an":"")+'">'+(d.bild ? "Bild "+d.bild : "Bild-Nr.")+'</span>';
+      + (bn ? '<span class="marke">'+bn+'</span>' : '')
+      + (d.bild ? '<span class="marke an">Bild '+d.bild+'</span>' : '');
     if(brauchtGps){
-      zeile += '<span class="marke '+(g1?"an":"")+'">GPS 1'+(g1?" ±"+d.gps1.acc+"m":"")+'</span>'
+      zeile += '<span class="marke '+(g1?"an":"")+'">GPS 1'+(g1?" ±"+gpsGenauigkeit(d.gps1)+"m":"")+'</span>'
              + '<span class="marke '+(g2?"an":"")+'">GPS 2</span>';
     }
     if(hatWerte) zeile += '<span class="marke an">ISF '+d.isf+'</span>';
@@ -2864,7 +3201,9 @@ function punktFelderBinden(pid){
 
 function punktOeffnen(pid, lageHalten){
   const scrollY = window.scrollY;
+  PUNKT_OFFEN = pid;
   const p = PUNKTE.find(x => x.id === pid);
+  const bn = bildName(pid);
   const d = D.punkte[pid] || {};
   const box = document.getElementById("punktListe");
   const brauchtGps = (pid !== "W1" && pid !== "W2");
@@ -2880,8 +3219,14 @@ function punktOeffnen(pid, lageHalten){
     +  '<span class="zust">'+(d.zeit || "offen")+'</span></div>'
     +  '<button class="knopf" onclick="punktGemessen(\''+pid+'\')">'
     +  (d.zeit ? 'Zeit erneuern ('+d.zeit+')' : 'gemessen — Uhrzeit eintragen')+'</button>'
-    +  '<label>Bild-Nr. am Gerät <span class="hint">— die einzige Verbindung zwischen Bild und Punkt</span></label>'
-    +  '<input id="p_bild" value="'+(d.bild||"")+'" placeholder="Nummer ablesen" inputmode="numeric">'
+    +  (bn
+        ? '<div class="p-anzeige p-ok">Am Solariskop heißt das Bild <b>'+bn+'</b> — bitte am Gerät so einstellen.</div>'
+        : (pid === "W1" || pid === "W2" ? ''
+           : '<div class="p-anzeige p-warn">Bildname am Gerät unbekannt: Oben festlegen, '
+             + 'welche Parzelle am Solariskop <b>PZ1</b> heißt'
+             + (/-M$/.test(pid) ? ', und dem Mittelpunkt in der Skizze eine Nummer geben' : '') + '.</div>'))
+    +  '<label>Bild-Nr. am Gerät <span class="hint">— nur falls das Gerät nicht selbst benennt</span></label>'
+    +  '<input id="p_bild" value="'+(d.bild||"")+'" placeholder="optional" inputmode="numeric">'
     +  '<div class="reihe">'
     +    '<div><label>Reihe / Platz <span class="hint">— nächster Pflanzplatz</span></label>'
     +      '<input id="p_platz" value="'+(d.platz||"").replace(/"/g,"&quot;")+'" placeholder="z. B. R7 P12"></div>'
@@ -2973,7 +3318,7 @@ function gpsSerieBlock(pid, nr, g){
     + '<b>Serie '+nr+'</b>'+(nr===2 ? ' <span class="hint">— Wintertermin</span>' : '')
     + (da
         ? '<div class="werte">'+Number(g.lat).toFixed(6)+' / '+Number(g.lon).toFixed(6)
-          + ' · ± '+g.acc+' m · '+(g.zeit||"")+(g.datum ? ' · '+g.datum.split("-").reverse().join(".") : '')
+          + ' · Handy ± '+gpsGenauigkeit(g)+' m · '+(g.zeit||"")+(g.datum ? ' · '+g.datum.split("-").reverse().join(".") : '')
           + (g.n ? ' · aus '+g.n+' Messungen' : '')+'</div>'
         : '<div class="werte">noch nicht gemessen</div>')
     + '<button class="knopf '+(da?"zweit":"")+'" onclick="gpsPunktMessen(\''+pid+'\','+nr+')">'
@@ -2990,30 +3335,23 @@ function punktGemessen(pid){
   kopfAktualisieren();
 }
 
+/* ⚑ 17.09.2026: "Speichern und zurück" schreibt nur noch, was sich GEÄNDERT hat.
+   Bis 3.0.4 schrieb der Knopf ALLE Felder der Maske mit neuem Zeitstempel —
+   auch die unangetasteten. Kam während der Bearbeitung ein Wert vom anderen
+   Gerät herein (etwa die Uhrzeit, die dort eingetragen wurde), hätte der
+   veraltete Wert aus der Maske ihn mit jüngerem Stempel überschrieben, und
+   zwar auf beiden Geräten. Seit 3.0.4 schreibt jedes Feld ohnehin selbst;
+   hier werden nur noch wartende Eingaben abgegeben und Reste nachgezogen. */
 function punktSpeichern(pid){
-  const g = id => { const e = document.getElementById(id); return e ? e.value : undefined; };
-  const h = id => { const e = document.getElementById(id); return e ? e.checked : undefined; };
-  const paare = {};
-  const setzeWenn = (feld, wert) => { if(wert !== undefined) paare["punkte."+pid+"."+feld] = wert; };
-  setzeWenn("zeit", g("p_zeit"));
-  setzeWenn("hoehe", g("p_hoehe"));
-  setzeWenn("bild", g("p_bild"));
-  setzeWenn("bild2", g("p_bild2"));
-  setzeWenn("platz", g("p_platz"));
-  setzeWenn("winkel", g("p_winkel"));
-  setzeWenn("schwelle", g("p_schwelle"));
-  setzeWenn("isf", g("p_isf"));
-  setzeWenn("dsf", g("p_dsf"));
-  setzeWenn("tsf", g("p_tsf"));
-  setzeWenn("lai", g("p_lai"));
-  setzeWenn("elad", g("p_elad"));
-  setzeWenn("open", g("p_open"));
-  setzeWenn("himmel", g("p_himmel"));
-  setzeWenn("aufnehmer", g("p_aufnehmer"));
-  setzeWenn("nord", h("p_nord"));
-  setzeWenn("horiz", h("p_horiz"));
-  setzeWenn("bem", g("p_bem"));
-  setzenMehrere(paare, true);
+  alleFelderAbgeben();
+  /* Einzige Ausnahme: die vorbelegte Aufstellhöhe (130 cm). Sie steht nur in
+     der Maske, nicht im Datensatz, solange niemand sie anfasst — wer die Maske
+     mit "Speichern" verlässt, bestätigt sie. So hielt es auch 3.0.4. */
+  const d = D.punkte[pid] || {};
+  const el = document.getElementById("p_hoehe");
+  if(el && el.value !== "" && (d.hoehe === undefined || d.hoehe === "")){
+    setzen("punkte."+pid+".hoehe", el.value, true);
+  }
   punktListeAufbauen();
   window.scrollTo(0,0);
 }
@@ -3114,12 +3452,13 @@ function vegEinfachFertig(pid){
 }
 function vegBBFertig(pid){
   const v = (D.veg.punkte||{})[pid];
-  return !!(v && (v.arten||[]).length);
+  return !!(v && lebend(v.arten).length);
 }
 
 function vegListeAufbauen(){
   const box = document.getElementById("vegListe");
   if(!box) return;
+  VEG_OFFEN = "";
   box.innerHTML = "";
   VEG_PUNKTE.forEach(p => {
     const e = vegEinfachFertig(p.id), b = vegBBFertig(p.id);
@@ -3130,8 +3469,9 @@ function vegListeAufbauen(){
       '<span class="zust">'+((e&&b) ? "beides" : (e||b) ? "halb" : "offen")+'</span></div>'+
       '<div class="marken">'+
         '<span class="marke '+(e?"an":"")+'">vereinfacht</span>'+
-        '<span class="marke '+(b?"an":"")+'">Braun-Blanquet'+(b?" · "+(v.arten||[]).length+" Arten":"")+'</span>'+
+        '<span class="marke '+(b?"an":"")+'">Braun-Blanquet'+(b?" · "+lebend(v.arten).length+" Arten":"")+'</span>'+
         (v.aufnehmer ? '<span class="marke">'+v.aufnehmer+'</span>' : '')+
+        (v.kopie_von ? '<span class="marke">übernommen von '+v.kopie_von+'</span>' : '')+
       '</div>';
     k.addEventListener("click", () => vegOeffnen(p.id));
     box.appendChild(k);
@@ -3140,6 +3480,7 @@ function vegListeAufbauen(){
 
 function vegOeffnen(pid, lageHalten){
   const scrollY = window.scrollY;
+  VEG_OFFEN = pid;
   const p = VEG_PUNKTE.find(x => x.id === pid);
   if(!D.veg.punkte) D.veg.punkte = {};
   if(!D.veg.punkte[pid]) D.veg.punkte[pid] = {einfach:{}, arten:[], kronenschluss:"", bem:"", aufnehmer:""};
@@ -3152,6 +3493,12 @@ function vegOeffnen(pid, lageHalten){
 
   let inhalt = '<button class="knopf zweit klein" onclick="alleFelderAbgeben();vegListeAufbauen()">&larr; zurück zur Übersicht</button>'+
     '<h3>Vegetation — '+p.name+'</h3>'+
+    '<button class="knopf zweit" onclick="vegKopieDialog(\''+pid+'\')">Von anderem Punkt übernehmen …</button>'+
+    (v.kopie_von
+      ? '<div class="info achtung" style="font-size:13px"><b>Übernommen von '+v.kopie_von+'.</b> '
+        + 'Bitte jede Schicht und jede Art <b>an diesem Punkt prüfen</b> und anpassen — '
+        + 'übernommene Werte, die nicht geprüft wurden, sind keine eigene Beobachtung.</div>'
+      : '')+
     '<label>Aufgenommen von</label>'+
     '<input list="personenliste" value="'+(v.aufnehmer||"")+'" placeholder="Name" '+
       'oninput="tippRuhe(this,()=>vegSetzen(\''+pid+'\',\'aufnehmer\',this.value))" '+
@@ -3181,7 +3528,7 @@ function vegOeffnen(pid, lageHalten){
     '<select onchange="vegSetzen(\''+pid+'\',\'kronenschluss\',this.value)">'+
       opt(KRONENSCHLUSS, v.kronenschluss)+'</select>';
   SCHICHTEN.filter(s => s.k !== "Mo").forEach(s => {
-    const arten = (v.arten||[]).map((a,i) => [a,i]).filter(([a]) => a.schicht === s.k);
+    const arten = (v.arten||[]).map((a,i) => [a,i]).filter(([a]) => a.schicht === s.k && !a._weg);
     inhalt += '<div class="karte"><div class="kopf"><span>'+s.n+'</span>'+
       '<button class="knopf zweit" style="width:auto;margin:0;padding:6px 12px;font-size:14px" '+
       'onclick="artAnlegen(\''+pid+'\',\''+s.k+'\')">+ Art</button></div>';
@@ -3244,8 +3591,91 @@ function artSetzen(pid, i, feld, wert){
 }
 function artLoeschen(pid, i){
   alleFelderAbgeben();
-  D.veg.punkte[pid].arten.splice(i,1);
+  /* Löschvermerk statt Entfernen — sonst holt der Abgleich die Art zurück. */
+  const a = D.veg.punkte[pid].arten[i];
+  if(a) eintragAendern(a, {_weg: true});
   speichern(true); vegOeffnen(pid, true);
+}
+
+/* =====================================================================
+   VEGETATION VON EINEM ANDEREN PUNKT ÜBERNEHMEN (17.09.2026)
+
+   Calvins Wunsch vom Feldtag: Oft sieht A-S2 fast aus wie A-S1, und alles
+   neu einzutippen kostet Zeit. Übernommen wird:
+     · je Schicht Deckung, Höhe und freie Angabe — NUR in leere Felder
+     · der Kronenschlussgrad — nur wenn leer
+     · die Arten mit Artmächtigkeit und Soziabilität — nur Arten, die in
+       derselben Schicht noch nicht stehen
+   Nichts, was schon eingetragen ist, wird überschrieben. Bemerkung und
+   "aufgenommen von" bleiben beim Punkt.
+
+   ⚑ WAS DAS FÜR DIE AUSWERTUNG HEISST: Eine übernommene Aufnahme ist nur dann
+   eine eigene Beobachtung, wenn sie am Punkt geprüft wurde. Deshalb wird
+   festgehalten, VON WO übernommen wurde (kopie_von) — im Export und in der
+   Übersicht sichtbar. Wer das weiß, kann später prüfen, ob benachbarte Punkte
+   auffällig gleich sind. Wer es nicht weiß, hält Kopien für Befunde.
+   ===================================================================== */
+function vegHatDaten(pid){ return vegEinfachFertig(pid) || vegBBFertig(pid); }
+
+function vegKopieDialog(ziel){
+  alleFelderAbgeben();
+  const quellen = VEG_PUNKTE.filter(p => p.id !== ziel && vegHatDaten(p.id));
+  if(!quellen.length){
+    balkenZeigen("Noch kein anderer Punkt mit Vegetation erfasst — nichts zum Übernehmen.");
+    setTimeout(() => balkenZeigen(""), 4000);
+    return;
+  }
+  wahlDialog("Vegetation übernehmen",
+    "Von welchem Punkt? Übernommen wird nur in <b>leere</b> Felder, und nur Arten, die hier "
+    + "noch fehlen. <b>Danach jede Schicht an diesem Punkt prüfen und anpassen.</b>",
+    quellen.map(p => {
+      const v = D.veg.punkte[p.id] || {};
+      return [p.id, p.id + " · " + lebend(v.arten).length + " Arten"];
+    }), "",
+    quelle => vegKopieren(quelle, ziel));
+}
+
+function vegKopieren(quelle, ziel){
+  const q = (D.veg.punkte || {})[quelle];
+  if(!q) return;
+  if(!D.veg.punkte[ziel]) D.veg.punkte[ziel] = {einfach:{}, arten:[], kronenschluss:"", bem:"", aufnehmer:""};
+  const z = D.veg.punkte[ziel];
+  if(!z.einfach) z.einfach = {};
+  if(!z.arten) z.arten = [];
+
+  const paare = {};
+  let schichten = 0;
+  SCHICHTEN.forEach(s => {
+    let genommen = false;
+    ["_d","_h","_frei"].forEach(nach => {
+      const k = s.k + nach, w = (q.einfach || {})[k];
+      if(w && !z.einfach[k]){ paare["veg.punkte."+ziel+".einfach."+k] = w; genommen = true; }
+    });
+    if(genommen) schichten++;
+  });
+  if(q.kronenschluss && !z.kronenschluss) paare["veg.punkte."+ziel+".kronenschluss"] = q.kronenschluss;
+
+  const schon = new Set(lebend(z.arten).map(a => (a.schicht||"") + "|" + String(a.art||"").trim().toLowerCase()));
+  let arten = 0;
+  lebend(q.arten).forEach(a => {
+    const key = (a.schicht||"") + "|" + String(a.art||"").trim().toLowerCase();
+    if(!String(a.art||"").trim() || schon.has(key)) return;
+    z.arten.push(neuerEintrag({schicht:a.schicht, art:a.art, am:a.am||"", soz:a.soz||""}));
+    schon.add(key);
+    arten++;
+  });
+
+  if(!schichten && !arten && !paare["veg.punkte."+ziel+".kronenschluss"]){
+    balkenZeigen("Nichts übernommen — hier ist schon alles ausgefüllt, was " + quelle + " hat.");
+    setTimeout(() => balkenZeigen(""), 5000);
+    return;
+  }
+  paare["veg.punkte."+ziel+".kopie_von"] = quelle;
+  setzenMehrere(paare, true);
+  vegOeffnen(ziel, false);
+  balkenZeigen("Von " + quelle + " übernommen: " + schichten + " Schichten, " + arten
+    + " Arten. <b>Jetzt am Punkt prüfen und anpassen.</b>");
+  setTimeout(() => balkenZeigen(""), 7000);
 }
 
 /* =====================================================================
@@ -3390,11 +3820,28 @@ let OB_PARZELLE = "A";      // bleibt zwischen Bäumen stehen
 let OB_ART      = "311";    // desgleichen
 let OB_OFFEN    = -1;       // welcher Baum gerade bearbeitet wird
 
+/* Einheit der Azimute auf dieser Fläche. Leer heißt: nicht ausdrücklich gewählt,
+   gerechnet wird dann mit Grad — und die Schnellerfassung sagt das deutlich. */
+function obEinheit(){ return D.kopf.k_einheit === "gon" ? "gon" : "grad"; }
+
+function einheitGewechselt(){
+  obSchnellAufbauen();
+  kompassHinweis();
+}
+
 function obSchnellAufbauen(){
   const box = document.getElementById("obSchnell");
   if(!box) return;
+  /* ⚑ 17.09.2026: Getippte, noch nicht gespeicherte Zahlen überleben den
+     Neuaufbau (z. B. beim Umschalten der Parzelle oder der Einheit). */
+  const merk = {};
+  ["obAz","obDist","obBhd","obHoehe"].forEach(id => {
+    const el = document.getElementById(id); if(el) merk[id] = el.value;
+  });
+  const e = obEinheit();
   box.innerHTML =
     '<div class="karte">'+
+      '<div id="obEinheitZeile"></div>'+
       '<label>Parzelle</label>'+
       '<div class="reihe">'+
         '<div><button class="knopf'+(OB_PARZELLE==="A"?"":" zweit")+'" onclick="obParzelle(\'A\')">Mittelpunkt A</button></div>'+
@@ -3405,8 +3852,8 @@ function obSchnellAufbauen(){
         BAUMARTEN.map(([c,n]) => '<option value="'+c+'"'+(OB_ART===c?" selected":"")+'>'+n+'</option>').join("")+
       '</select>'+
       '<div class="reihe">'+
-        '<div><label class="pflicht">Azimut (°) <span class="hint">Pfosten → Baum</span></label>'+
-          '<input type="number" inputmode="numeric" id="obAz" onkeydown="obTaste(event)"></div>'+
+        '<div><label class="pflicht">Azimut ('+einheitName(e)+') <span class="hint">Pfosten → Baum</span></label>'+
+          '<input type="number" step="0.1" inputmode="decimal" id="obAz" onkeydown="obTaste(event)"></div>'+
         '<div><label class="pflicht">Distanz (m)</label>'+
           '<input type="number" step="0.1" inputmode="decimal" id="obDist" onkeydown="obTaste(event)"></div>'+
       '</div>'+
@@ -3419,8 +3866,35 @@ function obSchnellAufbauen(){
       '<button class="knopf" onclick="obSpeichernNeu()">Baum speichern</button>'+
       '<div id="obMeldung"></div>'+
     '</div>';
+  Object.keys(merk).forEach(id => { const el = document.getElementById(id); if(el) el.value = merk[id]; });
+  obEinheitZeileZeigen();
   autoAus(box);
 }
+
+/* Einheit und Nordbezug direkt über den Eingabefeldern — dort, wo getippt wird. */
+function obEinheitZeileZeigen(){
+  const z = document.getElementById("obEinheitZeile");
+  if(!z) return;
+  const e = obEinheit();
+  const gewaehlt = !!D.kopf.k_einheit;
+  const bezug = D.kopf.k_nordbezug || "";
+  z.innerHTML = '<div class="p-anzeige '+(gewaehlt && bezug ? "p-ok" : "p-warn")+'" style="margin-top:0">'
+    + 'Azimut in <b>'+(e === "gon" ? "Gon (0–400)" : "Grad (0–360)")+'</b>'
+    + (gewaehlt ? '' : ' — <b>nicht ausdrücklich gewählt</b>')
+    + ' · Nordbezug: <b>'+(bezug || "offen")+'</b>'
+    + (gewaehlt && bezug ? '' : '<br>Beides oben unter „Womit gemessen wird“ festlegen.')
+    + '</div>';
+}
+
+/* Nächste freie Baumnummer. ⚑ 17.09.2026: Nummern werden nie neu vergeben —
+   auch nicht nach dem Löschen. Vorher rückten alle folgenden Bäume auf, und
+   ein Abgleich mit dem anderen Gerät brachte die Nummern durcheinander. */
+function obNaechsteNr(){
+  return (D.oberstand || []).reduce((m, b) => Math.max(m, Number(b.nr) || 0), 0) + 1;
+}
+
+/* Azimut eines Baumes in Grad — für Prüfung und Anzeige, nie zum Speichern. */
+function obAzGrad(b){ return inGrad(b.azimut, b.einheit || "grad"); }
 
 function obParzelle(p){
   OB_PARZELLE = p;
@@ -3448,8 +3922,13 @@ function obSpeichernNeu(){
   const meld = document.getElementById("obMeldung");
 
   const a = zahl(az.value), d = zahl(di.value), b = zahl(bh.value);
+  const e = obEinheit(), voll = EINHEIT_VOLL[e];
   const fehler = [];
-  if(isNaN(a) || a < 0 || a > 360) fehler.push("Azimut fehlt oder liegt außerhalb 0–360°.");
+  if(isNaN(a) || a < 0 || a > voll){
+    fehler.push("Azimut fehlt oder liegt außerhalb 0–" + voll + " " + einheitName(e) + "."
+      + (e === "grad" && a > 360 && a <= 400
+         ? " <b>Misst du in Gon?</b> Dann oben bei „Einheit der Azimute“ auf Gon stellen." : ""));
+  }
   if(isNaN(d) || d <= 0)           fehler.push("Distanz fehlt.");
   if(isNaN(b) || b < 7)            fehler.push("BHD fehlt oder liegt unter 7 cm — dann gehört der Baum nicht in die Aufnahme.");
   if(fehler.length){
@@ -3458,13 +3937,17 @@ function obSpeichernNeu(){
   }
 
   if(!D.oberstand) D.oberstand = [];
-  D.oberstand.push(neuerEintrag({nr:D.oberstand.length+1, parzelle:OB_PARZELLE, art:OB_ART,
-                    azimut:az.value, dist:di.value, bhd:bh.value, hoehe:ho.value,
+  const nr = obNaechsteNr();
+  D.oberstand.push(neuerEintrag({nr:nr, parzelle:OB_PARZELLE, art:OB_ART,
+                    azimut:az.value, einheit:e, dist:di.value, bhd:bh.value, hoehe:ho.value,
                     bem:"", x:"", y:"", ks:""}));
   speichern(true);
 
   az.value = ""; di.value = ""; bh.value = ""; ho.value = "";
-  meld.innerHTML = '<div class="p-anzeige p-ok">Baum '+D.oberstand.length+' gespeichert.</div>';
+  /* Parzelle in der Meldung: Eine falsche Parzelle verschiebt den Baum um rund
+     50 m — das ist der eine Fehler, der wirklich schadet. */
+  meld.innerHTML = '<div class="p-anzeige p-ok">Baum '+nr+' gespeichert — <b>Mittelpunkt '+OB_PARZELLE+'</b>, '
+    + a + ' ' + einheitName(e) + (e === "gon" ? ' (= ' + rund(a*0.9,1) + '°)' : '') + '.</div>';
   az.focus();
   obListeAufbauen(); obFortschritt();
   setTimeout(() => { if(meld) meld.innerHTML = ""; }, 2500);
@@ -3476,7 +3959,7 @@ function obSpeichernNeu(){
 function obFortschritt(){
   const box = document.getElementById("obFortschritt");
   if(!box) return;
-  const l = D.oberstand || [];
+  const l = lebend(D.oberstand);
   const nA = l.filter(b => (b.parzelle||"A") === "A").length;
   const nB = l.filter(b => b.parzelle === "B").length;
   const nK = l.filter(b => b.kontrolle).length;
@@ -3515,20 +3998,23 @@ function obListeAufbauen(){
   const box = document.getElementById("obListe");
   if(!box) return;
   if(!D.oberstand) D.oberstand = [];
-  if(!D.oberstand.length){
+  if(!lebend(D.oberstand).length){
+    OB_OFFEN = -1;
     box.innerHTML = '<div class="info">Noch kein Baum aufgenommen.</div>';
     return;
   }
   const name = {}; BAUMARTEN.forEach(([c,n]) => name[c] = n);
 
+  /* Die Stelle i im Feld bleibt die Kennung für "ändern" — gelöschte Bäume
+     stehen weiter im Feld (Löschvermerk) und werden nur übersprungen. */
   let h = '<table><tr><th>Nr</th><th>P</th><th>Az</th><th>Dist</th><th>Art</th><th>BHD</th><th></th></tr>';
   for(let i = D.oberstand.length - 1; i >= 0; i--){
     const b = D.oberstand[i];
-    if(i === OB_OFFEN) continue;
+    if(i === OB_OFFEN || b._weg) continue;
     h += '<tr onclick="obOeffnen('+i+')" style="cursor:pointer">'
       +  '<td>'+b.nr+'</td>'
       +  '<td>'+(b.parzelle||"A")+'</td>'
-      +  '<td>'+(b.azimut||"—")+'°</td>'
+      +  '<td>'+(b.azimut||"—")+(b.einheit === "gon" ? "g" : "°")+'</td>'
       +  '<td>'+(b.dist||"—")+' m</td>'
       +  '<td>'+((name[b.art]||b.art||"—").slice(0,10))+'</td>'
       +  '<td>'+(b.bhd||"—")+(b.kontrolle?' <b>K</b>':'')+'</td>'
@@ -3536,7 +4022,7 @@ function obListeAufbauen(){
   }
   h += '</table>';
 
-  if(OB_OFFEN >= 0 && D.oberstand[OB_OFFEN]) h = obKarte(OB_OFFEN) + h;
+  if(OB_OFFEN >= 0 && D.oberstand[OB_OFFEN] && !D.oberstand[OB_OFFEN]._weg) h = obKarte(OB_OFFEN) + h;
   box.innerHTML = h;
   autoAus(box);
 }
@@ -3546,6 +4032,8 @@ function obOeffnen(i){ OB_OFFEN = (OB_OFFEN === i ? -1 : i); obListeAufbauen(); 
 function obKarte(i){
   const b = D.oberstand[i];
   const andere = (b.parzelle||"A") === "A" ? "B" : "A";
+  const e = b.einheit === "gon" ? "gon" : "grad";
+  const inG = obAzGrad(b);
   return '<div class="karte fertig">'+
     '<div class="kopf"><span>Baum '+b.nr+' ändern</span>'+
       '<button class="knopf zweit" style="width:auto;margin:0;padding:6px 12px;font-size:14px" '+
@@ -3555,8 +4043,15 @@ function obKarte(i){
       ["A","B"].map(p => '<option value="'+p+'"'+((b.parzelle||"A")===p?" selected":"")+'>Mittelpunkt '+p+'</option>').join("")+
     '</select>'+
     '<div class="reihe">'+
-      '<div><label>Azimut (°)</label><input type="number" inputmode="numeric" value="'+(b.azimut||"")+'" '+
+      '<div><label>Azimut ('+einheitName(e)+')'+
+        (e === "gon" && !isNaN(inG) ? ' <span class="hint">= '+rund(inG,1)+'°</span>' : '')+'</label>'+
+        '<input type="number" step="0.1" inputmode="decimal" value="'+(b.azimut||"")+'" '+
         'onchange="obSetzen('+i+',\'azimut\',this.value)"></div>'+
+      '<div style="flex:0 0 96px"><label>Einheit</label>'+
+        '<select onchange="obSetzen('+i+',\'einheit\',this.value)">'+
+          '<option value="grad"'+(e==="grad"?" selected":"")+'>Grad</option>'+
+          '<option value="gon"'+(e==="gon"?" selected":"")+'>Gon</option>'+
+        '</select></div>'+
       '<div><label>Distanz (m)</label><input type="number" step="0.1" inputmode="decimal" value="'+(b.dist||"")+'" '+
         'onchange="obSetzen('+i+',\'dist\',this.value)"></div>'+
     '</div>'+
@@ -3582,8 +4077,8 @@ function obKarte(i){
           '<div><label class="pflicht">Distanz von '+andere+' (m)</label>'+
             '<input type="number" step="0.1" inputmode="decimal" value="'+(b.k_dist2||"")+'" '+
             'onchange="obSetzen('+i+',\'k_dist2\',this.value)"></div>'+
-          '<div><label>Azimut sorgfältig (°) <span class="hint">optional, Bussole</span></label>'+
-            '<input type="number" inputmode="numeric" value="'+(b.k_azimut||"")+'" '+
+          '<div><label>Azimut sorgfältig ('+einheitName(e)+') <span class="hint">optional, Bussole</span></label>'+
+            '<input type="number" step="0.1" inputmode="decimal" value="'+(b.k_azimut||"")+'" '+
             'onchange="obSetzen('+i+',\'k_azimut\',this.value)"></div>'+
         '</div>'
       : '')+
@@ -3599,7 +4094,7 @@ function obSetzen(i, feld, wert){
   const aenderung = {}; aenderung[feld] = wert;
   eintragAendern(D.oberstand[i], aenderung);
   speichern();
-  if(feld === "kontrolle" || feld === "parzelle"){ obListeAufbauen(); obFortschritt(); return; }
+  if(feld === "kontrolle" || feld === "parzelle" || feld === "einheit"){ obListeAufbauen(); obFortschritt(); return; }
   obPruefen(i);
   if(feld === "azimut" || feld === "dist" || feld === "bhd") obListeAufbauen();
 }
@@ -3626,19 +4121,20 @@ function obMaxDistanz(pz){
     // gegen eine erfundene Fläche. Dann lieber grob: 60 m fängt grobe Zahlendreher
     // (99 statt 9), ohne je auf einen echten Baum anzuschlagen. Sobald die Maße
     // erfasst sind, zieht sich die Grenze von allein zusammen.
-    const P0 = (pz === "B") ? D.parzellen.B : D.parzellen.A;
-    const eigenL = zahl(pz === "B" ? P0.pb_laenge   : P0.pa_laenge);
-    const eigenW = zahl(pz === "B" ? P0.pb_breite_a : P0.pa_breite_a);
-    const andere = (pz === "B") ? D.parzellen.A : D.parzellen.B;
-    const ersatzL = zahl(pz === "B" ? andere.pa_laenge   : andere.pb_laenge);
-    const ersatzW = zahl(pz === "B" ? andere.pa_breite_a : andere.pb_breite_a);
-    if((isNaN(eigenL) || isNaN(eigenW)) && (isNaN(ersatzL) || isNaN(ersatzW))) return 60;
-    const G = geometrie();
-    const P = (pz === "B") ? G.B : G.A;
-    let max = 0;
-    ECKEN.forEach(e => { max = Math.max(max, Math.hypot(P.ecken[e].x, P.ecken[e].y - P.yc)); });
-    return max + G.g.T/2 + 2;
-  }catch(e){ return 40; }
+    //
+    // ⚑ 17.09.2026: Bis 3.0.4 las diese Funktion "pa_breite_a" — ein Feld aus
+    // Fassung 2, das es seit Fassung 3 nicht mehr gibt. Die Grenze stand deshalb
+    // IMMER auf 60 m, die Prüfung war still abgeschaltet.
+    // Jetzt aus den größten gemessenen Seiten der eigenen Parzelle: bei einer
+    // ungleichmäßigen Parzelle liegt die weiteste Ecke nie weiter als die halbe
+    // Diagonale des umschließenden Rechtecks aus längster Länge und breitester
+    // Breite — die Grenze bleibt eine sichere obere Schranke.
+    const m = masse();
+    const L = (pz === "B") ? m.LbMax : m.LaMax;
+    const W = (pz === "B") ? m.WbMax : m.WaMax;
+    if(!m.eigenGemessen[pz] || isNaN(L) || isNaN(W)) return 60;
+    return Math.hypot(L/2, W/2) + m.T/2 + 2;
+  }catch(e){ return 60; }
 }
 
 /* Prüfungen, alle können scheitern und sollen es auch dürfen. */
@@ -3648,14 +4144,15 @@ function obPruefen(i){
   if(!box) return;
   const m = [];
   const d = zahl(b.dist), h = zahl(b.hoehe), bh = zahl(b.bhd), a = zahl(b.azimut);
+  const voll = EINHEIT_VOLL[b.einheit === "gon" ? "gon" : "grad"];
 
   const grenze = obMaxDistanz(b.parzelle || "A");
   if(!isNaN(d) && d > grenze) m.push(["warn",
     "<b>"+rund(d,1)+" m</b> vom Mittelpunkt — weiter, als das Gatter nach den erfassten "+
     "Maßen reicht (höchstens rund "+rund(grenze,0)+" m). <b>Zahlendreher?</b> Eine "+
     "Obergrenze für die Aufnahme gibt es nicht, aber diese Zahl passt nicht zur Fläche."]);
-  if(!isNaN(a) && (a < 0 || a > 360)) m.push(["warn",
-    "Azimut außerhalb 0–360°."]);
+  if(!isNaN(a) && (a < 0 || a > voll)) m.push(["warn",
+    "Azimut außerhalb 0–" + voll + " " + einheitName(b.einheit) + "."]);
   if(!isNaN(h) && !isNaN(d) && Math.abs(h-d) < 0.05 && h > 3) m.push(["warn",
     "Höhe und Distanz sind <b>dieselbe Zahl</b> ("+rund(h,1)+"). Beim Vertex ein häufiger "+
     "Übertragungsfehler — bitte gegenlesen."]);
@@ -3668,12 +4165,12 @@ function obPruefen(i){
 function obLoeschen(i){
   const b = D.oberstand[i];
   nachfragen("Baum " + b.nr + " löschen?",
-    "Azimut " + (b.azimut||"—") + "°, Distanz " + (b.dist||"—") + " m. "
-    + "Die folgenden Bäume werden neu durchnummeriert.",
+    "Azimut " + (b.azimut||"—") + " " + einheitName(b.einheit) + ", Distanz " + (b.dist||"—") + " m. "
+    + "Die Nummern der übrigen Bäume bleiben, wie sie sind.",
     "Löschen",
     () => {
-      D.oberstand.splice(i,1);
-      D.oberstand.forEach((x,j) => x.nr = j+1);
+      /* Löschvermerk statt Entfernen — siehe lebend() in 06. */
+      eintragAendern(b, {_weg: true});
       OB_OFFEN = -1;
       speichern(true); obListeAufbauen(); obFortschritt();
     }, true);
@@ -3688,20 +4185,35 @@ function kompassHinweis(){
   if(!box) return;
   const geraet = wertVon("kopf","k_geraet") || "Handykompass";
   const bezug  = D.kopf.k_nordbezug || "";
+  /* ⚑ 17.09.2026: Eine Bussole zeigt MAGNETISCH Nord, solange an ihr keine
+     Missweisung eingestellt ist. Auf BY06 stand "geografisch" — mit der Suunto
+     hätte das alle Bäume um rund 4° verdreht, ohne dass es je auffällt. */
+  const bussole = /bussole|suunto|kompass am vertex/i.test(geraet);
+  const zusatz = (bussole && bezug === "geografisch")
+    ? '<div class="p-anzeige p-warn"><b>Bussole und „geografisch"?</b> Eine Bussole zeigt '
+      + '<b>magnetisch</b> Nord — außer an ihr ist die Missweisung eingestellt. Wenn nicht: '
+      + 'auf <b>magnetisch</b> stellen. Rund 4° Unterschied, also etwa 3,5 m auf 50 m.</div>'
+    : '';
+  const einheitZeile = !D.kopf.k_einheit
+    ? '<div class="p-anzeige p-warn"><b>Einheit der Azimute noch nicht gewählt</b> — '
+      + 'Suunto-Bussolen gibt es in Grad und in Gon. Auf der Skala nachsehen: reicht sie bis 400, ist es Gon.</div>'
+    : '';
+  box.innerHTML = einheitZeile + zusatz;
+  obEinheitZeileZeigen();
   if(!bezug){
-    box.innerHTML = '<div class="p-anzeige p-warn">Nordbezug noch offen. '
+    box.innerHTML += '<div class="p-anzeige p-warn">Nordbezug noch offen. '
       + (geraet.indexOf("Handy") === 0
          ? 'Beim Handy steht die Einstellung unter Kompass — „wahres Nord" oder magnetisch?'
          : 'Auch bei der Bussole festhalten, worauf sie bezogen ist.')
       + '</div>';
   }else if(bezug === "magnetisch"){
-    box.innerHTML = '<div class="p-anzeige p-ok">Magnetisch gemessen — in Ordnung, '
+    box.innerHTML += '<div class="p-anzeige p-ok">Magnetisch gemessen — in Ordnung, '
       + 'die Missweisung wird bei der Auswertung herausgerechnet.</div>';
   }else if(bezug === "unbekannt"){
-    box.innerHTML = '<div class="p-anzeige p-fehler">Unbekannter Nordbezug: Die Azimute lassen sich '
+    box.innerHTML += '<div class="p-anzeige p-fehler">Unbekannter Nordbezug: Die Azimute lassen sich '
       + 'später nicht mehr korrigieren. <b>Wenn möglich noch auf der Fläche klären.</b></div>';
   }else{
-    box.innerHTML = '<div class="p-anzeige p-ok">Geografisch Nord — passt zur Rechnung des Modells.</div>';
+    box.innerHTML += '<div class="p-anzeige p-ok">Geografisch Nord — passt zur Rechnung des Modells.</div>';
   }
 }
 
@@ -3778,6 +4290,18 @@ function gpsFehlerText(err){
    ===================================================================== */
 let GPS_LAUF = null;
 
+/* ⚑ 17.09.2026: Die EHRLICHE Genauigkeit einer Serie. Bis 3.0.4 speicherte die
+   App unter "acc" die beste Einzelmessung GETEILT DURCH ZWEI (bzw. durch die
+   Wurzel der Anzahl). Am Feldtag stand deshalb an allen 20 Punkten "± 1,5 m",
+   obwohl das Handy "± 3 m" meldete — und mehrere Punkte lagen 10–15 m daneben.
+   Die beste Einzelmessung steht seit Fassung 3 zusätzlich unter "roh"; ab 3.1.0
+   ist "acc" dieselbe Zahl. Für die Daten vom 17.09. gilt: "roh" nehmen. */
+function gpsGenauigkeit(g){
+  if(!g) return "";
+  const r = zahl(g.roh);
+  return isNaN(r) ? g.acc : r;
+}
+
 function gpsPunktMessen(pid, serie){
   if(!gpsVoraussetzung(gpsPunktMelden)) return;
   if(GPS_LAUF){ gpsPunktMelden("Es läuft schon eine Messung.", "warn"); return; }
@@ -3798,10 +4322,14 @@ function gpsPunktMessen(pid, serie){
       });
       if(beste === null || pos.coords.accuracy < beste) beste = pos.coords.accuracy;
       const rest = Math.max(0, Math.round((dauer - (Date.now() - start)) / 1000));
+      /* ⚑ 17.09.2026: Kein "jetzt übernehmen" mehr. Am Feldtag wurde oft vorzeitig
+         übernommen, sobald ± 3 m dastand — die Anzeige sagt aber nur, wie das
+         Handy sich selbst einschätzt, nicht wo es wirklich steht. Die 45 s sind
+         das Mindeste, um wenigstens das Zittern herauszumitteln. */
       gpsPunktMelden("<b>Messung läuft — bitte still stehen.</b> Noch " + rest + " s · "
-        + proben.length + " Messungen · beste ± " + Math.round(beste) + " m"
+        + proben.length + " Messungen · Handy meldet ± " + Math.round(beste) + " m"
         + '<br><button class="knopf zweit klein" style="width:auto;padding:6px 12px" '
-        + 'onclick="gpsPunktBeenden(\''+pid+'\','+serie+')">jetzt übernehmen</button>', null);
+        + 'onclick="gpsPunktAbbrechen()">abbrechen — nichts speichern</button>', null);
     },
     err => {
       gpsPunktAufraeumen();
@@ -3815,8 +4343,14 @@ function gpsPunktMessen(pid, serie){
   GPS_LAUF = {
     wacht: wacht,
     proben: proben,
+    start: start,
     ende: setTimeout(() => gpsPunktBeenden(pid, serie), dauer)
   };
+}
+
+function gpsPunktAbbrechen(){
+  gpsPunktAufraeumen();
+  gpsPunktMelden("Messung abgebrochen — nichts gespeichert.", "warn");
 }
 
 function gpsPunktAufraeumen(){
@@ -3829,6 +4363,7 @@ function gpsPunktAufraeumen(){
 function gpsPunktBeenden(pid, serie){
   if(!GPS_LAUF) return;
   const proben = GPS_LAUF.proben.slice();
+  const dauerS = Math.round((Date.now() - GPS_LAUF.start) / 1000);
   gpsPunktAufraeumen();
 
   if(!proben.length){
@@ -3849,9 +4384,11 @@ function gpsPunktBeenden(pid, serie){
     sLat += p.lat * g; sLon += p.lon * g; sG += g;
   });
   const lat = sLat / sG, lon = sLon / sG;
-  // Genauigkeit des Mittels: die beste Einzelmessung, verbessert um die Wurzel der Anzahl,
-  // aber nie besser als die Hälfte der besten Einzelmessung (korrelierte Fehler!)
-  const gemittelt = Math.max(besteAcc / 2, besteAcc / Math.sqrt(gute.length));
+  /* Genauigkeit: die beste Einzelmessung, wie das Handy sie meldet — NICHT
+     "verbessert". Das Mitteln entfernt Zittern, aber nicht den zeitlich
+     korrelierten Fehler durch Reflexionen an Stämmen; eine kleinere Zahl
+     behauptete eine Genauigkeit, die es nicht gibt (Befund 17.09.2026). */
+  const genau = Math.round(besteAcc * 10) / 10;
 
   const n = new Date();
   const zeit = String(n.getHours()).padStart(2,"0")+":"+String(n.getMinutes()).padStart(2,"0");
@@ -3859,28 +4396,36 @@ function gpsPunktBeenden(pid, serie){
   setzenMehrere({
     [feld + ".lat"]:   Number(lat.toFixed(7)),
     [feld + ".lon"]:   Number(lon.toFixed(7)),
-    [feld + ".acc"]:   Math.round(gemittelt * 10) / 10,
-    [feld + ".roh"]:   Math.round(besteAcc),
+    [feld + ".acc"]:   genau,
+    [feld + ".roh"]:   genau,
     [feld + ".n"]:     gute.length,
+    [feld + ".dauer_s"]: dauerS,
     [feld + ".zeit"]:  zeit,
     [feld + ".datum"]: n.toISOString().slice(0,10),
     [feld + ".geraet"]: GERAET
   }, true);
 
-  gpsPunktMelden("<b>Serie " + serie + " übernommen.</b> " + lat.toFixed(6) + " / " + lon.toFixed(6)
-    + " · ± " + (Math.round(gemittelt*10)/10) + " m aus " + gute.length + " von " + proben.length
-    + " Messungen."
+  const meldung = "<b>Serie " + serie + " übernommen.</b> " + lat.toFixed(6) + " / " + lon.toFixed(6)
+    + " · Handy meldet ± " + genau + " m · " + gute.length + " von " + proben.length
+    + " Messungen in " + dauerS + " s."
+    + (proben.length < 10
+        ? " <b>Wenige Messungen</b> — das Handy lieferte kaum Positionen; im Zweifel wiederholen."
+        : "")
     + (besteAcc > 15
-        ? " <b>Das ist ungenau</b> (beste Einzelmessung ± " + Math.round(besteAcc) + " m). "
-          + "Unter dichtem Schirm normal — die zweite Serie im Winter gleicht es aus."
-        : ""), "ok");
+        ? " <b>Das ist ungenau.</b> Unter dichtem Schirm normal — die zweite Serie im Winter hilft."
+        : "");
 
-  alleFelderAbgeben();
-  punktOeffnen(pid, true);
-  setTimeout(() => {
-    const m = document.getElementById("gpsPunktMeldung");
-    if(m) m.innerHTML = "Serie " + serie + " gespeichert.";
-  }, 50);
+  /* ⚑ 17.09.2026: Nur zurück in die Maske, wenn sie noch offen ist. Wer während
+     der 45 s zu einem anderen Punkt gewechselt ist, wurde bisher zurückgerissen. */
+  if(PUNKT_OFFEN === pid){
+    alleFelderAbgeben();
+    punktOeffnen(pid, true);
+    gpsPunktMelden(meldung, "ok");
+  }else{
+    if(!PUNKT_OFFEN) punktListeAufbauen();
+    balkenZeigen("GPS für " + pid + " gespeichert (± " + genau + " m).");
+    setTimeout(() => balkenZeigen(""), 5000);
+  }
 }
 
 /* =====================================================================
@@ -4160,11 +4705,18 @@ function kontrolleAufbauen(){
           + mess.filter(p => !(D.punkte[p.id] && D.punkte[p.id].gps1 && D.punkte[p.id].gps1.lat))
                 .map(p => p.id).join(", ")
         : "")],
-    [mitBild.length === PUNKTE.length,
-     "<b>Bild-Nummer an allen " + PUNKTE.length + " Punkten</b> (" + mitBild.length + " da)"
-     + (mitBild.length < PUNKTE.length
-        ? " — <b>die Bild-Nummer ist die einzige Verbindung zwischen Datei und Punkt.</b>"
-        : "")],
+    /* ⚑ 17.09.2026: Statt "Bild-Nummer an allen Punkten". Das Solariskop benennt
+       selbst (PZ1_POS3); die Verbindung Bild ↔ Punkt hängt damit an zwei Dingen,
+       die sich nach der Abfahrt NICHT mehr klären lassen: welche Parzelle am
+       Gerät PZ1 heißt, und welche Nummer jeder Punkt in der Skizze trägt. */
+    [!!D.schema.s_pz_a,
+     "<b>Am Solariskop festgehalten, welche Parzelle PZ1 heißt</b>"
+     + (D.schema.s_pz_a ? " (A = " + D.schema.s_pz_a + ")"
+        : " — <b>ohne das lassen sich die Bilder keiner Parzelle zuordnen.</b> Abschnitt Licht, ganz oben.")],
+    [nummernA >= 5 && nummernB >= 5,
+     "<b>Punktnummern in der Skizze vergeben</b> (A: " + nummernA + "/5, B: " + nummernB + "/5)"
+     + (nummernA >= 5 && nummernB >= 5 ? ""
+        : " — <b>die Nummer verbindet den Bildnamen (POS) mit der Lage des Punktes.</b>")],
     [!!D.kopf.f_geraet_ok, "Alle Menüseiten des Geräts <b>fotografiert</b> — vorher und nachher"],
     [tagMonat(D.kopf.f_periode_von) === GERAET_SOLL.von && tagMonat(D.kopf.f_periode_bis) === GERAET_SOLL.bis
        && !isNaN(zahl(D.kopf.f_breite)) && !isNaN(zahl(D.kopf.f_laenge)),
@@ -4190,7 +4742,8 @@ function kontrolleAufbauen(){
              + "°, aber nur aus der Lage abgeleitet (45°-Raster). "
              + "<b>Zwei Minuten: von Marke A nach Marke B peilen.</b> Auf BY07 lag die "
              + "abgeleitete Richtung 32,5° daneben."))],
-    [nummernA >= 5 && nummernB >= 5, "Punktnummern in der Skizze vergeben (A: "+nummernA+"/5, B: "+nummernB+"/5)"],
+    [!q.g.ungleich || (!isNaN(zahl(D.parzellen.A.pa_diag)) && !isNaN(zahl(D.parzellen.B.pb_diag))),
+     "Ungleichmäßige Parzelle: <b>Diagonale</b> gemessen" + (q.g.ungleich ? "" : " (nicht nötig, beide Parzellen rechteckig)")],
     [!!(D.parzellen.A.pa_herkunft && D.parzellen.B.pb_herkunft), "Herkunft je Parzelle eingetragen"],
     [!!(wertVon("parzA","pa_lage") && wertVon("parzB","pb_lage")), "Lage je Parzelle eingetragen"],
     [!!D.kopf.f_vermarkung, "Vermarkungsbefund eingetragen"],
@@ -4258,13 +4811,15 @@ function exporteAufbauen(){
 
   // Koordinaten der Messpunkte
   const g = [];
-  g.push(["Punkt","Serie","Breite","Laenge","Genauigkeit_m","Messungen","Zeit","Datum"].join("\t"));
+  /* ⚑ 17.09.2026: "Genauigkeit_m" ist die beste Einzelmessung laut Handy (roh).
+     Bis 3.0.4 stand hier ein halbierter Wert — siehe gpsGenauigkeit() in 11. */
+  g.push(["Punkt","Serie","Breite","Laenge","Genauigkeit_m","Messungen","Dauer_s","Zeit","Datum"].join("\t"));
   PUNKTE.forEach(p => {
     const d = D.punkte[p.id] || {};
     [1,2].forEach(s => {
       const k = d["gps"+s];
       if(!k || !k.lat) return;
-      g.push([p.id, s, k.lat, k.lon, k.acc, k.n||"", k.zeit||"", k.datum||""].join("\t"));
+      g.push([p.id, s, k.lat, k.lon, gpsGenauigkeit(k), k.n||"", k.dauer_s||"", k.zeit||"", k.datum||""].join("\t"));
     });
   });
   const eg = document.getElementById("exportGps");
@@ -4311,12 +4866,21 @@ function textFassung(){
   z.push("");
 
   z.push("PARZELLEN");
+  /* Seiten mit Punktnummern der Ecken (Ecke zu Ecke) — so, wie im Feld gezählt wird. */
+  const seiten = pz => {
+    const P = D.parzellen[pz], v = pz === "A" ? "pa_" : "pb_";
+    const s = (k, e1, e2) => P[v+k] ? " " + eckNr(pz,e1) + "-" + eckNr(pz,e2) + ": " + P[v+k] + " m" : "";
+    return "     Länge rechts" + (s("laenge","or","ur") || " ?") + " | Länge links" + (s("laenge2","ol","ul") || " —")
+         + " | Breite oben" + (s("breite","ol","or") || " ?") + " | Breite unten" + (s("breite2","ul","ur") || " —")
+         + (P[v+"diag"] ? " | Diagonale " + eckNr(pz,"or") + "-" + eckNr(pz,"ul") + ": " + P[v+"diag"] + " m" : "");
+  };
   z.push("  A: Lage " + w("parzA","pa_lage") + " | Herkunft " + (D.parzellen.A.pa_herkunft||"—")
          + " | Reg.-Nr. " + (D.parzellen.A.pa_code||"—"));
-  z.push("     L " + (D.parzellen.A.pa_laenge||"?") + " m x B " + (D.parzellen.A.pa_breite||"?") + " m");
+  z.push(seiten("A"));
   z.push("  B: Lage " + w("parzB","pb_lage") + " | Herkunft " + (D.parzellen.B.pb_herkunft||"—")
          + " | Reg.-Nr. " + (D.parzellen.B.pb_code||"—"));
-  z.push("     L " + (D.parzellen.B.pb_laenge||"?") + " m x B " + (D.parzellen.B.pb_breite||"?") + " m");
+  z.push(seiten("B"));
+  if(q.g.ungleich) z.push("  UNGLEICHMÄSSIG: Flächen und Abstände unten aus Mittelwerten der Gegenseiten (Näherung).");
   z.push("  Trennstreifen: Länge (Abstand A-B) " + (D.kopf.f_trenn_l||"?")
          + " m, Breite (quer) " + (D.kopf.f_trenn_b||"?") + " m");
   z.push("  Berechnet: Fläche A " + rund(q.A.flaeche,0) + " m², B " + rund(q.B.flaeche,0)
@@ -4337,7 +4901,10 @@ function textFassung(){
   z.push("  Abstand Mittelpunkt A->B, gemessen: " + (D.schema.s_pfosten||"—") + " m"
          + "   (aus den Maßen: " + rund(q.abstandAB,1) + " m)");
   z.push("  Azimut Längsachse A->B: " + (D.schema.s_achse||"—") + " °"
+         + (D.schema.s_achse_gon ? " (abgelesen " + D.schema.s_achse_gon + " gon)" : "")
+         + "  [" + (D.schema.s_achse_quelle === "gemessen" ? "gemessen" : "aus der Lage abgeleitet, 45°-Raster") + "]"
          + "   Eingang: " + w("schema","s_eingang"));
+  z.push("  Am Solariskop heißt Parzelle A: " + (D.schema.s_pz_a || "NICHT FESTGEHALTEN"));
   z.push("  Ansichtsdrehung der Skizze: " + drehung() + " ° (nur Darstellung)");
   z.push("  Zählregel im Feld: " + (D.schema.s_regel||"—"));
   ["A","B"].forEach(pz => {
@@ -4352,8 +4919,10 @@ function textFassung(){
   PUNKTE.forEach(p => {
     const d = D.punkte[p.id];
     if(!d){ z.push("  " + p.id + ": —"); return; }
+    const bn = bildName(p.id);
     let zeile = "  " + p.id + ": " + (d.zeit||"--:--")
-      + "  Bild " + (d.bild || "FEHLT")
+      + (bn ? "  Gerät " + bn : "")
+      + (d.bild ? "  Bild-Nr. " + d.bild : "")
       + (d.bild2 ? "  Wdh.-Bild " + d.bild2 : "")
       + (d.platz ? "  Pflanzplatz " + d.platz : "")
       + (d.hoehe ? "  h=" + d.hoehe + " cm" : "");
@@ -4368,7 +4937,8 @@ function textFassung(){
       const k = d["gps"+s];
       if(k && k.lat){
         z.push("        GPS Serie " + s + ": " + k.lat + " / " + k.lon
-               + "  ± " + k.acc + " m" + (k.n ? "  aus " + k.n + " Messungen" : "")
+               + "  Handy ± " + gpsGenauigkeit(k) + " m" + (k.n ? "  aus " + k.n + " Messungen" : "")
+               + (k.dauer_s ? " in " + k.dauer_s + " s" : "")
                + "  " + (k.zeit||"") + " " + (k.datum||""));
       }
     });
@@ -4392,7 +4962,8 @@ function textFassung(){
   VEG_PUNKTE.forEach(p => {
     const v = (D.veg.punkte||{})[p.id];
     if(!v){ z.push("  " + p.id + ": —"); return; }
-    z.push("  " + p.id + (v.aufnehmer ? "  (" + v.aufnehmer + ")" : ""));
+    z.push("  " + p.id + (v.aufnehmer ? "  (" + v.aufnehmer + ")" : "")
+           + (v.kopie_von ? "  [ÜBERNOMMEN VON " + v.kopie_von + ", danach am Punkt angepasst]" : ""));
     const e = v.einfach || {};
     SCHICHTEN.forEach(s => {
       const d = e[s.k+"_d"], h = e[s.k+"_h"], f = e[s.k+"_frei"];
@@ -4400,7 +4971,7 @@ function textFassung(){
                              + (f ? "  [" + f + "]" : ""));
     });
     if(v.kronenschluss) z.push("      Kronenschluss: " + v.kronenschluss);
-    (v.arten||[]).forEach(a => {
+    lebend(v.arten).forEach(a => {
       z.push("      " + (a.schicht||"?") + "  " + (a.art||"?") + "   "
              + (a.am||"—") + " / " + (a.soz||"—"));
     });
@@ -4408,13 +4979,20 @@ function textFassung(){
   });
   z.push("");
 
-  if((D.oberstand||[]).length){
-    z.push("OBERSTAND  (" + D.oberstand.length + " Bäume)");
-    z.push("  Azimutgerät: " + w("kopf","k_geraet") + "   Nordbezug: " + (D.kopf.k_nordbezug||"—"));
-    z.push("  Nr\tParz\tArt\tAzimut\tDist\tBHD\tHöhe");
-    D.oberstand.forEach(b => {
-      z.push("  " + [b.nr, b.parzelle, b.art, b.azimut, b.dist, b.bhd, b.hoehe||""].join("\t")
-             + (b.kontrolle ? "\t[Kontrollbaum]" : "") + (b.bem ? "\t" + b.bem : ""));
+  const baeume = lebend(D.oberstand);
+  if(baeume.length){
+    z.push("OBERSTAND  (" + baeume.length + " Bäume"
+           + ((D.oberstand.length > baeume.length) ? ", " + (D.oberstand.length - baeume.length) + " gelöscht" : "") + ")");
+    z.push("  Azimutgerät: " + w("kopf","k_geraet") + "   Nordbezug: " + (D.kopf.k_nordbezug||"—")
+           + "   Einheit der Fläche: " + (D.kopf.k_einheit || "nicht gewählt (Grad angenommen)"));
+    /* Azimut wie abgelesen, mit Einheit — daneben in Grad umgerechnet. */
+    z.push("  Nr\tParz\tArt\tAzimut\tEinheit\tAzimut_Grad\tDist\tBHD\tHöhe");
+    baeume.forEach(b => {
+      const g = obAzGrad(b);
+      z.push("  " + [b.nr, b.parzelle, b.art, b.azimut, b.einheit || "grad",
+                     isNaN(g) ? "" : Math.round(g*10)/10, b.dist, b.bhd, b.hoehe||""].join("\t")
+             + (b.kontrolle ? "\t[Kontrollbaum" + (b.k_dist2 ? ", Dist. vom anderen MP " + b.k_dist2 : "") + "]" : "")
+             + (b.bem ? "\t" + b.bem : ""));
     });
     z.push("");
   }
@@ -4533,7 +5111,7 @@ function uebernehmen(roh, quelle){
 
   nachfragen("Sicherung einlesen?",
     "Die Sicherung gehört zu <b>" + name + "</b> und enthält <b>" + anzahl + " Messpunkte</b>"
-    + ((fremd.oberstand||[]).length ? " und " + fremd.oberstand.length + " Bäume" : "") + ". "
+    + (lebend(fremd.oberstand).length ? " und " + lebend(fremd.oberstand).length + " Bäume" : "") + ". "
     + (ausAlt ? "Sie stammt aus einer <b>älteren Fassung</b> und wird dabei umgesetzt. " : "")
     + "<b>Nichts wird überschrieben:</b> Gibt es diese Fläche hier schon, werden beide Stände "
     + "Feld für Feld zusammengeführt — der jüngere Eintrag gewinnt.",
@@ -4728,6 +5306,16 @@ const SYNC_KONFIG = {
 const P_SYNC_AN    = "wta_v3_sync_an";      // hat der Anwender sie eingeschaltet?
 const P_SYNC_MAIL  = "wta_v3_sync_mail";
 const P_SYNC_TOKEN = "wta_v3_sync_token";   // Erneuerungsschlüssel, überlebt den Neustart
+const P_SYNC_HOCH   = "wta_v3_sync_hoch";   // je Fläche: welcher Stand zuletzt hochgeladen wurde
+const P_SYNC_RUNTER = "wta_v3_sync_runter"; // je Fläche: welcher Datenbankstand zuletzt geholt wurde
+
+function syncMerkLesen(k){
+  try{ const o = JSON.parse(localStorage.getItem(k) || "{}"); return (o && typeof o === "object") ? o : {}; }
+  catch(e){ return {}; }
+}
+function syncMerkSchreiben(k, o){
+  try{ localStorage.setItem(k, JSON.stringify(o)); }catch(e){}
+}
 
 let SYNC_ID_TOKEN = null;        // gilt eine Stunde
 let SYNC_TOKEN_BIS = 0;
@@ -4796,7 +5384,7 @@ function syncTokenHolen(){
   let erneuerung = null;
   try{ erneuerung = localStorage.getItem(P_SYNC_TOKEN); }catch(e){}
   if(!erneuerung) return Promise.reject(new Error("Noch nicht angemeldet."));
-  return fetch("https://securetoken.googleapis.com/v1/token?key="
+  return mitZeitlimit("https://securetoken.googleapis.com/v1/token?key="
       + encodeURIComponent(SYNC_KONFIG.schluessel), {
     method:"POST",
     headers:{"Content-Type":"application/x-www-form-urlencoded"},
@@ -4832,9 +5420,23 @@ function fsWurzel(){
        + "/databases/(default)/documents";
 }
 
+/* ⚑ 17.09.2026: ZEITLIMIT. Im Wald meldet das Handy oft "online", obwohl kaum
+   Empfang ist. Eine Anfrage ohne Zeitlimit konnte dann minutenlang hängen —
+   und solange sie hing, blieb SYNC_LAEUFT stehen: Die App glich bis zum
+   nächsten Neustart NIE WIEDER ab. Nach 20 s wird abgebrochen und beim
+   nächsten Anlass neu versucht. */
+function mitZeitlimit(url, optionen, ms){
+  if(typeof AbortController === "undefined") return fetch(url, optionen);
+  const ab = new AbortController();
+  const t = setTimeout(() => ab.abort(), ms || 20000);
+  return fetch(url, Object.assign({signal: ab.signal}, optionen))
+    .catch(f => { throw (f && f.name === "AbortError") ? new Error("Zeitüberschreitung — zu wenig Empfang") : f; })
+    .finally(() => clearTimeout(t));
+}
+
 function fsAnfrage(pfad, art, koerper){
   return syncTokenHolen().then(token =>
-    fetch(fsWurzel() + pfad, {
+    mitZeitlimit(fsWurzel() + pfad, {
       method: art,
       headers: Object.assign({"Authorization":"Bearer " + token},
                              koerper ? {"Content-Type":"application/json"} : {}),
@@ -4868,8 +5470,13 @@ function syncHochladen(datensatz){
       groesse:   {integerValue: String(inhalt.length)}
     }
   };
-  return fsAnfrage("/flaechen/" + datensatz.id, "PATCH", kopfDaten)
-    .then(() => fsAnfrage("/flaechen/" + datensatz.id + "/geraete/" + GERAET, "PATCH", geraetDaten));
+  /* ⚑ 17.09.2026: ERST die Daten, DANN der Kopf. Andere Geräte holen eine Fläche
+     nur noch, wenn sich "geaendert" im Kopf geändert hat. Stünde der neue Kopf
+     schon da, bevor die Daten geschrieben sind, könnte ein anderes Gerät genau
+     dazwischen lesen, den alten Stand holen, sich den neuen Kopf merken — und
+     die neuen Daten danach nie mehr abrufen. */
+  return fsAnfrage("/flaechen/" + datensatz.id + "/geraete/" + GERAET, "PATCH", geraetDaten)
+    .then(() => fsAnfrage("/flaechen/" + datensatz.id, "PATCH", kopfDaten));
 }
 
 /* Alle fremden Stände einer Fläche holen. */
@@ -4916,7 +5523,17 @@ function syncJetzt(still){
   SYNC_LAEUFT = true;
   if(!still) syncMelden("Synchronisiert …", null);
 
-  const bilanz = {hoch:0, runter:0, neu:0, erneuert:0, konflikte:0, flaechen:0};
+  const bilanz = {hoch:0, runter:0, neu:0, erneuert:0, konflikte:0, flaechen:0, aktuellGeaendert:false, andereGeaendert:false};
+  /* ⚑ 17.09.2026: SPARSAMER ABGLEICH. Bis 3.0.4 lud jeder Abgleich ALLE Flächen
+     hoch und ALLE fremden Stände herunter — alle 45 s nach einer Eingabe, mit
+     schwachem Netz im Wald. Jetzt:
+       · hoch nur, was sich seit dem letzten erfolgreichen Hochladen geändert hat
+       · herunter nur Flächen, deren Stand in der Datenbank sich seit dem letzten
+         Blick geändert hat
+     Der Knopf "Jetzt abgleichen" (still = false) macht weiterhin ALLES — als
+     Rückfallebene, falls die Merkliste einmal nicht stimmt. */
+  const voll = !still;
+  const hochMerk = syncMerkLesen(P_SYNC_HOCH), runterMerk = syncMerkLesen(P_SYNC_RUNTER);
 
   // 1 · Eigene Flächen hochladen
   const eigene = flaechenListe();
@@ -4925,7 +5542,15 @@ function syncJetzt(still){
     kette = kette.then(() => {
       const d = (D.id === e.id) ? D : flaecheLesen(e.id);
       if(!d) return;
-      return syncHochladen(d).then(() => { bilanz.hoch++; });
+      if(!voll && d.geaendert && hochMerk[e.id] === d.geaendert) return;
+      const stand = d.geaendert;
+      return syncHochladen(d).then(() => {
+        bilanz.hoch++;
+        hochMerk[e.id] = stand;
+        syncMerkSchreiben(P_SYNC_HOCH, hochMerk);
+        /* Der Stand liegt jetzt auch in der Datenbank — das ist eine Sicherung. */
+        if(D.id === e.id && D.geaendert === stand){ SEIT_SICHERUNG = 0; erinnerungPruefen(); }
+      });
     });
   });
 
@@ -4934,6 +5559,7 @@ function syncJetzt(still){
     bilanz.flaechen = liste.length;
     let k2 = Promise.resolve();
     liste.forEach(f => {
+      if(!voll && f.geaendert && runterMerk[f.id] === f.geaendert) return;
       k2 = k2.then(() => syncHolenFlaeche(f.id).then(staende => {
         staende.forEach(fremd => {
           if(!fremd || !fremd.id) fremd.id = f.id;
@@ -4943,8 +5569,13 @@ function syncJetzt(still){
             bilanz.neu       += erg.bericht.neu || 0;
             bilanz.erneuert  += erg.bericht.erneuert || 0;
             bilanz.konflikte += (erg.bericht.konflikte || []).length;
+            if(erg.bericht.geaendert){
+              if(erg.id === D.id) bilanz.aktuellGeaendert = true; else bilanz.andereGeaendert = true;
+            }
           }
         });
+        runterMerk[f.id] = f.geaendert;
+        syncMerkSchreiben(P_SYNC_RUNTER, runterMerk);
       }));
     });
     return k2;
@@ -4959,7 +5590,11 @@ function syncJetzt(still){
         + (bilanz.konflikte ? ", " + bilanz.konflikte + " Konflikte — bitte ansehen" : "") + ".",
         bilanz.konflikte ? "warn" : "ok");
     }
-    if(typeof alles === "function") alles();
+    /* ⚑ 17.09.2026: NICHT MEHR alles(). Das baute offene Masken neu und warf den
+       Anwender in die Übersicht zurück (Feldtag 17.09.). Aufgefrischt wird nur,
+       wenn wirklich etwas Fremdes hereinkam — und dann schonend. */
+    if(bilanz.aktuellGeaendert) nachAbgleichAuffrischen();
+    else if(bilanz.andereGeaendert) flaechenListeZeigen();
     syncZustandZeigen();
     return bilanz;
   }).catch(fehler => {
@@ -5070,17 +5705,29 @@ const KOPF_FELDER = ["f_datum","f_ankunft","f_team",
   "f_periode_von","f_periode_bis","f_tsf_formel","f_p_geraet","f_bildwinkel","f_max_neigung",
   "f_trenn_l","f_trenn_b",
   "f_gps_lat","f_gps_lon","f_gps_acc",
-  "k_nordbezug",
+  "k_nordbezug","k_einheit",
   "f_bemerkung"];
-const PARZ_A_FELDER = ["pa_code","pa_herkunft","pa_laenge","pa_breite"];
-const PARZ_B_FELDER = ["pb_code","pb_herkunft","pb_laenge","pb_breite"];
+/* ⚑ 17.09.2026: je Parzelle vier Seiten und eine Diagonale. "laenge"/"breite"
+   bleiben die Hauptmaße (bei Rechtecken die einzigen); "laenge2"/"breite2"
+   sind die gegenüberliegenden Seiten, nur bei ungleichmäßigen Parzellen. */
+const PARZ_A_FELDER = ["pa_code","pa_herkunft","pa_laenge","pa_laenge2","pa_breite","pa_breite2","pa_diag"];
+const PARZ_B_FELDER = ["pb_code","pb_herkunft","pb_laenge","pb_laenge2","pb_breite","pb_breite2","pb_diag"];
 const BESTAND_FELDER = ["b_besonderheiten","b_schluss_text"];
 const BEDINGUNGEN_FELDER = ["g_himmel1","g_himmel2","g_himmel3","g_ok1","g_ok2","g_ok3","g_abfahrt"];
-const SCHEMA_FELDER = ["s_achse","s_pfosten","s_regel","s_bem"];
+const SCHEMA_FELDER = ["s_achse","s_pfosten","s_regel","s_bem","s_pz_a"];
 
+/* ⚑ 17.09.2026: Jeder Zuhörer nur einmal je Feld — alles() läuft mehrfach
+   (siehe feldBinden). Erkannt wird ein Zuhörer an Ereignis und Quelltext. */
+const ANGEHAENGT = new Map();
 function anhaengen(id, ereignis, was){
   const el = document.getElementById(id);
-  if(el) el.addEventListener(ereignis, was);
+  if(!el) return;
+  const schluessel = ereignis + "|" + String(was);
+  let s = ANGEHAENGT.get(el);
+  if(!s){ s = new Set(); ANGEHAENGT.set(el, s); }
+  if(s.has(schluessel)) return;
+  s.add(schluessel);
+  el.addEventListener(ereignis, was);
 }
 
 function alles(){
@@ -5104,7 +5751,10 @@ function alles(){
      von der aus der Lage abgeleiteten Näherung (45°-Raster, auf BY07 32,5°
      daneben). Der Hinweis unter dem Feld sagt, welche von beiden gilt. */
   anhaengen("s_achse", "change", achseVonHand);
+  anhaengen("s_achse_gon", "change", achseAusGon);
   anhaengen("s_pfosten", "change", pfostenHinweisZeigen);
+  anhaengen("k_einheit", "change", einheitGewechselt);
+  anhaengen("s_pz_a", "change", () => { punktListeAufbauen(); });
   ["f_periode_von","f_periode_bis","f_bildwinkel","f_breite","f_laenge"].forEach(id =>
     anhaengen(id, "change", geraetSollPruefen));
   anhaengen("k_nordbezug", "change", kompassHinweis);
@@ -5132,7 +5782,68 @@ function alles(){
   kopfAktualisieren();
   flaechenListeZeigen();
   dauerZeigen();
+  seitenBeschriften();
+  achseGonZeigen();
   autoAus();
+}
+
+/* =====================================================================
+   NACH EINEM ABGLEICH AUFFRISCHEN — ohne dem Anwender etwas wegzunehmen
+   (17.09.2026)
+
+   Bis 3.0.4 rief der Abgleich alles() auf. Das baute auch die OFFENE Maske
+   neu: Wer gerade eine Vegetationsaufnahme oder einen Messpunkt bearbeitete,
+   landete in der Übersicht, und in der Schnellerfassung des Oberstands waren
+   getippte, noch nicht gespeicherte Zahlen weg. Calvin am Feldtag 17.09.:
+   "wurde immer zurückgeschickt".
+
+   Jetzt gilt:
+     · Felder, in denen gerade getippt wird (Fokus oder wartender Stempel),
+       werden NICHT angefasst.
+     · Offene Masken bleiben offen. Ihre Werte kommen beim Zurückgehen neu.
+     · Die Schnellerfassung des Oberstands wird nie neu aufgebaut.
+     · Alles andere zeigt den zusammengeführten Stand.
+   ===================================================================== */
+function beschaeftigt(el){
+  return el === document.activeElement || STEMPEL_TIMER.has(el);
+}
+
+function nachAbgleichAuffrischen(){
+  const felder = [[KOPF_FELDER,"kopf"],[PARZ_A_FELDER,"parzA"],[PARZ_B_FELDER,"parzB"],
+                  [BESTAND_FELDER,"bestand"],[BEDINGUNGEN_FELDER,"bedingungen"],[SCHEMA_FELDER,"schema"]];
+  felder.forEach(([liste, zielName]) => liste.forEach(id => {
+    const el = document.getElementById(id);
+    if(!el || beschaeftigt(el)) return;
+    const w = zielObjekt(zielName)[id];
+    if(el.type === "checkbox") el.checked = !!w;
+    else el.value = (w !== undefined && w !== null) ? w : "";
+  }));
+  document.querySelectorAll("[data-auswahl]").forEach(huelle => {
+    const id = huelle.dataset.auswahl;
+    const ziel = zielObjekt(huelle.dataset.ziel);
+    const sel = document.getElementById(id), txt = document.getElementById(id + "_frei");
+    if(sel && !beschaeftigt(sel)) sel.value = ziel[id] || "";
+    if(txt && !beschaeftigt(txt)) txt.value = ziel[id + "_frei"] || "";
+    freitextZeigen(id);
+  });
+  personenAktualisieren();
+
+  utmZeigen(); kompassHinweis(); achsHinweisZeigen(); pfostenHinweisZeigen();
+  geraetSollPruefen(); schlussgradErklaeren(); datumPruefen(); pFormelPruefen();
+  geometrieAnzeigen(); dauerZeigen(); skizzeZeichnen(); seitenBeschriften(); achseGonZeigen();
+
+  if(!PUNKT_OFFEN) punktListeAufbauen();
+  if(!VEG_OFFEN) vegListeAufbauen();
+  const radien = document.getElementById("radienFelder");
+  if(radien && !radien.contains(document.activeElement)) radienFelderAufbauen();
+  if(OB_OFFEN < 0) obListeAufbauen();
+  obFortschritt();
+  const wb = document.getElementById("wtaBereich");
+  if(wb && !wb.contains(document.activeElement)){ wtaReihenListe(); wtaAnsicht(); }
+  kopfAktualisieren();
+  flaechenListeZeigen();
+  const daten = document.getElementById("daten");
+  if(daten && daten.classList.contains("aktiv")) exporteAufbauen();
 }
 
 /* Auswahllisten, die außerhalb des Auswahl-Bausteins stehen */
@@ -5201,7 +5912,7 @@ if(!SPEICHER_OK){
 
 /* Beim Verlassen warnen, solange etwas erfasst ist. */
 window.addEventListener("beforeunload", e => {
-  const hatDaten = Object.keys(D.punkte||{}).length || (D.oberstand||[]).length;
+  const hatDaten = Object.keys(D.punkte||{}).length || lebend(D.oberstand).length;
   if(hatDaten && SEIT_SICHERUNG > 0){ e.preventDefault(); e.returnValue = ""; }
 });
 

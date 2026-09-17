@@ -23,9 +23,36 @@
       Eintragen: Nur mit ISF-Werten fällt eine Gerätedrift noch im Feld auf.
    ===================================================================== */
 
+/* Welche Maske gerade offen ist. Der Abgleich baut offene Masken nicht mehr
+   neu auf (17.09.2026) — dafür muss er wissen, ob eine offen ist. */
+let PUNKT_OFFEN = "";
+let VEG_OFFEN = "";
+
+/* ---------- Bildname am Solariskop (17.09.2026) ----------
+   Das Gerät nennt ein Bild PZ<n>_POS<m>. PZ ist die Parzelle in der Zählung
+   des Geräts — welche davon A ist, wird je Fläche festgelegt (s_pz_a) und ist
+   nicht ableitbar. POS ist die Punktnummer: bei S1…S4 die Nummer selbst, beim
+   Mittelpunkt die Nummer, die ihm in der Skizze gegeben wurde (meist 5). */
+function bildName(pid){
+  const pzA = D.schema.s_pz_a;
+  if(pid === "W1" || pid === "W2" || !pzA) return "";
+  const parz = pid.charAt(0);
+  const pz = (parz === "A") ? pzA : (pzA === "PZ1" ? "PZ2" : "PZ1");
+  let pos = "";
+  if(/-S\d$/.test(pid)) pos = pid.slice(-1);
+  else if(/-M$/.test(pid)) pos = ((D.schema.nummern || {})[parz] || {}).M || "";
+  return pos ? pz + "_POS" + pos : "";
+}
+
+/* Licht neu zeichnen, ohne eine offene Maske zu schließen. */
+function lichtNeu(){
+  if(PUNKT_OFFEN) punktOeffnen(PUNKT_OFFEN, true); else punktListeAufbauen();
+}
+
 function punktListeAufbauen(){
   const box = document.getElementById("punktListe");
   if(!box) return;
+  PUNKT_OFFEN = "";
   box.innerHTML = "";
   PUNKTE.forEach(p => {
     const d = D.punkte[p.id] || {};
@@ -36,11 +63,13 @@ function punktListeAufbauen(){
 
     const k = document.createElement("div");
     k.className = "karte" + (fertig ? " fertig" : "");
+    const bn = bildName(p.id);
     let zeile = '<div class="marken">'
       + '<span class="marke '+(fertig?"an":"")+'">'+(d.zeit || "Zeit")+'</span>'
-      + '<span class="marke '+(d.bild?"an":"")+'">'+(d.bild ? "Bild "+d.bild : "Bild-Nr.")+'</span>';
+      + (bn ? '<span class="marke">'+bn+'</span>' : '')
+      + (d.bild ? '<span class="marke an">Bild '+d.bild+'</span>' : '');
     if(brauchtGps){
-      zeile += '<span class="marke '+(g1?"an":"")+'">GPS 1'+(g1?" ±"+d.gps1.acc+"m":"")+'</span>'
+      zeile += '<span class="marke '+(g1?"an":"")+'">GPS 1'+(g1?" ±"+gpsGenauigkeit(d.gps1)+"m":"")+'</span>'
              + '<span class="marke '+(g2?"an":"")+'">GPS 2</span>';
     }
     if(hatWerte) zeile += '<span class="marke an">ISF '+d.isf+'</span>';
@@ -102,7 +131,9 @@ function punktFelderBinden(pid){
 
 function punktOeffnen(pid, lageHalten){
   const scrollY = window.scrollY;
+  PUNKT_OFFEN = pid;
   const p = PUNKTE.find(x => x.id === pid);
+  const bn = bildName(pid);
   const d = D.punkte[pid] || {};
   const box = document.getElementById("punktListe");
   const brauchtGps = (pid !== "W1" && pid !== "W2");
@@ -118,8 +149,14 @@ function punktOeffnen(pid, lageHalten){
     +  '<span class="zust">'+(d.zeit || "offen")+'</span></div>'
     +  '<button class="knopf" onclick="punktGemessen(\''+pid+'\')">'
     +  (d.zeit ? 'Zeit erneuern ('+d.zeit+')' : 'gemessen — Uhrzeit eintragen')+'</button>'
-    +  '<label>Bild-Nr. am Gerät <span class="hint">— die einzige Verbindung zwischen Bild und Punkt</span></label>'
-    +  '<input id="p_bild" value="'+(d.bild||"")+'" placeholder="Nummer ablesen" inputmode="numeric">'
+    +  (bn
+        ? '<div class="p-anzeige p-ok">Am Solariskop heißt das Bild <b>'+bn+'</b> — bitte am Gerät so einstellen.</div>'
+        : (pid === "W1" || pid === "W2" ? ''
+           : '<div class="p-anzeige p-warn">Bildname am Gerät unbekannt: Oben festlegen, '
+             + 'welche Parzelle am Solariskop <b>PZ1</b> heißt'
+             + (/-M$/.test(pid) ? ', und dem Mittelpunkt in der Skizze eine Nummer geben' : '') + '.</div>'))
+    +  '<label>Bild-Nr. am Gerät <span class="hint">— nur falls das Gerät nicht selbst benennt</span></label>'
+    +  '<input id="p_bild" value="'+(d.bild||"")+'" placeholder="optional" inputmode="numeric">'
     +  '<div class="reihe">'
     +    '<div><label>Reihe / Platz <span class="hint">— nächster Pflanzplatz</span></label>'
     +      '<input id="p_platz" value="'+(d.platz||"").replace(/"/g,"&quot;")+'" placeholder="z. B. R7 P12"></div>'
@@ -211,7 +248,7 @@ function gpsSerieBlock(pid, nr, g){
     + '<b>Serie '+nr+'</b>'+(nr===2 ? ' <span class="hint">— Wintertermin</span>' : '')
     + (da
         ? '<div class="werte">'+Number(g.lat).toFixed(6)+' / '+Number(g.lon).toFixed(6)
-          + ' · ± '+g.acc+' m · '+(g.zeit||"")+(g.datum ? ' · '+g.datum.split("-").reverse().join(".") : '')
+          + ' · Handy ± '+gpsGenauigkeit(g)+' m · '+(g.zeit||"")+(g.datum ? ' · '+g.datum.split("-").reverse().join(".") : '')
           + (g.n ? ' · aus '+g.n+' Messungen' : '')+'</div>'
         : '<div class="werte">noch nicht gemessen</div>')
     + '<button class="knopf '+(da?"zweit":"")+'" onclick="gpsPunktMessen(\''+pid+'\','+nr+')">'
@@ -228,30 +265,23 @@ function punktGemessen(pid){
   kopfAktualisieren();
 }
 
+/* ⚑ 17.09.2026: "Speichern und zurück" schreibt nur noch, was sich GEÄNDERT hat.
+   Bis 3.0.4 schrieb der Knopf ALLE Felder der Maske mit neuem Zeitstempel —
+   auch die unangetasteten. Kam während der Bearbeitung ein Wert vom anderen
+   Gerät herein (etwa die Uhrzeit, die dort eingetragen wurde), hätte der
+   veraltete Wert aus der Maske ihn mit jüngerem Stempel überschrieben, und
+   zwar auf beiden Geräten. Seit 3.0.4 schreibt jedes Feld ohnehin selbst;
+   hier werden nur noch wartende Eingaben abgegeben und Reste nachgezogen. */
 function punktSpeichern(pid){
-  const g = id => { const e = document.getElementById(id); return e ? e.value : undefined; };
-  const h = id => { const e = document.getElementById(id); return e ? e.checked : undefined; };
-  const paare = {};
-  const setzeWenn = (feld, wert) => { if(wert !== undefined) paare["punkte."+pid+"."+feld] = wert; };
-  setzeWenn("zeit", g("p_zeit"));
-  setzeWenn("hoehe", g("p_hoehe"));
-  setzeWenn("bild", g("p_bild"));
-  setzeWenn("bild2", g("p_bild2"));
-  setzeWenn("platz", g("p_platz"));
-  setzeWenn("winkel", g("p_winkel"));
-  setzeWenn("schwelle", g("p_schwelle"));
-  setzeWenn("isf", g("p_isf"));
-  setzeWenn("dsf", g("p_dsf"));
-  setzeWenn("tsf", g("p_tsf"));
-  setzeWenn("lai", g("p_lai"));
-  setzeWenn("elad", g("p_elad"));
-  setzeWenn("open", g("p_open"));
-  setzeWenn("himmel", g("p_himmel"));
-  setzeWenn("aufnehmer", g("p_aufnehmer"));
-  setzeWenn("nord", h("p_nord"));
-  setzeWenn("horiz", h("p_horiz"));
-  setzeWenn("bem", g("p_bem"));
-  setzenMehrere(paare, true);
+  alleFelderAbgeben();
+  /* Einzige Ausnahme: die vorbelegte Aufstellhöhe (130 cm). Sie steht nur in
+     der Maske, nicht im Datensatz, solange niemand sie anfasst — wer die Maske
+     mit "Speichern" verlässt, bestätigt sie. So hielt es auch 3.0.4. */
+  const d = D.punkte[pid] || {};
+  const el = document.getElementById("p_hoehe");
+  if(el && el.value !== "" && (d.hoehe === undefined || d.hoehe === "")){
+    setzen("punkte."+pid+".hoehe", el.value, true);
+  }
   punktListeAufbauen();
   window.scrollTo(0,0);
 }
@@ -352,12 +382,13 @@ function vegEinfachFertig(pid){
 }
 function vegBBFertig(pid){
   const v = (D.veg.punkte||{})[pid];
-  return !!(v && (v.arten||[]).length);
+  return !!(v && lebend(v.arten).length);
 }
 
 function vegListeAufbauen(){
   const box = document.getElementById("vegListe");
   if(!box) return;
+  VEG_OFFEN = "";
   box.innerHTML = "";
   VEG_PUNKTE.forEach(p => {
     const e = vegEinfachFertig(p.id), b = vegBBFertig(p.id);
@@ -368,8 +399,9 @@ function vegListeAufbauen(){
       '<span class="zust">'+((e&&b) ? "beides" : (e||b) ? "halb" : "offen")+'</span></div>'+
       '<div class="marken">'+
         '<span class="marke '+(e?"an":"")+'">vereinfacht</span>'+
-        '<span class="marke '+(b?"an":"")+'">Braun-Blanquet'+(b?" · "+(v.arten||[]).length+" Arten":"")+'</span>'+
+        '<span class="marke '+(b?"an":"")+'">Braun-Blanquet'+(b?" · "+lebend(v.arten).length+" Arten":"")+'</span>'+
         (v.aufnehmer ? '<span class="marke">'+v.aufnehmer+'</span>' : '')+
+        (v.kopie_von ? '<span class="marke">übernommen von '+v.kopie_von+'</span>' : '')+
       '</div>';
     k.addEventListener("click", () => vegOeffnen(p.id));
     box.appendChild(k);
@@ -378,6 +410,7 @@ function vegListeAufbauen(){
 
 function vegOeffnen(pid, lageHalten){
   const scrollY = window.scrollY;
+  VEG_OFFEN = pid;
   const p = VEG_PUNKTE.find(x => x.id === pid);
   if(!D.veg.punkte) D.veg.punkte = {};
   if(!D.veg.punkte[pid]) D.veg.punkte[pid] = {einfach:{}, arten:[], kronenschluss:"", bem:"", aufnehmer:""};
@@ -390,6 +423,12 @@ function vegOeffnen(pid, lageHalten){
 
   let inhalt = '<button class="knopf zweit klein" onclick="alleFelderAbgeben();vegListeAufbauen()">&larr; zurück zur Übersicht</button>'+
     '<h3>Vegetation — '+p.name+'</h3>'+
+    '<button class="knopf zweit" onclick="vegKopieDialog(\''+pid+'\')">Von anderem Punkt übernehmen …</button>'+
+    (v.kopie_von
+      ? '<div class="info achtung" style="font-size:13px"><b>Übernommen von '+v.kopie_von+'.</b> '
+        + 'Bitte jede Schicht und jede Art <b>an diesem Punkt prüfen</b> und anpassen — '
+        + 'übernommene Werte, die nicht geprüft wurden, sind keine eigene Beobachtung.</div>'
+      : '')+
     '<label>Aufgenommen von</label>'+
     '<input list="personenliste" value="'+(v.aufnehmer||"")+'" placeholder="Name" '+
       'oninput="tippRuhe(this,()=>vegSetzen(\''+pid+'\',\'aufnehmer\',this.value))" '+
@@ -419,7 +458,7 @@ function vegOeffnen(pid, lageHalten){
     '<select onchange="vegSetzen(\''+pid+'\',\'kronenschluss\',this.value)">'+
       opt(KRONENSCHLUSS, v.kronenschluss)+'</select>';
   SCHICHTEN.filter(s => s.k !== "Mo").forEach(s => {
-    const arten = (v.arten||[]).map((a,i) => [a,i]).filter(([a]) => a.schicht === s.k);
+    const arten = (v.arten||[]).map((a,i) => [a,i]).filter(([a]) => a.schicht === s.k && !a._weg);
     inhalt += '<div class="karte"><div class="kopf"><span>'+s.n+'</span>'+
       '<button class="knopf zweit" style="width:auto;margin:0;padding:6px 12px;font-size:14px" '+
       'onclick="artAnlegen(\''+pid+'\',\''+s.k+'\')">+ Art</button></div>';
@@ -482,6 +521,89 @@ function artSetzen(pid, i, feld, wert){
 }
 function artLoeschen(pid, i){
   alleFelderAbgeben();
-  D.veg.punkte[pid].arten.splice(i,1);
+  /* Löschvermerk statt Entfernen — sonst holt der Abgleich die Art zurück. */
+  const a = D.veg.punkte[pid].arten[i];
+  if(a) eintragAendern(a, {_weg: true});
   speichern(true); vegOeffnen(pid, true);
+}
+
+/* =====================================================================
+   VEGETATION VON EINEM ANDEREN PUNKT ÜBERNEHMEN (17.09.2026)
+
+   Calvins Wunsch vom Feldtag: Oft sieht A-S2 fast aus wie A-S1, und alles
+   neu einzutippen kostet Zeit. Übernommen wird:
+     · je Schicht Deckung, Höhe und freie Angabe — NUR in leere Felder
+     · der Kronenschlussgrad — nur wenn leer
+     · die Arten mit Artmächtigkeit und Soziabilität — nur Arten, die in
+       derselben Schicht noch nicht stehen
+   Nichts, was schon eingetragen ist, wird überschrieben. Bemerkung und
+   "aufgenommen von" bleiben beim Punkt.
+
+   ⚑ WAS DAS FÜR DIE AUSWERTUNG HEISST: Eine übernommene Aufnahme ist nur dann
+   eine eigene Beobachtung, wenn sie am Punkt geprüft wurde. Deshalb wird
+   festgehalten, VON WO übernommen wurde (kopie_von) — im Export und in der
+   Übersicht sichtbar. Wer das weiß, kann später prüfen, ob benachbarte Punkte
+   auffällig gleich sind. Wer es nicht weiß, hält Kopien für Befunde.
+   ===================================================================== */
+function vegHatDaten(pid){ return vegEinfachFertig(pid) || vegBBFertig(pid); }
+
+function vegKopieDialog(ziel){
+  alleFelderAbgeben();
+  const quellen = VEG_PUNKTE.filter(p => p.id !== ziel && vegHatDaten(p.id));
+  if(!quellen.length){
+    balkenZeigen("Noch kein anderer Punkt mit Vegetation erfasst — nichts zum Übernehmen.");
+    setTimeout(() => balkenZeigen(""), 4000);
+    return;
+  }
+  wahlDialog("Vegetation übernehmen",
+    "Von welchem Punkt? Übernommen wird nur in <b>leere</b> Felder, und nur Arten, die hier "
+    + "noch fehlen. <b>Danach jede Schicht an diesem Punkt prüfen und anpassen.</b>",
+    quellen.map(p => {
+      const v = D.veg.punkte[p.id] || {};
+      return [p.id, p.id + " · " + lebend(v.arten).length + " Arten"];
+    }), "",
+    quelle => vegKopieren(quelle, ziel));
+}
+
+function vegKopieren(quelle, ziel){
+  const q = (D.veg.punkte || {})[quelle];
+  if(!q) return;
+  if(!D.veg.punkte[ziel]) D.veg.punkte[ziel] = {einfach:{}, arten:[], kronenschluss:"", bem:"", aufnehmer:""};
+  const z = D.veg.punkte[ziel];
+  if(!z.einfach) z.einfach = {};
+  if(!z.arten) z.arten = [];
+
+  const paare = {};
+  let schichten = 0;
+  SCHICHTEN.forEach(s => {
+    let genommen = false;
+    ["_d","_h","_frei"].forEach(nach => {
+      const k = s.k + nach, w = (q.einfach || {})[k];
+      if(w && !z.einfach[k]){ paare["veg.punkte."+ziel+".einfach."+k] = w; genommen = true; }
+    });
+    if(genommen) schichten++;
+  });
+  if(q.kronenschluss && !z.kronenschluss) paare["veg.punkte."+ziel+".kronenschluss"] = q.kronenschluss;
+
+  const schon = new Set(lebend(z.arten).map(a => (a.schicht||"") + "|" + String(a.art||"").trim().toLowerCase()));
+  let arten = 0;
+  lebend(q.arten).forEach(a => {
+    const key = (a.schicht||"") + "|" + String(a.art||"").trim().toLowerCase();
+    if(!String(a.art||"").trim() || schon.has(key)) return;
+    z.arten.push(neuerEintrag({schicht:a.schicht, art:a.art, am:a.am||"", soz:a.soz||""}));
+    schon.add(key);
+    arten++;
+  });
+
+  if(!schichten && !arten && !paare["veg.punkte."+ziel+".kronenschluss"]){
+    balkenZeigen("Nichts übernommen — hier ist schon alles ausgefüllt, was " + quelle + " hat.");
+    setTimeout(() => balkenZeigen(""), 5000);
+    return;
+  }
+  paare["veg.punkte."+ziel+".kopie_von"] = quelle;
+  setzenMehrere(paare, true);
+  vegOeffnen(ziel, false);
+  balkenZeigen("Von " + quelle + " übernommen: " + schichten + " Schichten, " + arten
+    + " Arten. <b>Jetzt am Punkt prüfen und anpassen.</b>");
+  setTimeout(() => balkenZeigen(""), 7000);
 }

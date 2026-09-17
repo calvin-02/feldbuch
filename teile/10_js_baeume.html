@@ -141,11 +141,28 @@ let OB_PARZELLE = "A";      // bleibt zwischen Bäumen stehen
 let OB_ART      = "311";    // desgleichen
 let OB_OFFEN    = -1;       // welcher Baum gerade bearbeitet wird
 
+/* Einheit der Azimute auf dieser Fläche. Leer heißt: nicht ausdrücklich gewählt,
+   gerechnet wird dann mit Grad — und die Schnellerfassung sagt das deutlich. */
+function obEinheit(){ return D.kopf.k_einheit === "gon" ? "gon" : "grad"; }
+
+function einheitGewechselt(){
+  obSchnellAufbauen();
+  kompassHinweis();
+}
+
 function obSchnellAufbauen(){
   const box = document.getElementById("obSchnell");
   if(!box) return;
+  /* ⚑ 17.09.2026: Getippte, noch nicht gespeicherte Zahlen überleben den
+     Neuaufbau (z. B. beim Umschalten der Parzelle oder der Einheit). */
+  const merk = {};
+  ["obAz","obDist","obBhd","obHoehe"].forEach(id => {
+    const el = document.getElementById(id); if(el) merk[id] = el.value;
+  });
+  const e = obEinheit();
   box.innerHTML =
     '<div class="karte">'+
+      '<div id="obEinheitZeile"></div>'+
       '<label>Parzelle</label>'+
       '<div class="reihe">'+
         '<div><button class="knopf'+(OB_PARZELLE==="A"?"":" zweit")+'" onclick="obParzelle(\'A\')">Mittelpunkt A</button></div>'+
@@ -156,8 +173,8 @@ function obSchnellAufbauen(){
         BAUMARTEN.map(([c,n]) => '<option value="'+c+'"'+(OB_ART===c?" selected":"")+'>'+n+'</option>').join("")+
       '</select>'+
       '<div class="reihe">'+
-        '<div><label class="pflicht">Azimut (°) <span class="hint">Pfosten → Baum</span></label>'+
-          '<input type="number" inputmode="numeric" id="obAz" onkeydown="obTaste(event)"></div>'+
+        '<div><label class="pflicht">Azimut ('+einheitName(e)+') <span class="hint">Pfosten → Baum</span></label>'+
+          '<input type="number" step="0.1" inputmode="decimal" id="obAz" onkeydown="obTaste(event)"></div>'+
         '<div><label class="pflicht">Distanz (m)</label>'+
           '<input type="number" step="0.1" inputmode="decimal" id="obDist" onkeydown="obTaste(event)"></div>'+
       '</div>'+
@@ -170,8 +187,35 @@ function obSchnellAufbauen(){
       '<button class="knopf" onclick="obSpeichernNeu()">Baum speichern</button>'+
       '<div id="obMeldung"></div>'+
     '</div>';
+  Object.keys(merk).forEach(id => { const el = document.getElementById(id); if(el) el.value = merk[id]; });
+  obEinheitZeileZeigen();
   autoAus(box);
 }
+
+/* Einheit und Nordbezug direkt über den Eingabefeldern — dort, wo getippt wird. */
+function obEinheitZeileZeigen(){
+  const z = document.getElementById("obEinheitZeile");
+  if(!z) return;
+  const e = obEinheit();
+  const gewaehlt = !!D.kopf.k_einheit;
+  const bezug = D.kopf.k_nordbezug || "";
+  z.innerHTML = '<div class="p-anzeige '+(gewaehlt && bezug ? "p-ok" : "p-warn")+'" style="margin-top:0">'
+    + 'Azimut in <b>'+(e === "gon" ? "Gon (0–400)" : "Grad (0–360)")+'</b>'
+    + (gewaehlt ? '' : ' — <b>nicht ausdrücklich gewählt</b>')
+    + ' · Nordbezug: <b>'+(bezug || "offen")+'</b>'
+    + (gewaehlt && bezug ? '' : '<br>Beides oben unter „Womit gemessen wird“ festlegen.')
+    + '</div>';
+}
+
+/* Nächste freie Baumnummer. ⚑ 17.09.2026: Nummern werden nie neu vergeben —
+   auch nicht nach dem Löschen. Vorher rückten alle folgenden Bäume auf, und
+   ein Abgleich mit dem anderen Gerät brachte die Nummern durcheinander. */
+function obNaechsteNr(){
+  return (D.oberstand || []).reduce((m, b) => Math.max(m, Number(b.nr) || 0), 0) + 1;
+}
+
+/* Azimut eines Baumes in Grad — für Prüfung und Anzeige, nie zum Speichern. */
+function obAzGrad(b){ return inGrad(b.azimut, b.einheit || "grad"); }
 
 function obParzelle(p){
   OB_PARZELLE = p;
@@ -199,8 +243,13 @@ function obSpeichernNeu(){
   const meld = document.getElementById("obMeldung");
 
   const a = zahl(az.value), d = zahl(di.value), b = zahl(bh.value);
+  const e = obEinheit(), voll = EINHEIT_VOLL[e];
   const fehler = [];
-  if(isNaN(a) || a < 0 || a > 360) fehler.push("Azimut fehlt oder liegt außerhalb 0–360°.");
+  if(isNaN(a) || a < 0 || a > voll){
+    fehler.push("Azimut fehlt oder liegt außerhalb 0–" + voll + " " + einheitName(e) + "."
+      + (e === "grad" && a > 360 && a <= 400
+         ? " <b>Misst du in Gon?</b> Dann oben bei „Einheit der Azimute“ auf Gon stellen." : ""));
+  }
   if(isNaN(d) || d <= 0)           fehler.push("Distanz fehlt.");
   if(isNaN(b) || b < 7)            fehler.push("BHD fehlt oder liegt unter 7 cm — dann gehört der Baum nicht in die Aufnahme.");
   if(fehler.length){
@@ -209,13 +258,17 @@ function obSpeichernNeu(){
   }
 
   if(!D.oberstand) D.oberstand = [];
-  D.oberstand.push(neuerEintrag({nr:D.oberstand.length+1, parzelle:OB_PARZELLE, art:OB_ART,
-                    azimut:az.value, dist:di.value, bhd:bh.value, hoehe:ho.value,
+  const nr = obNaechsteNr();
+  D.oberstand.push(neuerEintrag({nr:nr, parzelle:OB_PARZELLE, art:OB_ART,
+                    azimut:az.value, einheit:e, dist:di.value, bhd:bh.value, hoehe:ho.value,
                     bem:"", x:"", y:"", ks:""}));
   speichern(true);
 
   az.value = ""; di.value = ""; bh.value = ""; ho.value = "";
-  meld.innerHTML = '<div class="p-anzeige p-ok">Baum '+D.oberstand.length+' gespeichert.</div>';
+  /* Parzelle in der Meldung: Eine falsche Parzelle verschiebt den Baum um rund
+     50 m — das ist der eine Fehler, der wirklich schadet. */
+  meld.innerHTML = '<div class="p-anzeige p-ok">Baum '+nr+' gespeichert — <b>Mittelpunkt '+OB_PARZELLE+'</b>, '
+    + a + ' ' + einheitName(e) + (e === "gon" ? ' (= ' + rund(a*0.9,1) + '°)' : '') + '.</div>';
   az.focus();
   obListeAufbauen(); obFortschritt();
   setTimeout(() => { if(meld) meld.innerHTML = ""; }, 2500);
@@ -227,7 +280,7 @@ function obSpeichernNeu(){
 function obFortschritt(){
   const box = document.getElementById("obFortschritt");
   if(!box) return;
-  const l = D.oberstand || [];
+  const l = lebend(D.oberstand);
   const nA = l.filter(b => (b.parzelle||"A") === "A").length;
   const nB = l.filter(b => b.parzelle === "B").length;
   const nK = l.filter(b => b.kontrolle).length;
@@ -266,20 +319,23 @@ function obListeAufbauen(){
   const box = document.getElementById("obListe");
   if(!box) return;
   if(!D.oberstand) D.oberstand = [];
-  if(!D.oberstand.length){
+  if(!lebend(D.oberstand).length){
+    OB_OFFEN = -1;
     box.innerHTML = '<div class="info">Noch kein Baum aufgenommen.</div>';
     return;
   }
   const name = {}; BAUMARTEN.forEach(([c,n]) => name[c] = n);
 
+  /* Die Stelle i im Feld bleibt die Kennung für "ändern" — gelöschte Bäume
+     stehen weiter im Feld (Löschvermerk) und werden nur übersprungen. */
   let h = '<table><tr><th>Nr</th><th>P</th><th>Az</th><th>Dist</th><th>Art</th><th>BHD</th><th></th></tr>';
   for(let i = D.oberstand.length - 1; i >= 0; i--){
     const b = D.oberstand[i];
-    if(i === OB_OFFEN) continue;
+    if(i === OB_OFFEN || b._weg) continue;
     h += '<tr onclick="obOeffnen('+i+')" style="cursor:pointer">'
       +  '<td>'+b.nr+'</td>'
       +  '<td>'+(b.parzelle||"A")+'</td>'
-      +  '<td>'+(b.azimut||"—")+'°</td>'
+      +  '<td>'+(b.azimut||"—")+(b.einheit === "gon" ? "g" : "°")+'</td>'
       +  '<td>'+(b.dist||"—")+' m</td>'
       +  '<td>'+((name[b.art]||b.art||"—").slice(0,10))+'</td>'
       +  '<td>'+(b.bhd||"—")+(b.kontrolle?' <b>K</b>':'')+'</td>'
@@ -287,7 +343,7 @@ function obListeAufbauen(){
   }
   h += '</table>';
 
-  if(OB_OFFEN >= 0 && D.oberstand[OB_OFFEN]) h = obKarte(OB_OFFEN) + h;
+  if(OB_OFFEN >= 0 && D.oberstand[OB_OFFEN] && !D.oberstand[OB_OFFEN]._weg) h = obKarte(OB_OFFEN) + h;
   box.innerHTML = h;
   autoAus(box);
 }
@@ -297,6 +353,8 @@ function obOeffnen(i){ OB_OFFEN = (OB_OFFEN === i ? -1 : i); obListeAufbauen(); 
 function obKarte(i){
   const b = D.oberstand[i];
   const andere = (b.parzelle||"A") === "A" ? "B" : "A";
+  const e = b.einheit === "gon" ? "gon" : "grad";
+  const inG = obAzGrad(b);
   return '<div class="karte fertig">'+
     '<div class="kopf"><span>Baum '+b.nr+' ändern</span>'+
       '<button class="knopf zweit" style="width:auto;margin:0;padding:6px 12px;font-size:14px" '+
@@ -306,8 +364,15 @@ function obKarte(i){
       ["A","B"].map(p => '<option value="'+p+'"'+((b.parzelle||"A")===p?" selected":"")+'>Mittelpunkt '+p+'</option>').join("")+
     '</select>'+
     '<div class="reihe">'+
-      '<div><label>Azimut (°)</label><input type="number" inputmode="numeric" value="'+(b.azimut||"")+'" '+
+      '<div><label>Azimut ('+einheitName(e)+')'+
+        (e === "gon" && !isNaN(inG) ? ' <span class="hint">= '+rund(inG,1)+'°</span>' : '')+'</label>'+
+        '<input type="number" step="0.1" inputmode="decimal" value="'+(b.azimut||"")+'" '+
         'onchange="obSetzen('+i+',\'azimut\',this.value)"></div>'+
+      '<div style="flex:0 0 96px"><label>Einheit</label>'+
+        '<select onchange="obSetzen('+i+',\'einheit\',this.value)">'+
+          '<option value="grad"'+(e==="grad"?" selected":"")+'>Grad</option>'+
+          '<option value="gon"'+(e==="gon"?" selected":"")+'>Gon</option>'+
+        '</select></div>'+
       '<div><label>Distanz (m)</label><input type="number" step="0.1" inputmode="decimal" value="'+(b.dist||"")+'" '+
         'onchange="obSetzen('+i+',\'dist\',this.value)"></div>'+
     '</div>'+
@@ -333,8 +398,8 @@ function obKarte(i){
           '<div><label class="pflicht">Distanz von '+andere+' (m)</label>'+
             '<input type="number" step="0.1" inputmode="decimal" value="'+(b.k_dist2||"")+'" '+
             'onchange="obSetzen('+i+',\'k_dist2\',this.value)"></div>'+
-          '<div><label>Azimut sorgfältig (°) <span class="hint">optional, Bussole</span></label>'+
-            '<input type="number" inputmode="numeric" value="'+(b.k_azimut||"")+'" '+
+          '<div><label>Azimut sorgfältig ('+einheitName(e)+') <span class="hint">optional, Bussole</span></label>'+
+            '<input type="number" step="0.1" inputmode="decimal" value="'+(b.k_azimut||"")+'" '+
             'onchange="obSetzen('+i+',\'k_azimut\',this.value)"></div>'+
         '</div>'
       : '')+
@@ -350,7 +415,7 @@ function obSetzen(i, feld, wert){
   const aenderung = {}; aenderung[feld] = wert;
   eintragAendern(D.oberstand[i], aenderung);
   speichern();
-  if(feld === "kontrolle" || feld === "parzelle"){ obListeAufbauen(); obFortschritt(); return; }
+  if(feld === "kontrolle" || feld === "parzelle" || feld === "einheit"){ obListeAufbauen(); obFortschritt(); return; }
   obPruefen(i);
   if(feld === "azimut" || feld === "dist" || feld === "bhd") obListeAufbauen();
 }
@@ -377,19 +442,20 @@ function obMaxDistanz(pz){
     // gegen eine erfundene Fläche. Dann lieber grob: 60 m fängt grobe Zahlendreher
     // (99 statt 9), ohne je auf einen echten Baum anzuschlagen. Sobald die Maße
     // erfasst sind, zieht sich die Grenze von allein zusammen.
-    const P0 = (pz === "B") ? D.parzellen.B : D.parzellen.A;
-    const eigenL = zahl(pz === "B" ? P0.pb_laenge   : P0.pa_laenge);
-    const eigenW = zahl(pz === "B" ? P0.pb_breite_a : P0.pa_breite_a);
-    const andere = (pz === "B") ? D.parzellen.A : D.parzellen.B;
-    const ersatzL = zahl(pz === "B" ? andere.pa_laenge   : andere.pb_laenge);
-    const ersatzW = zahl(pz === "B" ? andere.pa_breite_a : andere.pb_breite_a);
-    if((isNaN(eigenL) || isNaN(eigenW)) && (isNaN(ersatzL) || isNaN(ersatzW))) return 60;
-    const G = geometrie();
-    const P = (pz === "B") ? G.B : G.A;
-    let max = 0;
-    ECKEN.forEach(e => { max = Math.max(max, Math.hypot(P.ecken[e].x, P.ecken[e].y - P.yc)); });
-    return max + G.g.T/2 + 2;
-  }catch(e){ return 40; }
+    //
+    // ⚑ 17.09.2026: Bis 3.0.4 las diese Funktion "pa_breite_a" — ein Feld aus
+    // Fassung 2, das es seit Fassung 3 nicht mehr gibt. Die Grenze stand deshalb
+    // IMMER auf 60 m, die Prüfung war still abgeschaltet.
+    // Jetzt aus den größten gemessenen Seiten der eigenen Parzelle: bei einer
+    // ungleichmäßigen Parzelle liegt die weiteste Ecke nie weiter als die halbe
+    // Diagonale des umschließenden Rechtecks aus längster Länge und breitester
+    // Breite — die Grenze bleibt eine sichere obere Schranke.
+    const m = masse();
+    const L = (pz === "B") ? m.LbMax : m.LaMax;
+    const W = (pz === "B") ? m.WbMax : m.WaMax;
+    if(!m.eigenGemessen[pz] || isNaN(L) || isNaN(W)) return 60;
+    return Math.hypot(L/2, W/2) + m.T/2 + 2;
+  }catch(e){ return 60; }
 }
 
 /* Prüfungen, alle können scheitern und sollen es auch dürfen. */
@@ -399,14 +465,15 @@ function obPruefen(i){
   if(!box) return;
   const m = [];
   const d = zahl(b.dist), h = zahl(b.hoehe), bh = zahl(b.bhd), a = zahl(b.azimut);
+  const voll = EINHEIT_VOLL[b.einheit === "gon" ? "gon" : "grad"];
 
   const grenze = obMaxDistanz(b.parzelle || "A");
   if(!isNaN(d) && d > grenze) m.push(["warn",
     "<b>"+rund(d,1)+" m</b> vom Mittelpunkt — weiter, als das Gatter nach den erfassten "+
     "Maßen reicht (höchstens rund "+rund(grenze,0)+" m). <b>Zahlendreher?</b> Eine "+
     "Obergrenze für die Aufnahme gibt es nicht, aber diese Zahl passt nicht zur Fläche."]);
-  if(!isNaN(a) && (a < 0 || a > 360)) m.push(["warn",
-    "Azimut außerhalb 0–360°."]);
+  if(!isNaN(a) && (a < 0 || a > voll)) m.push(["warn",
+    "Azimut außerhalb 0–" + voll + " " + einheitName(b.einheit) + "."]);
   if(!isNaN(h) && !isNaN(d) && Math.abs(h-d) < 0.05 && h > 3) m.push(["warn",
     "Höhe und Distanz sind <b>dieselbe Zahl</b> ("+rund(h,1)+"). Beim Vertex ein häufiger "+
     "Übertragungsfehler — bitte gegenlesen."]);
@@ -419,12 +486,12 @@ function obPruefen(i){
 function obLoeschen(i){
   const b = D.oberstand[i];
   nachfragen("Baum " + b.nr + " löschen?",
-    "Azimut " + (b.azimut||"—") + "°, Distanz " + (b.dist||"—") + " m. "
-    + "Die folgenden Bäume werden neu durchnummeriert.",
+    "Azimut " + (b.azimut||"—") + " " + einheitName(b.einheit) + ", Distanz " + (b.dist||"—") + " m. "
+    + "Die Nummern der übrigen Bäume bleiben, wie sie sind.",
     "Löschen",
     () => {
-      D.oberstand.splice(i,1);
-      D.oberstand.forEach((x,j) => x.nr = j+1);
+      /* Löschvermerk statt Entfernen — siehe lebend() in 06. */
+      eintragAendern(b, {_weg: true});
       OB_OFFEN = -1;
       speichern(true); obListeAufbauen(); obFortschritt();
     }, true);
@@ -439,19 +506,34 @@ function kompassHinweis(){
   if(!box) return;
   const geraet = wertVon("kopf","k_geraet") || "Handykompass";
   const bezug  = D.kopf.k_nordbezug || "";
+  /* ⚑ 17.09.2026: Eine Bussole zeigt MAGNETISCH Nord, solange an ihr keine
+     Missweisung eingestellt ist. Auf BY06 stand "geografisch" — mit der Suunto
+     hätte das alle Bäume um rund 4° verdreht, ohne dass es je auffällt. */
+  const bussole = /bussole|suunto|kompass am vertex/i.test(geraet);
+  const zusatz = (bussole && bezug === "geografisch")
+    ? '<div class="p-anzeige p-warn"><b>Bussole und „geografisch"?</b> Eine Bussole zeigt '
+      + '<b>magnetisch</b> Nord — außer an ihr ist die Missweisung eingestellt. Wenn nicht: '
+      + 'auf <b>magnetisch</b> stellen. Rund 4° Unterschied, also etwa 3,5 m auf 50 m.</div>'
+    : '';
+  const einheitZeile = !D.kopf.k_einheit
+    ? '<div class="p-anzeige p-warn"><b>Einheit der Azimute noch nicht gewählt</b> — '
+      + 'Suunto-Bussolen gibt es in Grad und in Gon. Auf der Skala nachsehen: reicht sie bis 400, ist es Gon.</div>'
+    : '';
+  box.innerHTML = einheitZeile + zusatz;
+  obEinheitZeileZeigen();
   if(!bezug){
-    box.innerHTML = '<div class="p-anzeige p-warn">Nordbezug noch offen. '
+    box.innerHTML += '<div class="p-anzeige p-warn">Nordbezug noch offen. '
       + (geraet.indexOf("Handy") === 0
          ? 'Beim Handy steht die Einstellung unter Kompass — „wahres Nord" oder magnetisch?'
          : 'Auch bei der Bussole festhalten, worauf sie bezogen ist.')
       + '</div>';
   }else if(bezug === "magnetisch"){
-    box.innerHTML = '<div class="p-anzeige p-ok">Magnetisch gemessen — in Ordnung, '
+    box.innerHTML += '<div class="p-anzeige p-ok">Magnetisch gemessen — in Ordnung, '
       + 'die Missweisung wird bei der Auswertung herausgerechnet.</div>';
   }else if(bezug === "unbekannt"){
-    box.innerHTML = '<div class="p-anzeige p-fehler">Unbekannter Nordbezug: Die Azimute lassen sich '
+    box.innerHTML += '<div class="p-anzeige p-fehler">Unbekannter Nordbezug: Die Azimute lassen sich '
       + 'später nicht mehr korrigieren. <b>Wenn möglich noch auf der Fläche klären.</b></div>';
   }else{
-    box.innerHTML = '<div class="p-anzeige p-ok">Geografisch Nord — passt zur Rechnung des Modells.</div>';
+    box.innerHTML += '<div class="p-anzeige p-ok">Geografisch Nord — passt zur Rechnung des Modells.</div>';
   }
 }

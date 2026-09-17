@@ -24,13 +24,15 @@ function exporteAufbauen(){
 
   // Koordinaten der Messpunkte
   const g = [];
-  g.push(["Punkt","Serie","Breite","Laenge","Genauigkeit_m","Messungen","Zeit","Datum"].join("\t"));
+  /* ⚑ 17.09.2026: "Genauigkeit_m" ist die beste Einzelmessung laut Handy (roh).
+     Bis 3.0.4 stand hier ein halbierter Wert — siehe gpsGenauigkeit() in 11. */
+  g.push(["Punkt","Serie","Breite","Laenge","Genauigkeit_m","Messungen","Dauer_s","Zeit","Datum"].join("\t"));
   PUNKTE.forEach(p => {
     const d = D.punkte[p.id] || {};
     [1,2].forEach(s => {
       const k = d["gps"+s];
       if(!k || !k.lat) return;
-      g.push([p.id, s, k.lat, k.lon, k.acc, k.n||"", k.zeit||"", k.datum||""].join("\t"));
+      g.push([p.id, s, k.lat, k.lon, gpsGenauigkeit(k), k.n||"", k.dauer_s||"", k.zeit||"", k.datum||""].join("\t"));
     });
   });
   const eg = document.getElementById("exportGps");
@@ -77,12 +79,21 @@ function textFassung(){
   z.push("");
 
   z.push("PARZELLEN");
+  /* Seiten mit Punktnummern der Ecken (Ecke zu Ecke) — so, wie im Feld gezählt wird. */
+  const seiten = pz => {
+    const P = D.parzellen[pz], v = pz === "A" ? "pa_" : "pb_";
+    const s = (k, e1, e2) => P[v+k] ? " " + eckNr(pz,e1) + "-" + eckNr(pz,e2) + ": " + P[v+k] + " m" : "";
+    return "     Länge rechts" + (s("laenge","or","ur") || " ?") + " | Länge links" + (s("laenge2","ol","ul") || " —")
+         + " | Breite oben" + (s("breite","ol","or") || " ?") + " | Breite unten" + (s("breite2","ul","ur") || " —")
+         + (P[v+"diag"] ? " | Diagonale " + eckNr(pz,"or") + "-" + eckNr(pz,"ul") + ": " + P[v+"diag"] + " m" : "");
+  };
   z.push("  A: Lage " + w("parzA","pa_lage") + " | Herkunft " + (D.parzellen.A.pa_herkunft||"—")
          + " | Reg.-Nr. " + (D.parzellen.A.pa_code||"—"));
-  z.push("     L " + (D.parzellen.A.pa_laenge||"?") + " m x B " + (D.parzellen.A.pa_breite||"?") + " m");
+  z.push(seiten("A"));
   z.push("  B: Lage " + w("parzB","pb_lage") + " | Herkunft " + (D.parzellen.B.pb_herkunft||"—")
          + " | Reg.-Nr. " + (D.parzellen.B.pb_code||"—"));
-  z.push("     L " + (D.parzellen.B.pb_laenge||"?") + " m x B " + (D.parzellen.B.pb_breite||"?") + " m");
+  z.push(seiten("B"));
+  if(q.g.ungleich) z.push("  UNGLEICHMÄSSIG: Flächen und Abstände unten aus Mittelwerten der Gegenseiten (Näherung).");
   z.push("  Trennstreifen: Länge (Abstand A-B) " + (D.kopf.f_trenn_l||"?")
          + " m, Breite (quer) " + (D.kopf.f_trenn_b||"?") + " m");
   z.push("  Berechnet: Fläche A " + rund(q.A.flaeche,0) + " m², B " + rund(q.B.flaeche,0)
@@ -103,7 +114,10 @@ function textFassung(){
   z.push("  Abstand Mittelpunkt A->B, gemessen: " + (D.schema.s_pfosten||"—") + " m"
          + "   (aus den Maßen: " + rund(q.abstandAB,1) + " m)");
   z.push("  Azimut Längsachse A->B: " + (D.schema.s_achse||"—") + " °"
+         + (D.schema.s_achse_gon ? " (abgelesen " + D.schema.s_achse_gon + " gon)" : "")
+         + "  [" + (D.schema.s_achse_quelle === "gemessen" ? "gemessen" : "aus der Lage abgeleitet, 45°-Raster") + "]"
          + "   Eingang: " + w("schema","s_eingang"));
+  z.push("  Am Solariskop heißt Parzelle A: " + (D.schema.s_pz_a || "NICHT FESTGEHALTEN"));
   z.push("  Ansichtsdrehung der Skizze: " + drehung() + " ° (nur Darstellung)");
   z.push("  Zählregel im Feld: " + (D.schema.s_regel||"—"));
   ["A","B"].forEach(pz => {
@@ -118,8 +132,10 @@ function textFassung(){
   PUNKTE.forEach(p => {
     const d = D.punkte[p.id];
     if(!d){ z.push("  " + p.id + ": —"); return; }
+    const bn = bildName(p.id);
     let zeile = "  " + p.id + ": " + (d.zeit||"--:--")
-      + "  Bild " + (d.bild || "FEHLT")
+      + (bn ? "  Gerät " + bn : "")
+      + (d.bild ? "  Bild-Nr. " + d.bild : "")
       + (d.bild2 ? "  Wdh.-Bild " + d.bild2 : "")
       + (d.platz ? "  Pflanzplatz " + d.platz : "")
       + (d.hoehe ? "  h=" + d.hoehe + " cm" : "");
@@ -134,7 +150,8 @@ function textFassung(){
       const k = d["gps"+s];
       if(k && k.lat){
         z.push("        GPS Serie " + s + ": " + k.lat + " / " + k.lon
-               + "  ± " + k.acc + " m" + (k.n ? "  aus " + k.n + " Messungen" : "")
+               + "  Handy ± " + gpsGenauigkeit(k) + " m" + (k.n ? "  aus " + k.n + " Messungen" : "")
+               + (k.dauer_s ? " in " + k.dauer_s + " s" : "")
                + "  " + (k.zeit||"") + " " + (k.datum||""));
       }
     });
@@ -158,7 +175,8 @@ function textFassung(){
   VEG_PUNKTE.forEach(p => {
     const v = (D.veg.punkte||{})[p.id];
     if(!v){ z.push("  " + p.id + ": —"); return; }
-    z.push("  " + p.id + (v.aufnehmer ? "  (" + v.aufnehmer + ")" : ""));
+    z.push("  " + p.id + (v.aufnehmer ? "  (" + v.aufnehmer + ")" : "")
+           + (v.kopie_von ? "  [ÜBERNOMMEN VON " + v.kopie_von + ", danach am Punkt angepasst]" : ""));
     const e = v.einfach || {};
     SCHICHTEN.forEach(s => {
       const d = e[s.k+"_d"], h = e[s.k+"_h"], f = e[s.k+"_frei"];
@@ -166,7 +184,7 @@ function textFassung(){
                              + (f ? "  [" + f + "]" : ""));
     });
     if(v.kronenschluss) z.push("      Kronenschluss: " + v.kronenschluss);
-    (v.arten||[]).forEach(a => {
+    lebend(v.arten).forEach(a => {
       z.push("      " + (a.schicht||"?") + "  " + (a.art||"?") + "   "
              + (a.am||"—") + " / " + (a.soz||"—"));
     });
@@ -174,13 +192,20 @@ function textFassung(){
   });
   z.push("");
 
-  if((D.oberstand||[]).length){
-    z.push("OBERSTAND  (" + D.oberstand.length + " Bäume)");
-    z.push("  Azimutgerät: " + w("kopf","k_geraet") + "   Nordbezug: " + (D.kopf.k_nordbezug||"—"));
-    z.push("  Nr\tParz\tArt\tAzimut\tDist\tBHD\tHöhe");
-    D.oberstand.forEach(b => {
-      z.push("  " + [b.nr, b.parzelle, b.art, b.azimut, b.dist, b.bhd, b.hoehe||""].join("\t")
-             + (b.kontrolle ? "\t[Kontrollbaum]" : "") + (b.bem ? "\t" + b.bem : ""));
+  const baeume = lebend(D.oberstand);
+  if(baeume.length){
+    z.push("OBERSTAND  (" + baeume.length + " Bäume"
+           + ((D.oberstand.length > baeume.length) ? ", " + (D.oberstand.length - baeume.length) + " gelöscht" : "") + ")");
+    z.push("  Azimutgerät: " + w("kopf","k_geraet") + "   Nordbezug: " + (D.kopf.k_nordbezug||"—")
+           + "   Einheit der Fläche: " + (D.kopf.k_einheit || "nicht gewählt (Grad angenommen)"));
+    /* Azimut wie abgelesen, mit Einheit — daneben in Grad umgerechnet. */
+    z.push("  Nr\tParz\tArt\tAzimut\tEinheit\tAzimut_Grad\tDist\tBHD\tHöhe");
+    baeume.forEach(b => {
+      const g = obAzGrad(b);
+      z.push("  " + [b.nr, b.parzelle, b.art, b.azimut, b.einheit || "grad",
+                     isNaN(g) ? "" : Math.round(g*10)/10, b.dist, b.bhd, b.hoehe||""].join("\t")
+             + (b.kontrolle ? "\t[Kontrollbaum" + (b.k_dist2 ? ", Dist. vom anderen MP " + b.k_dist2 : "") + "]" : "")
+             + (b.bem ? "\t" + b.bem : ""));
     });
     z.push("");
   }
@@ -299,7 +324,7 @@ function uebernehmen(roh, quelle){
 
   nachfragen("Sicherung einlesen?",
     "Die Sicherung gehört zu <b>" + name + "</b> und enthält <b>" + anzahl + " Messpunkte</b>"
-    + ((fremd.oberstand||[]).length ? " und " + fremd.oberstand.length + " Bäume" : "") + ". "
+    + (lebend(fremd.oberstand).length ? " und " + lebend(fremd.oberstand).length + " Bäume" : "") + ". "
     + (ausAlt ? "Sie stammt aus einer <b>älteren Fassung</b> und wird dabei umgesetzt. " : "")
     + "<b>Nichts wird überschrieben:</b> Gibt es diese Fläche hier schon, werden beide Stände "
     + "Feld für Feld zusammengeführt — der jüngere Eintrag gewinnt.",

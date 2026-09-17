@@ -53,6 +53,16 @@ const SYNC_KONFIG = {
 const P_SYNC_AN    = "wta_v3_sync_an";      // hat der Anwender sie eingeschaltet?
 const P_SYNC_MAIL  = "wta_v3_sync_mail";
 const P_SYNC_TOKEN = "wta_v3_sync_token";   // Erneuerungsschlüssel, überlebt den Neustart
+const P_SYNC_HOCH   = "wta_v3_sync_hoch";   // je Fläche: welcher Stand zuletzt hochgeladen wurde
+const P_SYNC_RUNTER = "wta_v3_sync_runter"; // je Fläche: welcher Datenbankstand zuletzt geholt wurde
+
+function syncMerkLesen(k){
+  try{ const o = JSON.parse(localStorage.getItem(k) || "{}"); return (o && typeof o === "object") ? o : {}; }
+  catch(e){ return {}; }
+}
+function syncMerkSchreiben(k, o){
+  try{ localStorage.setItem(k, JSON.stringify(o)); }catch(e){}
+}
 
 let SYNC_ID_TOKEN = null;        // gilt eine Stunde
 let SYNC_TOKEN_BIS = 0;
@@ -121,7 +131,7 @@ function syncTokenHolen(){
   let erneuerung = null;
   try{ erneuerung = localStorage.getItem(P_SYNC_TOKEN); }catch(e){}
   if(!erneuerung) return Promise.reject(new Error("Noch nicht angemeldet."));
-  return fetch("https://securetoken.googleapis.com/v1/token?key="
+  return mitZeitlimit("https://securetoken.googleapis.com/v1/token?key="
       + encodeURIComponent(SYNC_KONFIG.schluessel), {
     method:"POST",
     headers:{"Content-Type":"application/x-www-form-urlencoded"},
@@ -157,9 +167,23 @@ function fsWurzel(){
        + "/databases/(default)/documents";
 }
 
+/* ⚑ 17.09.2026: ZEITLIMIT. Im Wald meldet das Handy oft "online", obwohl kaum
+   Empfang ist. Eine Anfrage ohne Zeitlimit konnte dann minutenlang hängen —
+   und solange sie hing, blieb SYNC_LAEUFT stehen: Die App glich bis zum
+   nächsten Neustart NIE WIEDER ab. Nach 20 s wird abgebrochen und beim
+   nächsten Anlass neu versucht. */
+function mitZeitlimit(url, optionen, ms){
+  if(typeof AbortController === "undefined") return fetch(url, optionen);
+  const ab = new AbortController();
+  const t = setTimeout(() => ab.abort(), ms || 20000);
+  return fetch(url, Object.assign({signal: ab.signal}, optionen))
+    .catch(f => { throw (f && f.name === "AbortError") ? new Error("Zeitüberschreitung — zu wenig Empfang") : f; })
+    .finally(() => clearTimeout(t));
+}
+
 function fsAnfrage(pfad, art, koerper){
   return syncTokenHolen().then(token =>
-    fetch(fsWurzel() + pfad, {
+    mitZeitlimit(fsWurzel() + pfad, {
       method: art,
       headers: Object.assign({"Authorization":"Bearer " + token},
                              koerper ? {"Content-Type":"application/json"} : {}),
@@ -193,8 +217,13 @@ function syncHochladen(datensatz){
       groesse:   {integerValue: String(inhalt.length)}
     }
   };
-  return fsAnfrage("/flaechen/" + datensatz.id, "PATCH", kopfDaten)
-    .then(() => fsAnfrage("/flaechen/" + datensatz.id + "/geraete/" + GERAET, "PATCH", geraetDaten));
+  /* ⚑ 17.09.2026: ERST die Daten, DANN der Kopf. Andere Geräte holen eine Fläche
+     nur noch, wenn sich "geaendert" im Kopf geändert hat. Stünde der neue Kopf
+     schon da, bevor die Daten geschrieben sind, könnte ein anderes Gerät genau
+     dazwischen lesen, den alten Stand holen, sich den neuen Kopf merken — und
+     die neuen Daten danach nie mehr abrufen. */
+  return fsAnfrage("/flaechen/" + datensatz.id + "/geraete/" + GERAET, "PATCH", geraetDaten)
+    .then(() => fsAnfrage("/flaechen/" + datensatz.id, "PATCH", kopfDaten));
 }
 
 /* Alle fremden Stände einer Fläche holen. */
@@ -241,7 +270,17 @@ function syncJetzt(still){
   SYNC_LAEUFT = true;
   if(!still) syncMelden("Synchronisiert …", null);
 
-  const bilanz = {hoch:0, runter:0, neu:0, erneuert:0, konflikte:0, flaechen:0};
+  const bilanz = {hoch:0, runter:0, neu:0, erneuert:0, konflikte:0, flaechen:0, aktuellGeaendert:false, andereGeaendert:false};
+  /* ⚑ 17.09.2026: SPARSAMER ABGLEICH. Bis 3.0.4 lud jeder Abgleich ALLE Flächen
+     hoch und ALLE fremden Stände herunter — alle 45 s nach einer Eingabe, mit
+     schwachem Netz im Wald. Jetzt:
+       · hoch nur, was sich seit dem letzten erfolgreichen Hochladen geändert hat
+       · herunter nur Flächen, deren Stand in der Datenbank sich seit dem letzten
+         Blick geändert hat
+     Der Knopf "Jetzt abgleichen" (still = false) macht weiterhin ALLES — als
+     Rückfallebene, falls die Merkliste einmal nicht stimmt. */
+  const voll = !still;
+  const hochMerk = syncMerkLesen(P_SYNC_HOCH), runterMerk = syncMerkLesen(P_SYNC_RUNTER);
 
   // 1 · Eigene Flächen hochladen
   const eigene = flaechenListe();
@@ -250,7 +289,15 @@ function syncJetzt(still){
     kette = kette.then(() => {
       const d = (D.id === e.id) ? D : flaecheLesen(e.id);
       if(!d) return;
-      return syncHochladen(d).then(() => { bilanz.hoch++; });
+      if(!voll && d.geaendert && hochMerk[e.id] === d.geaendert) return;
+      const stand = d.geaendert;
+      return syncHochladen(d).then(() => {
+        bilanz.hoch++;
+        hochMerk[e.id] = stand;
+        syncMerkSchreiben(P_SYNC_HOCH, hochMerk);
+        /* Der Stand liegt jetzt auch in der Datenbank — das ist eine Sicherung. */
+        if(D.id === e.id && D.geaendert === stand){ SEIT_SICHERUNG = 0; erinnerungPruefen(); }
+      });
     });
   });
 
@@ -259,6 +306,7 @@ function syncJetzt(still){
     bilanz.flaechen = liste.length;
     let k2 = Promise.resolve();
     liste.forEach(f => {
+      if(!voll && f.geaendert && runterMerk[f.id] === f.geaendert) return;
       k2 = k2.then(() => syncHolenFlaeche(f.id).then(staende => {
         staende.forEach(fremd => {
           if(!fremd || !fremd.id) fremd.id = f.id;
@@ -268,8 +316,13 @@ function syncJetzt(still){
             bilanz.neu       += erg.bericht.neu || 0;
             bilanz.erneuert  += erg.bericht.erneuert || 0;
             bilanz.konflikte += (erg.bericht.konflikte || []).length;
+            if(erg.bericht.geaendert){
+              if(erg.id === D.id) bilanz.aktuellGeaendert = true; else bilanz.andereGeaendert = true;
+            }
           }
         });
+        runterMerk[f.id] = f.geaendert;
+        syncMerkSchreiben(P_SYNC_RUNTER, runterMerk);
       }));
     });
     return k2;
@@ -284,7 +337,11 @@ function syncJetzt(still){
         + (bilanz.konflikte ? ", " + bilanz.konflikte + " Konflikte — bitte ansehen" : "") + ".",
         bilanz.konflikte ? "warn" : "ok");
     }
-    if(typeof alles === "function") alles();
+    /* ⚑ 17.09.2026: NICHT MEHR alles(). Das baute offene Masken neu und warf den
+       Anwender in die Übersicht zurück (Feldtag 17.09.). Aufgefrischt wird nur,
+       wenn wirklich etwas Fremdes hereinkam — und dann schonend. */
+    if(bilanz.aktuellGeaendert) nachAbgleichAuffrischen();
+    else if(bilanz.andereGeaendert) flaechenListeZeigen();
     syncZustandZeigen();
     return bilanz;
   }).catch(fehler => {

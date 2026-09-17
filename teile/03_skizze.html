@@ -10,7 +10,9 @@
 
   <div class="reihe">
     <div><label>Azimut der Längsachse A → B (°)</label>
-      <input type="number" step="1" id="s_achse" inputmode="numeric" placeholder="0 = A im Süden"></div>
+      <input type="number" step="0.1" id="s_achse" inputmode="decimal" placeholder="0 = A im Süden"></div>
+    <div><label>… oder in Gon</label>
+      <input type="number" step="0.1" id="s_achse_gon" inputmode="decimal" placeholder="Suunto"></div>
     <div><label>&nbsp;</label>
       <button class="knopf zweit" style="margin:0" onclick="achseAusLage()">aus der Lage</button></div>
   </div>

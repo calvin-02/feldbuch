@@ -22,8 +22,21 @@
    die Baumarten- und Pflanzenlisten, die Punktdefinition.
    ===================================================================== */
 
-const FASSUNG = "3.0.4";
-const STAND   = "16.09.2026";
+const FASSUNG = "3.1.0";
+const STAND   = "17.09.2026";
+
+/* ---------- Winkeleinheiten (17.09.2026) ----------
+   Die Suunto-Bussole zeigt Gon (Vollkreis 400), das Handy Grad (360).
+   GESPEICHERT WIRD IMMER DER ABGELESENE WERT MIT SEINER EINHEIT — nie still
+   umgerechnet. Sonst ist später nicht mehr zu erkennen, ob "200" Süd (Grad)
+   oder Südsüdwest (Gon) war. Umgerechnet wird nur für Anzeige und Prüfung. */
+const EINHEIT_VOLL = { grad: 360, gon: 400 };
+function einheitName(e){ return e === "gon" ? "gon" : "°"; }
+function inGrad(wert, einheit){
+  const w = zahl(wert);
+  if(isNaN(w)) return NaN;
+  return einheit === "gon" ? w * 0.9 : w;
+}
 
 /* ---------- Auswahllisten ----------
    Alles hier ist Vorschlag, nicht Vorschrift: jede Liste bekommt beim Aufbau
@@ -401,6 +414,9 @@ function zusammenfuehren(ziel, quelle){
 
   const tq = quelle.t || {};
   const tz = ziel.t   || {};
+  /* ⚑ 17.09.2026: Listen vorher festhalten — ob sich etwas geändert hat, zählt
+     sonst nur über die LÄNGE, und ein Löschvermerk ändert die Länge nicht. */
+  const listenVorher = JSON.stringify([ziel.oberstand || [], (ziel.veg && ziel.veg.punkte) || {}]);
 
   Object.keys(tq).forEach(pfad => {
     if(pfad.indexOf("oberstand") === 0) return;        // Listen unten gesondert
@@ -453,9 +469,30 @@ function zusammenfuehren(ziel, quelle){
     }
   });
 
-  ziel.geaendert = new Date().toISOString();
+  /* Welches Gerät wann geschrieben hat, wird vereinigt (vorher blieb nur die
+     eigene Liste stehen — die Herkunft eines Stands war damit nicht belegbar). */
+  if(!ziel.herkunft) ziel.herkunft = {};
+  Object.keys(quelle.herkunft || {}).forEach(g => {
+    if(!ziel.herkunft[g] || String(quelle.herkunft[g]) > String(ziel.herkunft[g]))
+      ziel.herkunft[g] = quelle.herkunft[g];
+  });
+
+  /* ⚑ 17.09.2026: "geändert" nur setzen, wenn wirklich etwas übernommen wurde.
+     Vorher bekam jeder Abgleich einen neuen Zeitpunkt — die Synchronisation
+     hätte dann jeden Stand erneut hochgeladen, auch ohne jede Änderung. */
+  const listenNachher = JSON.stringify([ziel.oberstand || [], (ziel.veg && ziel.veg.punkte) || {}]);
+  bericht.geaendert = (bericht.neu + bericht.erneuert) > 0 || listenVorher !== listenNachher;
+  if(bericht.geaendert) ziel.geaendert = new Date().toISOString();
   return bericht;
 }
+
+/* ---------- Löschvermerke (17.09.2026) ----------
+   Ein gelöschter Baum oder eine gelöschte Art wurde bis 3.0.4 aus der Liste
+   entfernt. Beim nächsten Abgleich kannte ihn das andere Gerät aber noch — und
+   das Vereinigen holte ihn zurück. Jetzt bleibt der Eintrag stehen, bekommt
+   _weg = true und einen neuen Zeitstempel; der jüngere Stand gewinnt, also die
+   Löschung. Angezeigt, gezählt und exportiert wird nur, was nicht _weg ist. */
+function lebend(liste){ return (liste || []).filter(e => e && !e._weg); }
 
 /* Eine Liste im Datensatz vereinigen (Oberstand). */
 function listeVereinigen(ziel, quelle, name){
@@ -548,7 +585,7 @@ function listeAuffrischen(){
     datum: D.kopf.f_datum || "",
     geaendert: D.geaendert || new Date().toISOString(),
     punkte: fertig,
-    baeume: (D.oberstand || []).length
+    baeume: lebend(D.oberstand).length
   };
   const i = l.findIndex(e => e.id === D.id);
   if(i >= 0) l[i] = eintrag; else l.push(eintrag);
@@ -668,7 +705,7 @@ function standEinsortieren(fremd){
   neu.id = fremd.id || ("f" + Date.now().toString(36) + Math.random().toString(36).slice(2,6));
   neu.fassung = 3;
   aufD(neu, () => { ergaenzen(); flaecheSchreiben(); listeAuffrischen(); });
-  return {art:"neu", id:neu.id, bericht:{neu:Object.keys(neu.t||{}).length, erneuert:0, behalten:0, listen:(neu.oberstand||[]).length, konflikte:[]}};
+  return {art:"neu", id:neu.id, bericht:{neu:Object.keys(neu.t||{}).length, erneuert:0, behalten:0, listen:lebend(neu.oberstand).length, konflikte:[], geaendert:true}};
 }
 
 /* =====================================================================

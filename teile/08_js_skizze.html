@@ -31,14 +31,41 @@
 const ECKEN = ["or","ur","ul","ol"];
 const ECKENNAME = {or:"oben rechts", ur:"unten rechts", ul:"unten links", ol:"oben links"};
 
+/* ⚑ 17.09.2026: UNGLEICHMÄSSIGE PARZELLEN (BY05). Je Parzelle bis zu vier Seiten:
+     laenge  = rechte Seite  (Ecke oben rechts – unten rechts)
+     laenge2 = linke Seite   (oben links – unten links)
+     breite  = obere Seite   (oben links – oben rechts)   — bei A die Seite zum Trennstreifen
+     breite2 = untere Seite  (unten links – unten rechts) — bei B die Seite zum Trennstreifen
+     diag    = Diagonale     (oben rechts – unten links)
+   "oben/rechts" im Flächensystem: Blick von A nach B, B liegt "oben". Angezeigt
+   werden die Seiten mit den Punktnummern aus der Skizze, weil so im Feld
+   gezählt wird ("von Punkt 1 bis 2").
+   GERECHNET WIRD MIT MITTELWERTEN. Vier Seiten legen ein Viereck nicht fest;
+   die genaue Form kommt aus den Koordinaten der Messpunkte. Für Skizze,
+   Sollabstände und Plausibilitätsgrenzen genügt das Mittel. */
 function masse(){
+  const P = D.parzellen, mw = (a,b) => isNaN(a) ? b : (isNaN(b) ? a : (a+b)/2);
+  const mx = (a,b) => isNaN(a) ? b : (isNaN(b) ? a : Math.max(a,b));
+  const s = {
+    La1: zahl(P.A.pa_laenge), La2: zahl(P.A.pa_laenge2), Wa1: zahl(P.A.pa_breite), Wa2: zahl(P.A.pa_breite2),
+    Lb1: zahl(P.B.pb_laenge), Lb2: zahl(P.B.pb_laenge2), Wb1: zahl(P.B.pb_breite), Wb2: zahl(P.B.pb_breite2)
+  };
+  const ungleich = (a,b) => !isNaN(a) && !isNaN(b) && Math.abs(a-b) > 1;
   const g = {
-    La: zahl(D.parzellen.A.pa_laenge),  Wa: zahl(D.parzellen.A.pa_breite),
-    Lb: zahl(D.parzellen.B.pb_laenge),  Wb: zahl(D.parzellen.B.pb_breite),
+    La: mw(s.La1,s.La2),  Wa: mw(s.Wa1,s.Wa2),
+    Lb: mw(s.Lb1,s.Lb2),  Wb: mw(s.Wb1,s.Wb2),
+    LaMax: mx(s.La1,s.La2), WaMax: mx(s.Wa1,s.Wa2),
+    LbMax: mx(s.Lb1,s.Lb2), WbMax: mx(s.Wb1,s.Wb2),
+    // die Seiten, die an den Trennstreifen grenzen
+    WaStreifen: isNaN(s.Wa1) ? s.Wa2 : s.Wa1,
+    WbStreifen: isNaN(s.Wb2) ? s.Wb1 : s.Wb2,
+    seiten: s,
+    ungleich: ungleich(s.La1,s.La2) || ungleich(s.Wa1,s.Wa2) || ungleich(s.Lb1,s.Lb2) || ungleich(s.Wb1,s.Wb2),
     T:  zahl(D.kopf.f_trenn_l),         Tb: zahl(D.kopf.f_trenn_b),
     achse: zahl(D.schema.s_achse),
     gemessen: true
   };
+  g.eigenGemessen = { A: !isNaN(g.La) && !isNaN(g.Wa), B: !isNaN(g.Lb) && !isNaN(g.Wb) };
   // Trennstreifen: ohne Angabe der Projektstandard, aber kenntlich gemacht
   if(isNaN(g.T)){ g.T = 3; g.gemessen = false; }
   // Gar nichts gemessen: Ersatzmaße nach der gewählten Grundform
@@ -52,6 +79,52 @@ function masse(){
   if(isNaN(g.Wb)){ g.Wb = g.Wa; g.gemessen = false; }
   if(isNaN(g.Tb)){ g.Tb = (g.Wa + g.Wb) / 2; g.tbGeschaetzt = true; }
   return g;
+}
+
+/* Die Diagonale prüfen — eine Prüfung, die scheitern kann: Sie teilt die Parzelle
+   in zwei Dreiecke (rechte Seite + untere Seite, obere Seite + linke Seite). In
+   jedem Dreieck muss die Diagonale kürzer sein als die Summe und länger als der
+   Unterschied der beiden anderen Seiten. Sonst gibt es dieses Viereck nicht,
+   und eines der Maße stimmt nicht. */
+function diagonalePruefen(pz){
+  const P = D.parzellen[pz], v = pz === "A" ? "pa_" : "pb_";
+  const d = zahl(P[v+"diag"]);
+  if(isNaN(d)) return null;
+  const r = zahl(P[v+"laenge"]), l = zahl(P[v+"laenge2"]);
+  const o = zahl(P[v+"breite"]), u = zahl(P[v+"breite2"]);
+  const rr = isNaN(r) ? l : r, ll = isNaN(l) ? r : l, oo = isNaN(o) ? u : o, uu = isNaN(u) ? o : u;
+  if([rr,ll,oo,uu].some(isNaN)) return null;
+  const passt = (a,b) => d < a + b && d > Math.abs(a - b);
+  const ok = passt(rr, uu) && passt(oo, ll);
+  // zusätzlich: Wie weit weicht sie vom Rechteck ab? (nur zur Orientierung)
+  const rechteck = Math.hypot((rr+ll)/2, (oo+uu)/2);
+  return { ok: ok, d: d, rechteck: rechteck };
+}
+
+/* Punktnummern der Ecken einer Parzelle, für die Beschriftung der Seiten */
+function eckNr(pz, ecke){
+  const n = ((D.schema.nummern || {})[pz] || {})[ecke];
+  return n || "?";
+}
+
+function seitenBeschriften(){
+  ["A","B"].forEach(pz => {
+    const v = pz === "A" ? "pa_" : "pb_";
+    const t = {
+      laenge:  ["Länge rechts",  eckNr(pz,"or") + "–" + eckNr(pz,"ur")],
+      laenge2: ["Länge links",   eckNr(pz,"ol") + "–" + eckNr(pz,"ul")],
+      breite:  ["Breite oben",   eckNr(pz,"ol") + "–" + eckNr(pz,"or")],
+      breite2: ["Breite unten",  eckNr(pz,"ul") + "–" + eckNr(pz,"ur")],
+      diag:    ["Diagonale",     eckNr(pz,"or") + "–" + eckNr(pz,"ul")]
+    };
+    Object.keys(t).forEach(k => {
+      const lab = document.getElementById("lab_" + v + k);
+      if(!lab) return;
+      const zumStreifen = (pz === "A" && k === "breite") || (pz === "B" && k === "breite2");
+      lab.innerHTML = (k === "diag" ? "Diagonale " : "Seite ") + t[k][1] + ' <span class="hint">' + (k === "diag" ? "optional" : t[k][0])
+        + (zumStreifen ? ", zum Trennstreifen" : "") + " (m)</span>";
+    });
+  });
 }
 
 function geometrie(){
@@ -93,8 +166,7 @@ function geometrie(){
 function geometrieAnzeigen(){
   const box = document.getElementById("geometrieAnzeige");
   if(!box) return;
-  const La = zahl(D.parzellen.A.pa_laenge), Wa = zahl(D.parzellen.A.pa_breite);
-  if(isNaN(La) || isNaN(Wa)){
+  if(!masse().eigenGemessen.A){
     box.innerHTML = '<div class="info" style="font-size:13px">Sobald Länge und Breite von Parzelle A '
       + 'eingetragen sind, rechnet die App hier Flächen, Satellitenabstände und den Sollabstand A→B aus.</div>';
     return;
@@ -116,16 +188,37 @@ function geometrieAnzeigen(){
     + '<p style="margin:8px 0 0"><b>Sollabstand Mittelpunkt A → Mittelpunkt B: '+rund(q.abstandAB,1)+' m.</b> '
     + 'Diese Zahl geht in die Verortung ein und lässt sich im Feld nachmessen.</p>';
 
+  if(q.g.ungleich){
+    h += '<div class="p-anzeige p-warn" style="margin-top:8px"><b>Ungleichmäßige Parzelle.</b> '
+      + 'Gerechnet wird mit den Mittelwerten der gegenüberliegenden Seiten (A ' + rund(q.g.La,1) + ' × '
+      + rund(q.g.Wa,1) + ' m, B ' + rund(q.g.Lb,1) + ' × ' + rund(q.g.Wb,1) + ' m) — Flächen und '
+      + 'Satellitenabstände sind Näherungen. <b>Eine Diagonale je Parzelle</b> hält die Form fest.</div>';
+  }
+  ["A","B"].forEach(pz => {
+    const dg = diagonalePruefen(pz);
+    if(!dg) return;
+    h += dg.ok
+      ? '<div class="p-anzeige p-ok" style="margin-top:8px">Diagonale ' + pz + ' (' + rund(dg.d,1)
+        + ' m) passt zu den vier Seiten. Ein Rechteck mit den Mittelwerten hätte ' + rund(dg.rechteck,1) + ' m.</div>'
+      : '<div class="p-anzeige p-warn" style="margin-top:8px"><b>Diagonale ' + pz + ' (' + rund(dg.d,1)
+        + ' m) passt nicht zu den Seiten</b> — ein solches Viereck gibt es nicht. '
+        + '<b>Solange du noch auf der Fläche stehst: Diagonale oder eine Seite nachmessen.</b></div>';
+  });
+
   // Prüfung: Passt die Trennstreifenbreite zu den Parzellenbreiten?
+  // ⚑ 17.09.2026: verglichen wird mit den Seiten, die AN den Streifen grenzen
+  // (A oben, B unten) — bei ungleichmäßigen Parzellen ist das nicht das Mittel.
   const Tb = zahl(D.kopf.f_trenn_b);
   if(!isNaN(Tb)){
-    const erwartet = (q.g.Wa + q.g.Wb) / 2;
+    const wa = isNaN(q.g.WaStreifen) ? q.g.Wa : q.g.WaStreifen;
+    const wb = isNaN(q.g.WbStreifen) ? q.g.Wb : q.g.WbStreifen;
+    const erwartet = (wa + wb) / 2;
     const abw = Math.abs(Tb - erwartet);
-    const groesser = Math.max(q.g.Wa, q.g.Wb);
+    const groesser = Math.max(wa, wb);
     if(abw > 0.15 * erwartet || Tb > groesser * 1.15){
       h += '<div class="p-anzeige p-warn" style="margin-top:8px"><b>Die Breite des Trennstreifens '
-        + 'passt nicht zu den Parzellen.</b> Gemessen ' + rund(Tb,1) + ' m, aus den Parzellenbreiten '
-        + 'erwartet etwa ' + rund(erwartet,1) + ' m (A ' + rund(q.g.Wa,1) + ' · B ' + rund(q.g.Wb,1) + '). '
+        + 'passt nicht zu den Parzellen.</b> Gemessen ' + rund(Tb,1) + ' m, aus den angrenzenden Seiten '
+        + 'erwartet etwa ' + rund(erwartet,1) + ' m (A ' + rund(wa,1) + ' · B ' + rund(wb,1) + '). '
         + '<b>Solange du noch auf der Fläche stehst: eines der drei Maße nachmessen.</b> '
         + 'Später ist nicht mehr zu klären, welches stimmt.</div>';
     }else{
@@ -154,11 +247,41 @@ function achseAusLage(still){
   }
   // Liegt A im Süden, zeigt A→B nach Norden (0°). Allgemein: Gegenrichtung der Lage von A.
   const az = (LAGE_AZIMUT[lageA] + 180) % 360;
-  setzenMehrere({"schema.s_achse": String(az), "schema.s_achse_quelle": "lage"}, true);
+  setzenMehrere({"schema.s_achse": String(az), "schema.s_achse_quelle": "lage", "schema.s_achse_gon": ""}, true);
   const el = document.getElementById("s_achse");
   if(el) el.value = az;
   skizzeZeichnen();
   achsHinweisZeigen();
+  achseGonZeigen();
+}
+
+/* ---------- Achse in Gon (17.09.2026) ----------
+   Mit der Suunto in Gon gepeilt: Der abgelesene Wert bleibt als s_achse_gon
+   stehen, die Rechnung bekommt Grad (× 0,9). Wer danach Grad direkt eintippt,
+   ersetzt die Gon-Angabe — beide nebeneinander könnten sich sonst widersprechen. */
+function achseAusGon(){
+  const el = document.getElementById("s_achse_gon");
+  if(!el) return;
+  stempelTimerLoeschen(el);
+  const g = zahl(el.value);
+  if(el.value.trim() === ""){ setzen("schema.s_achse_gon", ""); return; }
+  if(isNaN(g) || g < 0 || g > 400){
+    balkenZeigen("Achse in Gon: Werte von 0 bis 400."); setTimeout(() => balkenZeigen(""), 4000);
+    return;
+  }
+  const grad = Math.round(g * 0.9 * 10) / 10 % 360;
+  setzenMehrere({"schema.s_achse_gon": el.value, "schema.s_achse": String(grad),
+                 "schema.s_achse_quelle": "gemessen"}, true);
+  const a = document.getElementById("s_achse");
+  if(a) a.value = grad;
+  skizzeZeichnen();
+  achsHinweisZeigen();
+}
+
+function achseGonZeigen(){
+  const el = document.getElementById("s_achse_gon");
+  if(!el || el === document.activeElement) return;
+  el.value = D.schema.s_achse_gon || "";
 }
 
 /* =====================================================================
@@ -182,6 +305,8 @@ function achseVonHand(){
   if(D.schema.s_achse_quelle !== "gemessen"){
     setzen("schema.s_achse_quelle", "gemessen");
   }
+  if(D.schema.s_achse_gon){ setzen("schema.s_achse_gon", ""); }
+  achseGonZeigen();
   skizzeZeichnen();
   achsHinweisZeigen();
 }
@@ -200,9 +325,12 @@ function achsHinweisZeigen(){
   }
 
   if(quelle === "gemessen"){
-    box.innerHTML = '<div class="p-anzeige p-ok"><b>' + Math.round(a) + '° — als gemessen '
-      + 'festgehalten.</b> Damit rechnet die Auswertung. Gegenprobe im Feld: Rückpeilung von B '
-      + 'nach A muss ' + Math.round((a + 180) % 360) + '° ergeben (± ein paar Grad).</div>';
+    const gon = zahl(D.schema.s_achse_gon);
+    box.innerHTML = '<div class="p-anzeige p-ok"><b>' + rund(a,1) + '° — als gemessen '
+      + 'festgehalten</b>' + (isNaN(gon) ? '' : ' (abgelesen ' + D.schema.s_achse_gon + ' gon)')
+      + '. Damit rechnet die Auswertung. Gegenprobe im Feld: Rückpeilung von B nach A muss '
+      + (isNaN(gon) ? Math.round((a + 180) % 360) + '°' : rund((gon + 200) % 400, 1) + ' gon')
+      + ' ergeben (± ein paar ' + (isNaN(gon) ? 'Grad' : 'Gon') + ').</div>';
     return;
   }
 
@@ -440,7 +568,39 @@ function skizzeZeichnen(){
    Bis zum 15.09.2026 fehlte das: Nach einem Tausch standen Himmelsrichtungen
    und Nordpfeil genau verkehrt herum, ohne dass irgendetwas darauf hinwies.
    Gefunden von Calvin beim Durchsehen der Prüfseite. */
+/* ⚑ 17.09.2026, ZWEI FEHLER BEHOBEN:
+   (1) DIE ECKEN MÜSSEN MITDREHEN. Dreht die Achse um 180°, wird aus "oben
+       rechts" physisch "unten links" (und umgekehrt), aus "unten rechts"
+       "oben links". Die Punktnummern hingen aber an den alten Eckbezeichnungen
+       — nach einem Tausch lag Punkt 1 an der GEGENÜBERLIEGENDEN Ecke, und
+       dasselbe galt für rechte/linke und obere/untere Seite. Jetzt werden die
+       Nummern auf die gegenüberliegende Ecke und die Seiten auf die
+       gegenüberliegende Seite umgesetzt.
+   (2) NACH DER AUFNAHME GESPERRT. Messpunkte (A-S1 …), Vegetation, Oberstand
+       und Weißtannen hängen am BUCHSTABEN. Ein Tausch nach dem Messen hätte
+       alle diese Daten der falschen Parzelle zugeordnet. Geprüft an den Exporten
+       vom 17.09.: Auf BY05 und BY06 wurde nicht getauscht. */
+function tauschGesperrt(){
+  const punkte = Object.keys(D.punkte || {}).some(k => {
+    const p = D.punkte[k] || {};
+    return p.zeit || (p.gps1 && p.gps1.lat) || (p.gps2 && p.gps2.lat) || p.isf;
+  });
+  const veg = VEG_PUNKTE.some(p => vegHatDaten(p.id));
+  const ob  = lebend(D.oberstand).length > 0;
+  const wta = Object.keys((D.wta && D.wta.werte) || {}).some(k => { const w = D.wta.werte[k]; return w && (w.h || w.v); });
+  return punkte || veg || ob || wta;
+}
+
 function parzellenTausch(){
+  if(tauschGesperrt()){
+    nachfragen("Tauschen ist gesperrt",
+      "Auf dieser Fläche sind schon <b>Messpunkte, Vegetation, Bäume oder Tannen</b> erfasst. "
+      + "Sie hängen am Buchstaben A oder B — ein Tausch würde sie der <b>falschen Parzelle</b> "
+      + "zuordnen. Stimmt die Zuordnung wirklich nicht, bitte in der <b>Bemerkung zur Skizze</b> "
+      + "festhalten; korrigiert wird bei der Auswertung.",
+      "Verstanden", () => {}, false);
+    return;
+  }
   const alteAchse = zahl(D.schema.s_achse);
   const achseText = isNaN(alteAchse) ? ""
     : "<br><br>Die <b>Achsrichtung dreht sich dabei mit</b>: von " + Math.round(alteAchse)
@@ -453,19 +613,54 @@ function parzellenTausch(){
     "Tauschen",
     () => {
       const a = D.parzellen.A, b = D.parzellen.B;
-      const neuB = {}; Object.keys(a).forEach(k => { neuB[k.replace(/^pa_/,"pb_")] = a[k]; });
-      const neuA = {}; Object.keys(b).forEach(k => { neuA[k.replace(/^pb_/,"pa_")] = b[k]; });
+      /* Seiten auf die Gegenseite: rechts ↔ links, oben ↔ unten. Die Diagonale
+         (oben rechts – unten links) bleibt dieselbe Strecke. */
+      const gegen = {laenge:"laenge2", laenge2:"laenge", breite:"breite2", breite2:"breite"};
+      const umsetzen = (quelle, von, nach) => {
+        const ziel = {};
+        Object.keys(quelle).forEach(k => {
+          const rest = k.replace(von, "");
+          ziel[nach + (gegen[rest] || rest)] = quelle[k];
+        });
+        return ziel;
+      };
+      const neuB = umsetzen(a, /^pa_/, "pb_");
+      const neuA = umsetzen(b, /^pb_/, "pa_");
       const jetzt = Date.now();
+      /* Stempel auch für Felder, die es nach dem Tausch nicht mehr gibt — leer,
+         damit ein anderes Gerät sie beim Zusammenführen nicht zurückbringt. */
+      ["A","B"].forEach(pz => {
+        const v = pz === "A" ? "pa_" : "pb_";
+        ["code","herkunft","lage","lage_frei","laenge","laenge2","breite","breite2","diag"].forEach(f => {
+          const neu = (pz === "A" ? neuA : neuB);
+          if(neu[v+f] === undefined) neu[v+f] = "";
+          D.t["parzellen."+pz+"."+v+f] = jetzt;
+        });
+      });
       D.parzellen.A = neuA; D.parzellen.B = neuB;
-      Object.keys(neuA).forEach(k => D.t["parzellen.A."+k] = jetzt);
-      Object.keys(neuB).forEach(k => D.t["parzellen.B."+k] = jetzt);
-      const n = D.schema.nummern; const h = n.A; n.A = n.B; n.B = h;
-      D.t["schema.nummern"] = jetzt;
+      /* Nummern: Ecke auf die gegenüberliegende Ecke, Mittelpunkt bleibt. */
+      const ecke = {or:"ul", ul:"or", ur:"ol", ol:"ur", M:"M"};
+      const drehe = alt => { const neu = {}; Object.keys(alt || {}).forEach(k => { neu[ecke[k] || k] = alt[k]; }); return neu; };
+      const n = D.schema.nummern; const h = n.A; n.A = drehe(n.B); n.B = drehe(h);
+      /* Alle drei Stempel setzen: Ein anderes Gerät kennt die Nummern unter
+         "schema.nummern.A/B" — fehlte hier der Stempel, gewänne dort der alte Stand. */
+      D.t["schema.nummern"] = jetzt; D.t["schema.nummern.A"] = jetzt; D.t["schema.nummern.B"] = jetzt;
+      /* Welche Parzelle am Solariskop PZ1 heißt, gehört zur PHYSISCHEN Parzelle. */
+      if(D.schema.s_pz_a){
+        D.schema.s_pz_a = D.schema.s_pz_a === "PZ1" ? "PZ2" : "PZ1";
+        D.t["schema.s_pz_a"] = jetzt;
+        const pzEl = document.getElementById("s_pz_a"); if(pzEl) pzEl.value = D.schema.s_pz_a;
+      }
       if(!isNaN(alteAchse)){
         D.schema.s_achse = String((alteAchse + 180) % 360);
         D.t["schema.s_achse"] = jetzt;
         const el = document.getElementById("s_achse");
         if(el) el.value = D.schema.s_achse;
+        const gon = zahl(D.schema.s_achse_gon);
+        if(!isNaN(gon)){
+          D.schema.s_achse_gon = String(Math.round(((gon + 200) % 400) * 10) / 10);
+          D.t["schema.s_achse_gon"] = jetzt;
+        }
       }
       speichern(true); alles();
       balkenZeigen("A und B sind getauscht"
@@ -493,6 +688,8 @@ function nummerWaehlen(pz, ecke){
       D.t["schema.nummern." + pz] = Date.now();
       speichern(true);
       skizzeZeichnen();
+      seitenBeschriften();
+      lichtNeu();          // Bildnamen am Punkt hängen an den Nummern
     });
 }
 

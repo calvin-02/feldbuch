@@ -9,17 +9,29 @@ const KOPF_FELDER = ["f_datum","f_ankunft","f_team",
   "f_periode_von","f_periode_bis","f_tsf_formel","f_p_geraet","f_bildwinkel","f_max_neigung",
   "f_trenn_l","f_trenn_b",
   "f_gps_lat","f_gps_lon","f_gps_acc",
-  "k_nordbezug",
+  "k_nordbezug","k_einheit",
   "f_bemerkung"];
-const PARZ_A_FELDER = ["pa_code","pa_herkunft","pa_laenge","pa_breite"];
-const PARZ_B_FELDER = ["pb_code","pb_herkunft","pb_laenge","pb_breite"];
+/* ⚑ 17.09.2026: je Parzelle vier Seiten und eine Diagonale. "laenge"/"breite"
+   bleiben die Hauptmaße (bei Rechtecken die einzigen); "laenge2"/"breite2"
+   sind die gegenüberliegenden Seiten, nur bei ungleichmäßigen Parzellen. */
+const PARZ_A_FELDER = ["pa_code","pa_herkunft","pa_laenge","pa_laenge2","pa_breite","pa_breite2","pa_diag"];
+const PARZ_B_FELDER = ["pb_code","pb_herkunft","pb_laenge","pb_laenge2","pb_breite","pb_breite2","pb_diag"];
 const BESTAND_FELDER = ["b_besonderheiten","b_schluss_text"];
 const BEDINGUNGEN_FELDER = ["g_himmel1","g_himmel2","g_himmel3","g_ok1","g_ok2","g_ok3","g_abfahrt"];
-const SCHEMA_FELDER = ["s_achse","s_pfosten","s_regel","s_bem"];
+const SCHEMA_FELDER = ["s_achse","s_pfosten","s_regel","s_bem","s_pz_a"];
 
+/* ⚑ 17.09.2026: Jeder Zuhörer nur einmal je Feld — alles() läuft mehrfach
+   (siehe feldBinden). Erkannt wird ein Zuhörer an Ereignis und Quelltext. */
+const ANGEHAENGT = new Map();
 function anhaengen(id, ereignis, was){
   const el = document.getElementById(id);
-  if(el) el.addEventListener(ereignis, was);
+  if(!el) return;
+  const schluessel = ereignis + "|" + String(was);
+  let s = ANGEHAENGT.get(el);
+  if(!s){ s = new Set(); ANGEHAENGT.set(el, s); }
+  if(s.has(schluessel)) return;
+  s.add(schluessel);
+  el.addEventListener(ereignis, was);
 }
 
 function alles(){
@@ -43,7 +55,10 @@ function alles(){
      von der aus der Lage abgeleiteten Näherung (45°-Raster, auf BY07 32,5°
      daneben). Der Hinweis unter dem Feld sagt, welche von beiden gilt. */
   anhaengen("s_achse", "change", achseVonHand);
+  anhaengen("s_achse_gon", "change", achseAusGon);
   anhaengen("s_pfosten", "change", pfostenHinweisZeigen);
+  anhaengen("k_einheit", "change", einheitGewechselt);
+  anhaengen("s_pz_a", "change", () => { punktListeAufbauen(); });
   ["f_periode_von","f_periode_bis","f_bildwinkel","f_breite","f_laenge"].forEach(id =>
     anhaengen(id, "change", geraetSollPruefen));
   anhaengen("k_nordbezug", "change", kompassHinweis);
@@ -71,7 +86,68 @@ function alles(){
   kopfAktualisieren();
   flaechenListeZeigen();
   dauerZeigen();
+  seitenBeschriften();
+  achseGonZeigen();
   autoAus();
+}
+
+/* =====================================================================
+   NACH EINEM ABGLEICH AUFFRISCHEN — ohne dem Anwender etwas wegzunehmen
+   (17.09.2026)
+
+   Bis 3.0.4 rief der Abgleich alles() auf. Das baute auch die OFFENE Maske
+   neu: Wer gerade eine Vegetationsaufnahme oder einen Messpunkt bearbeitete,
+   landete in der Übersicht, und in der Schnellerfassung des Oberstands waren
+   getippte, noch nicht gespeicherte Zahlen weg. Calvin am Feldtag 17.09.:
+   "wurde immer zurückgeschickt".
+
+   Jetzt gilt:
+     · Felder, in denen gerade getippt wird (Fokus oder wartender Stempel),
+       werden NICHT angefasst.
+     · Offene Masken bleiben offen. Ihre Werte kommen beim Zurückgehen neu.
+     · Die Schnellerfassung des Oberstands wird nie neu aufgebaut.
+     · Alles andere zeigt den zusammengeführten Stand.
+   ===================================================================== */
+function beschaeftigt(el){
+  return el === document.activeElement || STEMPEL_TIMER.has(el);
+}
+
+function nachAbgleichAuffrischen(){
+  const felder = [[KOPF_FELDER,"kopf"],[PARZ_A_FELDER,"parzA"],[PARZ_B_FELDER,"parzB"],
+                  [BESTAND_FELDER,"bestand"],[BEDINGUNGEN_FELDER,"bedingungen"],[SCHEMA_FELDER,"schema"]];
+  felder.forEach(([liste, zielName]) => liste.forEach(id => {
+    const el = document.getElementById(id);
+    if(!el || beschaeftigt(el)) return;
+    const w = zielObjekt(zielName)[id];
+    if(el.type === "checkbox") el.checked = !!w;
+    else el.value = (w !== undefined && w !== null) ? w : "";
+  }));
+  document.querySelectorAll("[data-auswahl]").forEach(huelle => {
+    const id = huelle.dataset.auswahl;
+    const ziel = zielObjekt(huelle.dataset.ziel);
+    const sel = document.getElementById(id), txt = document.getElementById(id + "_frei");
+    if(sel && !beschaeftigt(sel)) sel.value = ziel[id] || "";
+    if(txt && !beschaeftigt(txt)) txt.value = ziel[id + "_frei"] || "";
+    freitextZeigen(id);
+  });
+  personenAktualisieren();
+
+  utmZeigen(); kompassHinweis(); achsHinweisZeigen(); pfostenHinweisZeigen();
+  geraetSollPruefen(); schlussgradErklaeren(); datumPruefen(); pFormelPruefen();
+  geometrieAnzeigen(); dauerZeigen(); skizzeZeichnen(); seitenBeschriften(); achseGonZeigen();
+
+  if(!PUNKT_OFFEN) punktListeAufbauen();
+  if(!VEG_OFFEN) vegListeAufbauen();
+  const radien = document.getElementById("radienFelder");
+  if(radien && !radien.contains(document.activeElement)) radienFelderAufbauen();
+  if(OB_OFFEN < 0) obListeAufbauen();
+  obFortschritt();
+  const wb = document.getElementById("wtaBereich");
+  if(wb && !wb.contains(document.activeElement)){ wtaReihenListe(); wtaAnsicht(); }
+  kopfAktualisieren();
+  flaechenListeZeigen();
+  const daten = document.getElementById("daten");
+  if(daten && daten.classList.contains("aktiv")) exporteAufbauen();
 }
 
 /* Auswahllisten, die außerhalb des Auswahl-Bausteins stehen */
@@ -140,7 +216,7 @@ if(!SPEICHER_OK){
 
 /* Beim Verlassen warnen, solange etwas erfasst ist. */
 window.addEventListener("beforeunload", e => {
-  const hatDaten = Object.keys(D.punkte||{}).length || (D.oberstand||[]).length;
+  const hatDaten = Object.keys(D.punkte||{}).length || lebend(D.oberstand).length;
   if(hatDaten && SEIT_SICHERUNG > 0){ e.preventDefault(); e.returnValue = ""; }
 });
 

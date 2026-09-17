@@ -119,9 +119,19 @@
     <label>Herkunft <span class="hint">— wie auf dem Schild</span></label>
     <input id="pa_herkunft" placeholder="z. B. Rumänische Herkunft">
     <div class="reihe">
-      <div><label>Länge (m)</label><input type="number" step="0.1" id="pa_laenge" inputmode="decimal"></div>
-      <div><label>Breite (m)</label><input type="number" step="0.1" id="pa_breite" inputmode="decimal"></div>
+      <div><label id="lab_pa_laenge">Länge (m)</label><input type="number" step="0.01" id="pa_laenge" inputmode="decimal"></div>
+      <div><label id="lab_pa_breite">Breite (m)</label><input type="number" step="0.01" id="pa_breite" inputmode="decimal"></div>
     </div>
+    <details class="klapp">
+      <summary>Ungleichmäßige Parzelle <span class="hint">— Gegenseiten und Diagonale</span></summary>
+      <div class="klappinhalt">
+        <div class="reihe">
+          <div><label id="lab_pa_laenge2">Länge links (m)</label><input type="number" step="0.01" id="pa_laenge2" inputmode="decimal"></div>
+          <div><label id="lab_pa_breite2">Breite unten (m)</label><input type="number" step="0.01" id="pa_breite2" inputmode="decimal"></div>
+        </div>
+        <label id="lab_pa_diag">Diagonale (m)</label><input type="number" step="0.01" id="pa_diag" inputmode="decimal">
+      </div>
+    </details>
   </div>
 
   <div class="karte">
@@ -133,9 +143,27 @@
     <label>Herkunft <span class="hint">— wie auf dem Schild</span></label>
     <input id="pb_herkunft" placeholder="z. B. Heimische Herkunft">
     <div class="reihe">
-      <div><label>Länge (m)</label><input type="number" step="0.1" id="pb_laenge" inputmode="decimal"></div>
-      <div><label>Breite (m)</label><input type="number" step="0.1" id="pb_breite" inputmode="decimal"></div>
+      <div><label id="lab_pb_laenge">Länge (m)</label><input type="number" step="0.01" id="pb_laenge" inputmode="decimal"></div>
+      <div><label id="lab_pb_breite">Breite (m)</label><input type="number" step="0.01" id="pb_breite" inputmode="decimal"></div>
     </div>
+    <details class="klapp">
+      <summary>Ungleichmäßige Parzelle <span class="hint">— Gegenseiten und Diagonale</span></summary>
+      <div class="klappinhalt">
+        <div class="reihe">
+          <div><label id="lab_pb_laenge2">Länge links (m)</label><input type="number" step="0.01" id="pb_laenge2" inputmode="decimal"></div>
+          <div><label id="lab_pb_breite2">Breite unten (m)</label><input type="number" step="0.01" id="pb_breite2" inputmode="decimal"></div>
+        </div>
+        <label id="lab_pb_diag">Diagonale (m)</label><input type="number" step="0.01" id="pb_diag" inputmode="decimal">
+      </div>
+    </details>
+  </div>
+
+  <div class="info" style="font-size:13px">
+    <b>Welche Seite ist welche?</b> Die Felder nennen die Seiten nach den <b>Punktnummern aus der
+    Skizze</b> — „Seite 1–2" heißt: gemessen von der Ecke bei Punkt 1 zur Ecke bei Punkt 2, <b>Ecke
+    zu Ecke</b>. Deshalb zuerst in der Skizze nummerieren. Bei einer rechteckigen Parzelle genügen
+    Länge und Breite oben; bei einer ungleichmäßigen die Klappe öffnen und alle vier Seiten
+    eintragen, wenn möglich dazu <b>eine Diagonale</b> — vier Seiten allein legen die Form nicht fest.
   </div>
 
   <div class="karte">

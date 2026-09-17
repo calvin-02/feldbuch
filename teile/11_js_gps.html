@@ -72,6 +72,18 @@ function gpsFehlerText(err){
    ===================================================================== */
 let GPS_LAUF = null;
 
+/* ⚑ 17.09.2026: Die EHRLICHE Genauigkeit einer Serie. Bis 3.0.4 speicherte die
+   App unter "acc" die beste Einzelmessung GETEILT DURCH ZWEI (bzw. durch die
+   Wurzel der Anzahl). Am Feldtag stand deshalb an allen 20 Punkten "± 1,5 m",
+   obwohl das Handy "± 3 m" meldete — und mehrere Punkte lagen 10–15 m daneben.
+   Die beste Einzelmessung steht seit Fassung 3 zusätzlich unter "roh"; ab 3.1.0
+   ist "acc" dieselbe Zahl. Für die Daten vom 17.09. gilt: "roh" nehmen. */
+function gpsGenauigkeit(g){
+  if(!g) return "";
+  const r = zahl(g.roh);
+  return isNaN(r) ? g.acc : r;
+}
+
 function gpsPunktMessen(pid, serie){
   if(!gpsVoraussetzung(gpsPunktMelden)) return;
   if(GPS_LAUF){ gpsPunktMelden("Es läuft schon eine Messung.", "warn"); return; }
@@ -92,10 +104,14 @@ function gpsPunktMessen(pid, serie){
       });
       if(beste === null || pos.coords.accuracy < beste) beste = pos.coords.accuracy;
       const rest = Math.max(0, Math.round((dauer - (Date.now() - start)) / 1000));
+      /* ⚑ 17.09.2026: Kein "jetzt übernehmen" mehr. Am Feldtag wurde oft vorzeitig
+         übernommen, sobald ± 3 m dastand — die Anzeige sagt aber nur, wie das
+         Handy sich selbst einschätzt, nicht wo es wirklich steht. Die 45 s sind
+         das Mindeste, um wenigstens das Zittern herauszumitteln. */
       gpsPunktMelden("<b>Messung läuft — bitte still stehen.</b> Noch " + rest + " s · "
-        + proben.length + " Messungen · beste ± " + Math.round(beste) + " m"
+        + proben.length + " Messungen · Handy meldet ± " + Math.round(beste) + " m"
         + '<br><button class="knopf zweit klein" style="width:auto;padding:6px 12px" '
-        + 'onclick="gpsPunktBeenden(\''+pid+'\','+serie+')">jetzt übernehmen</button>', null);
+        + 'onclick="gpsPunktAbbrechen()">abbrechen — nichts speichern</button>', null);
     },
     err => {
       gpsPunktAufraeumen();
@@ -109,8 +125,14 @@ function gpsPunktMessen(pid, serie){
   GPS_LAUF = {
     wacht: wacht,
     proben: proben,
+    start: start,
     ende: setTimeout(() => gpsPunktBeenden(pid, serie), dauer)
   };
+}
+
+function gpsPunktAbbrechen(){
+  gpsPunktAufraeumen();
+  gpsPunktMelden("Messung abgebrochen — nichts gespeichert.", "warn");
 }
 
 function gpsPunktAufraeumen(){
@@ -123,6 +145,7 @@ function gpsPunktAufraeumen(){
 function gpsPunktBeenden(pid, serie){
   if(!GPS_LAUF) return;
   const proben = GPS_LAUF.proben.slice();
+  const dauerS = Math.round((Date.now() - GPS_LAUF.start) / 1000);
   gpsPunktAufraeumen();
 
   if(!proben.length){
@@ -143,9 +166,11 @@ function gpsPunktBeenden(pid, serie){
     sLat += p.lat * g; sLon += p.lon * g; sG += g;
   });
   const lat = sLat / sG, lon = sLon / sG;
-  // Genauigkeit des Mittels: die beste Einzelmessung, verbessert um die Wurzel der Anzahl,
-  // aber nie besser als die Hälfte der besten Einzelmessung (korrelierte Fehler!)
-  const gemittelt = Math.max(besteAcc / 2, besteAcc / Math.sqrt(gute.length));
+  /* Genauigkeit: die beste Einzelmessung, wie das Handy sie meldet — NICHT
+     "verbessert". Das Mitteln entfernt Zittern, aber nicht den zeitlich
+     korrelierten Fehler durch Reflexionen an Stämmen; eine kleinere Zahl
+     behauptete eine Genauigkeit, die es nicht gibt (Befund 17.09.2026). */
+  const genau = Math.round(besteAcc * 10) / 10;
 
   const n = new Date();
   const zeit = String(n.getHours()).padStart(2,"0")+":"+String(n.getMinutes()).padStart(2,"0");
@@ -153,28 +178,36 @@ function gpsPunktBeenden(pid, serie){
   setzenMehrere({
     [feld + ".lat"]:   Number(lat.toFixed(7)),
     [feld + ".lon"]:   Number(lon.toFixed(7)),
-    [feld + ".acc"]:   Math.round(gemittelt * 10) / 10,
-    [feld + ".roh"]:   Math.round(besteAcc),
+    [feld + ".acc"]:   genau,
+    [feld + ".roh"]:   genau,
     [feld + ".n"]:     gute.length,
+    [feld + ".dauer_s"]: dauerS,
     [feld + ".zeit"]:  zeit,
     [feld + ".datum"]: n.toISOString().slice(0,10),
     [feld + ".geraet"]: GERAET
   }, true);
 
-  gpsPunktMelden("<b>Serie " + serie + " übernommen.</b> " + lat.toFixed(6) + " / " + lon.toFixed(6)
-    + " · ± " + (Math.round(gemittelt*10)/10) + " m aus " + gute.length + " von " + proben.length
-    + " Messungen."
+  const meldung = "<b>Serie " + serie + " übernommen.</b> " + lat.toFixed(6) + " / " + lon.toFixed(6)
+    + " · Handy meldet ± " + genau + " m · " + gute.length + " von " + proben.length
+    + " Messungen in " + dauerS + " s."
+    + (proben.length < 10
+        ? " <b>Wenige Messungen</b> — das Handy lieferte kaum Positionen; im Zweifel wiederholen."
+        : "")
     + (besteAcc > 15
-        ? " <b>Das ist ungenau</b> (beste Einzelmessung ± " + Math.round(besteAcc) + " m). "
-          + "Unter dichtem Schirm normal — die zweite Serie im Winter gleicht es aus."
-        : ""), "ok");
+        ? " <b>Das ist ungenau.</b> Unter dichtem Schirm normal — die zweite Serie im Winter hilft."
+        : "");
 
-  alleFelderAbgeben();
-  punktOeffnen(pid, true);
-  setTimeout(() => {
-    const m = document.getElementById("gpsPunktMeldung");
-    if(m) m.innerHTML = "Serie " + serie + " gespeichert.";
-  }, 50);
+  /* ⚑ 17.09.2026: Nur zurück in die Maske, wenn sie noch offen ist. Wer während
+     der 45 s zu einem anderen Punkt gewechselt ist, wurde bisher zurückgerissen. */
+  if(PUNKT_OFFEN === pid){
+    alleFelderAbgeben();
+    punktOeffnen(pid, true);
+    gpsPunktMelden(meldung, "ok");
+  }else{
+    if(!PUNKT_OFFEN) punktListeAufbauen();
+    balkenZeigen("GPS für " + pid + " gespeichert (± " + genau + " m).");
+    setTimeout(() => balkenZeigen(""), 5000);
+  }
 }
 
 /* =====================================================================
@@ -454,11 +487,18 @@ function kontrolleAufbauen(){
           + mess.filter(p => !(D.punkte[p.id] && D.punkte[p.id].gps1 && D.punkte[p.id].gps1.lat))
                 .map(p => p.id).join(", ")
         : "")],
-    [mitBild.length === PUNKTE.length,
-     "<b>Bild-Nummer an allen " + PUNKTE.length + " Punkten</b> (" + mitBild.length + " da)"
-     + (mitBild.length < PUNKTE.length
-        ? " — <b>die Bild-Nummer ist die einzige Verbindung zwischen Datei und Punkt.</b>"
-        : "")],
+    /* ⚑ 17.09.2026: Statt "Bild-Nummer an allen Punkten". Das Solariskop benennt
+       selbst (PZ1_POS3); die Verbindung Bild ↔ Punkt hängt damit an zwei Dingen,
+       die sich nach der Abfahrt NICHT mehr klären lassen: welche Parzelle am
+       Gerät PZ1 heißt, und welche Nummer jeder Punkt in der Skizze trägt. */
+    [!!D.schema.s_pz_a,
+     "<b>Am Solariskop festgehalten, welche Parzelle PZ1 heißt</b>"
+     + (D.schema.s_pz_a ? " (A = " + D.schema.s_pz_a + ")"
+        : " — <b>ohne das lassen sich die Bilder keiner Parzelle zuordnen.</b> Abschnitt Licht, ganz oben.")],
+    [nummernA >= 5 && nummernB >= 5,
+     "<b>Punktnummern in der Skizze vergeben</b> (A: " + nummernA + "/5, B: " + nummernB + "/5)"
+     + (nummernA >= 5 && nummernB >= 5 ? ""
+        : " — <b>die Nummer verbindet den Bildnamen (POS) mit der Lage des Punktes.</b>")],
     [!!D.kopf.f_geraet_ok, "Alle Menüseiten des Geräts <b>fotografiert</b> — vorher und nachher"],
     [tagMonat(D.kopf.f_periode_von) === GERAET_SOLL.von && tagMonat(D.kopf.f_periode_bis) === GERAET_SOLL.bis
        && !isNaN(zahl(D.kopf.f_breite)) && !isNaN(zahl(D.kopf.f_laenge)),
@@ -484,7 +524,8 @@ function kontrolleAufbauen(){
              + "°, aber nur aus der Lage abgeleitet (45°-Raster). "
              + "<b>Zwei Minuten: von Marke A nach Marke B peilen.</b> Auf BY07 lag die "
              + "abgeleitete Richtung 32,5° daneben."))],
-    [nummernA >= 5 && nummernB >= 5, "Punktnummern in der Skizze vergeben (A: "+nummernA+"/5, B: "+nummernB+"/5)"],
+    [!q.g.ungleich || (!isNaN(zahl(D.parzellen.A.pa_diag)) && !isNaN(zahl(D.parzellen.B.pb_diag))),
+     "Ungleichmäßige Parzelle: <b>Diagonale</b> gemessen" + (q.g.ungleich ? "" : " (nicht nötig, beide Parzellen rechteckig)")],
     [!!(D.parzellen.A.pa_herkunft && D.parzellen.B.pb_herkunft), "Herkunft je Parzelle eingetragen"],
     [!!(wertVon("parzA","pa_lage") && wertVon("parzB","pb_lage")), "Lage je Parzelle eingetragen"],
     [!!D.kopf.f_vermarkung, "Vermarkungsbefund eingetragen"],
